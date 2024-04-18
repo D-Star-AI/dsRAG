@@ -21,9 +21,9 @@ def truncate_content(content: str, max_tokens: int):
 class KnowledgeBase:
     def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", embedding_model: str = "text-embedding-3-small-768", vector_db: VectorDB = None, storage_directory: str = '~/spRAG'):
         self.kb_id = kb_id
-        self.database = {} # store text chunks and chunk headers
+        self.chunk_db = {} # store chunk text and chunk headers
         self.vector_db = vector_db # to store embeddings
-        self.metadata = {} # to store title, description, etc.
+        self.kb_metadata = {} # to store title, description, etc.
         self.chunk_size = 800 # max number of characters in a chunk
         self.storage_directory = f'{storage_directory}/knowledge_bases/'
 
@@ -34,31 +34,31 @@ class KnowledgeBase:
         if os.path.exists(f'{self.storage_directory}{self.kb_id}_metadata.pkl'):
             self.load()
         else:
-            self.metadata['title'] = title
-            self.metadata['description'] = description
-            self.metadata['language'] = language
-            self.metadata['embedding_model'] = embedding_model
-            self.metadata['embedding_dimensions'] = dimensionality(embedding_model)
+            self.kb_metadata['title'] = title
+            self.kb_metadata['description'] = description
+            self.kb_metadata['language'] = language
+            self.kb_metadata['embedding_model'] = embedding_model
+            self.kb_metadata['embedding_dimensions'] = dimensionality(embedding_model)
             self.save() # save the metadata
 
     def save(self):
         with open(f'{self.storage_directory}{self.kb_id}_database.pkl', 'wb') as f:
-            pickle.dump(self.database, f)
+            pickle.dump(self.chunk_db, f)
         with open(f'{self.storage_directory}{self.kb_id}_metadata.pkl', 'wb') as f:
-            pickle.dump(self.metadata, f)
+            pickle.dump(self.kb_metadata, f)
 
     def load(self):
         with open(f'{self.storage_directory}{self.kb_id}_metadata.pkl', 'rb') as f:
-            self.metadata = pickle.load(f)
+            self.kb_metadata = pickle.load(f)
         try:
             with open(f'{self.storage_directory}{self.kb_id}_database.pkl', 'rb') as f:
-                self.database = pickle.load(f)
+                self.chunk_db = pickle.load(f)
         except:
-            self.database = {}
+            self.chunk_db = {}
 
     def delete(self, retain_metadata: bool = False):
         # delete all documents in the KB so they get removed from the doc_id_to_kb_id mapping
-        doc_ids_to_delete = list(self.database.keys())
+        doc_ids_to_delete = list(self.chunk_db.keys())
         for doc_id in doc_ids_to_delete:
             self.delete_document(doc_id)
 
@@ -115,38 +115,40 @@ class KnowledgeBase:
                 chunk_embeddings += self.get_embeddings(chunks_to_embed[i:i+50], input_type="document")
 
         assert len(chunks) == len(chunk_embeddings) == len(chunks_to_embed)
-        self.database[doc_id] = {i: {'text': chunk, 'vector': chunk_embeddings[i], 'chunk_header': chunk_header} for i, chunk in enumerate(chunks)}
+        self.chunk_db[doc_id] = {i: {'chunk_text': chunk, 'chunk_header': chunk_header} for i, chunk in enumerate(chunks)}
+
+        # create metadata list
+        metadata = []
+        for i, chunk in enumerate(chunks):
+            metadata.append({'doc_id': doc_id, 'chunk_index': i, 'chunk_header': chunk_header, 'chunk_text': chunk})
+
+        # add the vectors and metadata to the vector database
+        self.vector_db.add_vectors(vectors=chunk_embeddings, metadata=metadata)
 
         self.save() # save the database to disk after adding a document
 
     def delete_document(self, doc_id: str):
-        del self.database[doc_id]
+        del self.chunk_db[doc_id]
         self.save() # save the database to disk after deleting a document
 
-        # delete the mapping from doc_id to kb_id
-        with open(f'{self.storage_directory}doc_id_to_kb_id.pkl', 'rb') as f:
-            mapping = pickle.load(f)
-        del mapping[doc_id]
-        with open(f'{self.storage_directory}doc_id_to_kb_id.pkl', 'wb') as f:
-            pickle.dump(mapping, f)
 
     def get_document(self, doc_id: str) -> str:
-        if doc_id in self.database:
-            return self.database[doc_id]
+        if doc_id in self.chunk_db:
+            return self.chunk_db[doc_id]
         return None
 
     def get_chunk(self, doc_id: str, chunk_index: int) -> str:
-        if doc_id in self.database and chunk_index in self.database[doc_id]:
-            return self.database[doc_id][chunk_index]['text']
+        if doc_id in self.chunk_db and chunk_index in self.chunk_db[doc_id]:
+            return self.chunk_db[doc_id][chunk_index]['text']
         return None
     
     def get_chunk_header(self, doc_id: str, chunk_index: int) -> str:
-        if doc_id in self.database and chunk_index in self.database[doc_id]:
-            return self.database[doc_id][chunk_index]['chunk_header']
+        if doc_id in self.chunk_db and chunk_index in self.chunk_db[doc_id]:
+            return self.chunk_db[doc_id][chunk_index]['chunk_header']
         return None
 
     def get_embeddings(self, text: str or list[str], input_type: str = ""):
-        model = self.metadata['embedding_model']
+        model = self.kb_metadata['embedding_model']
         return get_embeddings(text, model, input_type)
     
     def split_into_chunks(self, text):
@@ -165,6 +167,7 @@ class KnowledgeBase:
         """
         query_vector = self.get_embeddings(query, input_type="query")
 
+        """
         # do a brute force search
         similarities = []
         for doc_id, doc in self.database.items():
@@ -176,7 +179,12 @@ class KnowledgeBase:
 
         similarities.sort(key=lambda x: x['similarity'], reverse=True)
         search_results = similarities[:top_k]
+        """
 
+        # do a vector database search
+        search_results = self.vector_db.search(query_vector, top_k)
+
+        # rerank search results using a reranker
         if use_reranker:
             search_results = rerank_search_results(query, search_results)
         
@@ -255,9 +263,9 @@ class KnowledgeBase:
     def get_kb_info(self):
         kb_info = {
             'kb_id': self.kb_id,
-            'language': self.metadata['language'],
-            'title': self.metadata['title'],
-            'description': self.metadata['description'],
+            'language': self.kb_metadata['language'],
+            'title': self.kb_metadata['title'],
+            'description': self.kb_metadata['description'],
         }
         return kb_info
 
@@ -277,7 +285,7 @@ def create_kb_from_directory(kb_id: str, directory: str, title: str = None, desc
     kb = KnowledgeBase(kb_id, title=title, description=description, language=language, embedding_model=embedding_model)
 
     # verify that the new KB doesn't already exist by making sure kb.database is an empty dictionary
-    if kb.database:
+    if kb.chunk_db:
         print (f'KB with id {kb_id} already exists. No documents were added.')
         return
 
@@ -322,7 +330,7 @@ def create_kb_from_file(kb_id: str, file_path: str, title: str = None, descripti
     kb = KnowledgeBase(kb_id, title=title, description=description, language=language, embedding_model=embedding_model)
 
     # verify that the new KB doesn't already exist by making sure kb.database is an empty dictionary
-    if kb.database:
+    if kb.chunk_db:
         print (f'KB with id {kb_id} already exists. No documents were added.')
         return
     
@@ -360,5 +368,5 @@ def load_kb(kb_id: str, storage_directory: str = '~/spRAG/knowledge_bases/'):
 if __name__ == "__main__":
     kb_id = "bvp_cloud_no_ss"
     kb = KnowledgeBase(kb_id)
-    documents = list(kb.database.keys())
+    documents = list(kb.chunk_db.keys())
     print (documents)

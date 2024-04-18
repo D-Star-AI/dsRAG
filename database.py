@@ -8,23 +8,16 @@ import os
 
 class VectorDB(ABC):
     @abstractmethod
-    def add_vector(self, vector, metadata):
+    def add_vectors(self, vector, metadata):
         """
-        Store a vector with associated metadata.
-        """
-        pass
-
-    @abstractmethod
-    def remove_vector(self, index):
-        """
-        Remove a vector from the database by its index.
+        Store a list of vectors with associated metadata.
         """
         pass
 
     @abstractmethod
-    def update_vector(self, index, new_vector):
+    def remove_document(self, doc_id):
         """
-        Update an existing vector.
+        Remove all vectors and metadata associated with a given document ID.
         """
         pass
 
@@ -32,6 +25,17 @@ class VectorDB(ABC):
     def search(self, query_vector, top_k=10):
         """
         Retrieve the top-k closest vectors to a given query vector.
+        - needs to return results as list of dictionaries in this format: 
+        {
+            'metadata': 
+                {
+                    'doc_id': doc_id, 
+                    'chunk_index': chunk_index, 
+                    'chunk_header': chunk_header,
+                    'chunk_text': chunk_text
+                }, 
+            'similarity': similarity, 
+        }
         """
         pass
 
@@ -39,13 +43,15 @@ class VectorDB(ABC):
 class BasicVectorDB(VectorDB):
     def __init__(self, kb_id: str, storage_directory: str = '~/spRAG'):
         self.storage_path = f'{storage_directory}/vector_storage/{kb_id}.pkl'
-        self.vectors = []
-        self.metadata = []
         self.load()
 
-    def add_vector(self, vector, metadata):
-        self.vectors.append(vector)
-        self.metadata.append(metadata)
+    def add_vectors(self, vectors, metadata):
+        try:
+            assert len(vectors) == len(metadata)
+        except AssertionError:
+            raise ValueError('Error in add_vectors: the number of vectors and metadata items must be the same.')
+        self.vectors.extend(vectors)
+        self.metadata.extend(metadata)
         self.save()
 
     def search(self, query_vector, top_k=10):
@@ -53,15 +59,23 @@ class BasicVectorDB(VectorDB):
             return []
         similarities = cosine_similarity([query_vector], self.vectors)[0]
         indexed_similarities = sorted(enumerate(similarities), key=lambda x: x[1], reverse=True)
-        return [(self.metadata[i], sim) for i, sim in indexed_similarities[:top_k]]
+        results = []
+        for i, similarity in indexed_similarities[:top_k]:
+            result = {
+                'metadata': self.metadata[i],
+                'similarity': similarity,
+            }
+            results.append(result)
+        return results
 
-    def remove_vector(self, index):
-        del self.vectors[index]
-        del self.metadata[index]
-        self.save()
-
-    def update_vector(self, index, new_vector):
-        self.vectors[index] = new_vector
+    def remove_document(self, doc_id):
+        i = 0
+        while i < len(self.metadata):
+            if self.metadata[i]['doc_id'] == doc_id:
+                del self.vectors[i]
+                del self.metadata[i]
+            else:
+                i += 1
         self.save()
 
     def save(self):
@@ -75,42 +89,3 @@ class BasicVectorDB(VectorDB):
         else:
             self.vectors = []
             self.metadata = []
-
-
-class PersistentFaissVectorDB(VectorDB):
-    def __init__(self, dimension, storage_path='faiss_index.idx'):
-        self.dimension = dimension
-        self.storage_path = storage_path
-        self.index = None
-        self.metadata = []
-        self.load_or_initialize_index()
-
-    def add_vector(self, vector, meta):
-        if len(vector) != self.dimension:
-            raise ValueError("Vector dimension mismatch.")
-        self.index.add(np.array([vector], dtype='float32'))
-        self.metadata.append(meta)
-        self.save_index()
-
-    def search(self, query_vector, top_k=10):
-        if len(query_vector) != self.dimension:
-            raise ValueError("Query vector dimension mismatch.")
-        distances, indices = self.index.search(np.array([query_vector], dtype='float32'), top_k)
-        return [(self.metadata[idx], 1 - dist) for idx, dist in zip(indices[0], distances[0])]
-
-    def remove_vector(self, index):
-        # Faiss does not support removing vectors by default, handle accordingly
-        pass
-
-    def update_vector(self, index, new_vector):
-        # Faiss does not support updating vectors by default, handle accordingly
-        pass
-
-    def save_index(self):
-        faiss.write_index(self.index, self.storage_path)
-
-    def load_or_initialize_index(self):
-        if os.path.exists(self.storage_path):
-            self.index = faiss.read_index(self.storage_path)
-        else:
-            self.index = faiss.IndexFlatL2(self.dimension)
