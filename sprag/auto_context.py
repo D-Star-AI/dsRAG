@@ -1,7 +1,5 @@
-from llm_utils import openai_api_call, mistral_api_call
-from document_parsing_utils import extract_text_from_docx, extract_text_from_pdf
+from sprag.llm import make_llm_call
 import tiktoken
-import os
 
 PROMPT = """
 INSTRUCTIONS
@@ -33,9 +31,9 @@ def truncate_content(content: str, max_tokens: int):
     truncated_tokens = tokens[:max_tokens]
     return TOKEN_ENCODER.decode(truncated_tokens), min(len(tokens), max_tokens)
 
-def get_document_context(text: str, document_title: str, auto_context_guidance: str = "", model_name="gpt-3.5-turbo-0125"):
+def get_document_context(text: str, document_title: str, auto_context_guidance: str = "", model_name="claude-3-haiku-20240307"):
     # truncate the content if it's too long
-    max_content_tokens = 6000
+    max_content_tokens = 6000 # if this number changes, also update the truncation message above
     text, num_tokens = truncate_content(text, max_content_tokens)
     if num_tokens < max_content_tokens:
         truncation_message = ""
@@ -45,13 +43,7 @@ def get_document_context(text: str, document_title: str, auto_context_guidance: 
     # get document context
     prompt = PROMPT.format(auto_context_guidance=auto_context_guidance, document=text, document_title=document_title, truncation_message=truncation_message)
     chat_messages = [{"role": "user", "content": prompt}]
-    if model_name in ["gpt-3.5-turbo-0125", "gpt-3.5-turbo-1106"]:
-        document_context = openai_api_call(chat_messages, model_name=model_name, max_tokens=1000)
-    elif model_name == "mistral-tiny":
-        document_context = mistral_api_call(chat_messages, model_name="mistral-tiny", max_tokens=1000)
-    else:
-        raise Exception(f"Unknown model name: {model_name}")
-    
+    document_context = make_llm_call(chat_messages, model_name=model_name, max_tokens=1000)
     return document_context
 
 def get_chunk_header(file_name, document_context):

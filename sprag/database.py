@@ -1,7 +1,5 @@
 from abc import ABC, abstractmethod
 from sklearn.metrics.pairwise import cosine_similarity
-import faiss
-import numpy as np
 import pickle
 import os
 

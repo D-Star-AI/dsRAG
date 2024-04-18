@@ -1,15 +1,15 @@
 import numpy as np
-from auto_context import get_document_context, get_chunk_header
-from document_parsing_utils import extract_text_from_pdf, extract_text_from_docx
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import tiktoken
 import pickle
 import os
 import time
-from embeddings import get_embeddings, dimensionality
-from reranker import rerank_search_results
-from rse import get_relevance_values, get_best_segments, get_meta_document
-from database import VectorDB, BasicVectorDB
+from sprag.auto_context import get_document_context, get_chunk_header
+from sprag.document_parsing import extract_text_from_pdf, extract_text_from_docx
+from sprag.reranker import rerank_search_results
+from sprag.rse import get_relevance_values, get_best_segments, get_meta_document
+from sprag.database import VectorDB, BasicVectorDB
+from sprag.embeddings import get_embeddings, dimensionality
 
 
 def truncate_content(content: str, max_tokens: int):
@@ -270,7 +270,7 @@ class KnowledgeBase:
         return kb_info
 
 
-def create_kb_from_directory(kb_id: str, directory: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, micro_context: bool = False, embedding_model: str = 'cohere-english', use_unstructured: bool = False, use_spdb: bool = False, auto_context_guidance: str = ""):
+def create_kb_from_directory(kb_id: str, directory: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, embedding_model: str = 'text-embedding-3-small-768', auto_context_guidance: str = ""):
     """
     - kb_id is the name of the knowledge base
     - directory is the absolute path to the directory containing the documents
@@ -299,7 +299,7 @@ def create_kb_from_directory(kb_id: str, directory: str, title: str = None, desc
                     
                     if file_name.endswith('.docx'):
                         text = extract_text_from_docx(file_path)
-                    elif file_name.endswith('.pdf') and not use_unstructured:
+                    elif file_name.endswith('.pdf'):
                         text = extract_text_from_pdf(file_path)
                     elif file_name.endswith('.md') or file_name.endswith('.txt'):
                         with open(file_path, 'r') as f:
@@ -316,7 +316,7 @@ def create_kb_from_directory(kb_id: str, directory: str, title: str = None, desc
     
     return kb
 
-def create_kb_from_file(kb_id: str, file_path: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, micro_context: bool = False, embedding_model: str = 'cohere-english', use_unstructured: bool = False, use_spdb: bool = False, auto_context_guidance: str = ""):
+def create_kb_from_file(kb_id: str, file_path: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, embedding_model: str = 'text-embedding-3-small-768', auto_context_guidance: str = ""):
     """
     - kb_id is the name of the knowledge base
     - file_path is the absolute path to the file containing the documents
@@ -345,7 +345,7 @@ def create_kb_from_file(kb_id: str, file_path: str, title: str = None, descripti
         
         if file_path.endswith('.docx'):
             text = extract_text_from_docx(file_path)
-        elif file_name.endswith('.pdf') and not use_unstructured:
+        elif file_name.endswith('.pdf'):
             text = extract_text_from_pdf(file_path)
         elif file_path.endswith('.md') or file_path.endswith('.txt'):
             with open(file_path, 'r') as f:

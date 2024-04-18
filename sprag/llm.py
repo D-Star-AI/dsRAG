@@ -3,8 +3,8 @@ from openai import OpenAI
 from anthropic import Anthropic
 
 def make_llm_call(chat_messages: list[dict], model_name: str = "gpt-3.5-turbo-0125", temperature: float = 0.2, max_tokens: int = 2000, additional_stop_sequences: list[str] = [], response_starter_text: str = "") -> str:
-    openai_models = ["gpt-4-0125-preview", "gpt-3.5-turbo-0125", "gpt-4-1106-preview", "gpt-3.5-turbo-1106"]
-    anthropic_models = ["claude-2", "claude-instant-1", "claude-3-haiku-20240307", "claude-3-sonnet-20240229", "claude-3-opus-20240229"]
+    openai_models = ["gpt-4-turbo", "gpt-3.5-turbo"]
+    anthropic_models = ["claude-3-haiku-20240307", "claude-3-sonnet-20240229", "claude-3-opus-20240229"]
 
     if model_name in openai_models:
         return openai_api_call(chat_messages, model_name, temperature, max_tokens, additional_stop_sequences)
