@@ -6,8 +6,9 @@ import tiktoken
 import pickle
 import os
 import time
-import cohere
 from embeddings import get_embeddings, dimensionality
+from reranker import rerank_search_results
+from rse import get_relevance_values, get_best_segments, get_meta_document
 
 
 def truncate_content(content: str, max_tokens: int):
@@ -32,6 +33,7 @@ class KnowledgeBase:
             self.metadata['description'] = description
             self.metadata['language'] = language
             self.metadata['embedding_model'] = embedding_model
+            self.metadata['embedding_dimensions'] = dimensionality(embedding_model)
             self.save() # save the metadata
 
     def save(self):
@@ -151,8 +153,9 @@ class KnowledgeBase:
     def cosine_similarity(self, v1, v2):
         return np.dot(v1, v2) # since the embeddings are normalized
 
-    def search(self, query: str, top_k: int, use_reranker: bool = False) -> list:
+    def search(self, query: str, top_k: int, use_reranker: bool = True) -> list:
         """
+        Get top k most relevant chunks for a given query
         - returns a list of dictionaries, where each dictionary has the following keys: `metadata` (which contains 'doc_id' and 'chunk_index'), `similarity`, and `content`
         """
         query_vector = self.get_embeddings(query, input_type="query")
@@ -170,31 +173,89 @@ class KnowledgeBase:
         search_results = similarities[:top_k]
 
         if use_reranker:
-            search_results = self.rerank_search_results(query, search_results)
+            search_results = rerank_search_results(query, search_results)
         
         return search_results
     
-    def rerank_search_results(self, query: str, search_results: list) -> list:
+    def get_all_ranked_results(self, search_queries: list[str]):
         """
-        Use Cohere Rerank API to rerank the search results
+        - search_queries: list of search queries
         """
-        cohere_api_key = os.environ['COHERE_API_KEY']
-        co = cohere.Client(f'{cohere_api_key}')
-        documents = [f"[{result['metadata']['chunk_header']}]\n{result['content']}" for result in search_results]
-        reranked_results = co.rerank(query, documents, model="rerank-english-v3.0")
-        results = reranked_results.results
-        reranked_indices = [result.index for result in results]
-        print (reranked_indices)
-        reranked_search_results = [search_results[i] for i in reranked_indices]
-        return reranked_search_results
+        all_ranked_results = []
+        for query in search_queries:
+            ranked_results = self.search(query, 100, use_reranker=True)
+            all_ranked_results.append(ranked_results)
+        return all_ranked_results
+    
+    def get_segment_text_from_database(self, doc_id: str, chunk_start: int, chunk_end: int) -> str:
+        segment = f"[{self.get_chunk_header(doc_id, chunk_start)}]\n" # initialize the segment with the chunk header
+        for chunk_index in range(chunk_start, chunk_end): # NOTE: end index is non-inclusive
+            chunk_text = self.get_chunk(doc_id, chunk_index)
+            segment += chunk_text
+        return segment.strip()
+    
+    def query(self, search_queries: list[str], max_length: int = 10, overall_max_length: int = 20, minimum_value: float = 0.7, irrelevant_chunk_penalty: float = 0.2, overall_max_length_extension: int = 5, decay_rate: int = 20, top_k_for_document_selection: int = 7, latency_profiling: bool = False) -> list[dict]:
+        """
+        Inputs:
+        - search_queries: list of search queries
+        - max_length: maximum length of a segment, measured in number of chunks
+        - overall_max_length: maximum length of all segments combined, measured in number of chunks
+        - minimum_value: minimum value of a segment, measured in relevance value
+        - irrelevant_chunk_penalty: float between 0 and 1
+        - overall_max_length_extension: the maximum length of all segments combined will be increased by this amount for each additional query beyond the first
+
+        Returns relevant_segment_info, a list of segment_info dictionaries, ordered by relevance, that each contain:
+        - doc_id: the document ID of the document that the segment is from
+        - chunk_start: the start index of the segment in the document
+        - chunk_end: the (non-inclusive) end index of the segment in the document
+        - text: the full text of the segment
+        """
+
+        overall_max_length += (len(search_queries) - 1) * overall_max_length_extension # increase the overall max length for each additional query
+
+        start_time = time.time()
+        all_ranked_results = self.get_all_ranked_results(search_queries=search_queries)
+        if latency_profiling:
+            print(f"get_all_ranked_results took {time.time() - start_time} seconds to run for {len(search_queries)} queries")
+
+        document_splits, document_start_points, unique_document_ids = get_meta_document(all_ranked_results=all_ranked_results, top_k_for_document_selection=top_k_for_document_selection)
+
+        # verify that we have a valid meta-document - otherwise return an empty list of segments
+        if len(document_splits) == 0:
+            return []
+        
+        # get the length of the meta-document so we don't have to pass in the whole list of splits
+        meta_document_length = document_splits[-1]
+
+        # get the relevance values for each chunk in the meta-document and use those to find the best segments
+        all_relevance_values = get_relevance_values(all_ranked_results=all_ranked_results, meta_document_length=meta_document_length, document_start_points=document_start_points, unique_document_ids=unique_document_ids, irrelevant_chunk_penalty=irrelevant_chunk_penalty, decay_rate=decay_rate)
+        best_segments = get_best_segments(all_relevance_values=all_relevance_values, document_splits=document_splits, max_length=max_length, overall_max_length=overall_max_length, minimum_value=minimum_value)
+        
+        # convert the best segments into a list of dictionaries that contain the document id and the start and end of the chunk
+        relevant_segment_info = []
+        for start, end in best_segments:
+            # find the document that this segment starts in
+            for i, split in enumerate(document_splits):
+                if start < split: # splits represent the end of each document
+                    doc_start = document_splits[i-1] if i > 0 else 0
+                    relevant_segment_info.append({"doc_id": unique_document_ids[i], "chunk_start": start - doc_start, "chunk_end": end - doc_start}) # NOTE: end index is non-inclusive
+                    break
+        
+        # retrieve the actual text for the segments from the database
+        for segment_info in relevant_segment_info:
+            segment_info["text"] = (self.get_segment_text_from_database(segment_info["doc_id"], segment_info["chunk_start"], segment_info["chunk_end"])) # NOTE: this is where the chunk header is added to the segment text
+
+        return relevant_segment_info
     
     def get_kb_info(self):
-        return (self.kb_id, self.metadata['language'], self.metadata['title'], self.metadata['description'])
+        kb_info = {
+            'kb_id': self.kb_id,
+            'language': self.metadata['language'],
+            'title': self.metadata['title'],
+            'description': self.metadata['description'],
+        }
+        return kb_info
 
-
-def initialize_doc_id_to_kb_id_mapping(storage_directory: str):
-    with open(f'{storage_directory}doc_id_to_kb_id.pkl', 'wb') as f:
-        pickle.dump({}, f)
 
 def create_kb_from_directory(kb_id: str, directory: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, micro_context: bool = False, embedding_model: str = 'cohere-english', use_unstructured: bool = False, use_spdb: bool = False, auto_context_guidance: str = ""):
     """
