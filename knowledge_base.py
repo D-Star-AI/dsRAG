@@ -9,6 +9,7 @@ import time
 from embeddings import get_embeddings, dimensionality
 from reranker import rerank_search_results
 from rse import get_relevance_values, get_best_segments, get_meta_document
+from database import VectorDB, BasicVectorDB
 
 
 def truncate_content(content: str, max_tokens: int):
@@ -18,12 +19,16 @@ def truncate_content(content: str, max_tokens: int):
     return TOKEN_ENCODER.decode(truncated_tokens), min(len(tokens), max_tokens)
 
 class KnowledgeBase:
-    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", embedding_model: str = "openai-ada"):
+    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", embedding_model: str = "text-embedding-3-small-768", vector_db: VectorDB = None, storage_directory: str = '~/spRAG'):
         self.kb_id = kb_id
-        self.database = {}
+        self.database = {} # store text chunks and chunk headers
+        self.vector_db = vector_db # to store embeddings
         self.metadata = {} # to store title, description, etc.
         self.chunk_size = 800 # max number of characters in a chunk
-        self.storage_directory = '~/spRAG/knowledge_bases/'
+        self.storage_directory = f'{storage_directory}/knowledge_bases/'
+
+        if self.vector_db is None:
+            self.vector_db = BasicVectorDB(kb_id, self.storage_directory)
 
         # load the database from disk if it exists
         if os.path.exists(f'{self.storage_directory}{self.kb_id}_metadata.pkl'):
@@ -155,7 +160,7 @@ class KnowledgeBase:
 
     def search(self, query: str, top_k: int, use_reranker: bool = True) -> list:
         """
-        Get top k most relevant chunks for a given query
+        Get top k most relevant chunks for a given query. This is where we interface with the vector database.
         - returns a list of dictionaries, where each dictionary has the following keys: `metadata` (which contains 'doc_id' and 'chunk_index'), `similarity`, and `content`
         """
         query_vector = self.get_embeddings(query, input_type="query")
@@ -343,6 +348,13 @@ def create_kb_from_file(kb_id: str, file_path: str, title: str = None, descripti
         print (f"Unsupported file type: {file_name}")
         return
     
+    return kb
+
+def load_kb(kb_id: str, storage_directory: str = '~/spRAG/knowledge_bases/'):
+    """
+    Load a knowledge base
+    """
+    kb = KnowledgeBase(kb_id)
     return kb
 
 if __name__ == "__main__":
