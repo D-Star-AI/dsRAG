@@ -1,7 +1,4 @@
 import numpy as np
-from openai import OpenAI
-import cohere
-import voyageai
 from auto_context import get_document_context, get_chunk_header
 from document_parsing_utils import extract_text_from_pdf, extract_text_from_docx
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -9,11 +6,9 @@ import tiktoken
 import pickle
 import os
 import time
+import cohere
+from embeddings import get_embeddings, dimensionality
 
-client = OpenAI()
-
-cohere_api_key = os.environ['COHERE_API_KEY']
-co = cohere.Client(f'{cohere_api_key}')
 
 def truncate_content(content: str, max_tokens: int):
     TOKEN_ENCODER = tiktoken.encoding_for_model('gpt-3.5-turbo')
@@ -144,50 +139,8 @@ class KnowledgeBase:
         return None
 
     def get_embeddings(self, text: str or list[str], input_type: str = ""):
-        """
-        - input_type: "query" or "document"
-        """
-        if type(text) == str:
-            input_format = "string"
-        elif type(text) == list:
-            input_format = "list"
-        else:
-            raise Exception("text must be a string or a list of strings")
-
-        if self.metadata['embedding_model'] == "openai-ada":
-            response = client.embeddings.create(input=text, model="text-embedding-ada-002")
-            embeddings = [embedding_item.embedding for embedding_item in response.data]
-            if input_format == "string":
-                embeddings = embeddings[0]
-            return embeddings
-        elif self.metadata['embedding_model'] == "cohere-english":
-            if input_type == "query":
-                input_type = "search_query"
-            elif input_type == "document":
-                input_type = "search_document"
-            else:
-                raise Exception("input_type must be 'query' or 'document'")
-            if input_format == "string":
-                text = [text]
-            response=co.embed(texts=text, input_type=input_type, model="embed-english-v3.0")
-            if input_format == "string":
-                return response.embeddings[0]
-            else:
-                return response.embeddings
-        elif self.metadata['embedding_model'] == "voyage-01":
-            model = "voyage-01"
-            if input_format == "string":
-                response = voyageai.get_embedding(text, model=model, input_type=input_type)
-            else:
-                response = voyageai.get_embeddings(text, model=model, input_type=input_type)
-            return response
-
-        elif self.metadata['embedding_model'] == "":
-            if input_format == "string":
-                return []
-            else:
-                # return a list of empty lists - one for each chunk
-                return [[] for _ in range(len(text))]
+        model = self.metadata['embedding_model']
+        return get_embeddings(text, model, input_type)
     
     def split_into_chunks(self, text):
         text_splitter = RecursiveCharacterTextSplitter(chunk_size = self.chunk_size, chunk_overlap = 0, length_function = len)
@@ -225,6 +178,8 @@ class KnowledgeBase:
         """
         Use Cohere Rerank API to rerank the search results
         """
+        cohere_api_key = os.environ['COHERE_API_KEY']
+        co = cohere.Client(f'{cohere_api_key}')
         documents = [f"[{result['metadata']['chunk_header']}]\n{result['content']}" for result in search_results]
         reranked_results = co.rerank(query, documents, model="rerank-english-v3.0")
         results = reranked_results.results
