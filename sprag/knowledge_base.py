@@ -1,6 +1,5 @@
 import numpy as np
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-import tiktoken
 import pickle
 import os
 import time
@@ -8,24 +7,29 @@ from sprag.auto_context import get_document_context, get_chunk_header
 from sprag.document_parsing import extract_text_from_pdf, extract_text_from_docx
 from sprag.reranker import rerank_search_results
 from sprag.rse import get_relevance_values, get_best_segments, get_meta_document
-from sprag.database import VectorDB, BasicVectorDB
-from sprag.embeddings import get_embeddings, dimensionality
+from sprag.vector_db import VectorDB, BasicVectorDB
+from sprag.embedding_model import Embedding, OpenAIEmbedding
+from sprag.llm import LLM, AnthropicChatAPI
 
-
-def truncate_content(content: str, max_tokens: int):
-    TOKEN_ENCODER = tiktoken.encoding_for_model('gpt-3.5-turbo')
-    tokens = TOKEN_ENCODER.encode(content, disallowed_special=())
-    truncated_tokens = tokens[:max_tokens]
-    return TOKEN_ENCODER.decode(truncated_tokens), min(len(tokens), max_tokens)
 
 class KnowledgeBase:
-    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", embedding_model: str = "text-embedding-3-small-768", vector_db: VectorDB = None, storage_directory: str = '~/spRAG'):
+    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", embedding_model: Embedding = None, auto_context_model: LLM = None, vector_db: VectorDB = None, storage_directory: str = '~/spRAG'):
         self.kb_id = kb_id
+        self.embedding_model = embedding_model
+        self.auto_context_model = auto_context_model
         self.chunk_db = {} # store chunk text and chunk headers
         self.vector_db = vector_db # to store embeddings
         self.kb_metadata = {} # to store title, description, etc.
         self.chunk_size = 800 # max number of characters in a chunk
         self.storage_directory = f'{storage_directory}/knowledge_bases/'
+
+        if self.embedding_model is None:
+            self.embedding_model = OpenAIEmbedding()
+
+        self.vector_dimension = self.embedding_model.dimension
+
+        if self.auto_context_model is None:
+            self.auto_context_model = AnthropicChatAPI()
 
         if self.vector_db is None:
             self.vector_db = BasicVectorDB(kb_id, self.storage_directory)
@@ -38,7 +42,6 @@ class KnowledgeBase:
             self.kb_metadata['description'] = description
             self.kb_metadata['language'] = language
             self.kb_metadata['embedding_model'] = embedding_model
-            self.kb_metadata['embedding_dimensions'] = dimensionality(embedding_model)
             self.save() # save the metadata
 
     def save(self):
@@ -148,8 +151,7 @@ class KnowledgeBase:
         return None
 
     def get_embeddings(self, text: str or list[str], input_type: str = ""):
-        model = self.kb_metadata['embedding_model']
-        return get_embeddings(text, model, input_type)
+        return self.embedding_model.get_embeddings(text, input_type)
     
     def split_into_chunks(self, text):
         text_splitter = RecursiveCharacterTextSplitter(chunk_size = self.chunk_size, chunk_overlap = 0, length_function = len)
@@ -166,20 +168,6 @@ class KnowledgeBase:
         - returns a list of dictionaries, where each dictionary has the following keys: `metadata` (which contains 'doc_id' and 'chunk_index'), `similarity`, and `content`
         """
         query_vector = self.get_embeddings(query, input_type="query")
-
-        """
-        # do a brute force search
-        similarities = []
-        for doc_id, doc in self.database.items():
-            for chunk_index, chunk in doc.items():
-                vector = chunk['vector']
-                chunk_header = chunk['chunk_header']
-                sim = self.cosine_similarity(query_vector, vector)
-                similarities.append({'metadata': {'doc_id': doc_id, 'chunk_index': chunk_index, 'chunk_header': chunk_header}, 'similarity': sim, 'content': chunk['text']})
-
-        similarities.sort(key=lambda x: x['similarity'], reverse=True)
-        search_results = similarities[:top_k]
-        """
 
         # do a vector database search
         search_results = self.vector_db.search(query_vector, top_k)
@@ -259,15 +247,6 @@ class KnowledgeBase:
             segment_info["text"] = (self.get_segment_text_from_database(segment_info["doc_id"], segment_info["chunk_start"], segment_info["chunk_end"])) # NOTE: this is where the chunk header is added to the segment text
 
         return relevant_segment_info
-    
-    def get_kb_info(self):
-        kb_info = {
-            'kb_id': self.kb_id,
-            'language': self.kb_metadata['language'],
-            'title': self.kb_metadata['title'],
-            'description': self.kb_metadata['description'],
-        }
-        return kb_info
 
 
 def create_kb_from_directory(kb_id: str, directory: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, embedding_model: str = 'text-embedding-3-small-768', auto_context_guidance: str = ""):

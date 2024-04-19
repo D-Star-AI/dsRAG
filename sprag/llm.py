@@ -1,63 +1,79 @@
+from abc import ABC, abstractmethod
 import os
-from openai import OpenAI
-from anthropic import Anthropic
 
-def make_llm_call(chat_messages: list[dict], model_name: str = "gpt-3.5-turbo-0125", temperature: float = 0.2, max_tokens: int = 2000, additional_stop_sequences: list[str] = [], response_starter_text: str = "") -> str:
-    openai_models = ["gpt-4-turbo", "gpt-3.5-turbo"]
-    anthropic_models = ["claude-3-haiku-20240307", "claude-3-sonnet-20240229", "claude-3-opus-20240229"]
+class LLM(ABC):
+    @abstractmethod
+    def make_llm_call(self, chat_messages: list[dict]) -> str:
+        """
+        Takes in chat_messages (OpenAI format) and returns the response from the LLM as a string.
+        """
+        pass
 
-    if model_name in openai_models:
-        return openai_api_call(chat_messages, model_name, temperature, max_tokens, additional_stop_sequences)
-    elif model_name in anthropic_models:
-        return anthropic_api_call(chat_messages, model_name, temperature, max_tokens, additional_stop_sequences, response_starter_text)
-    else:
-        raise ValueError(f"Invalid model_name: {model_name}")
+class OpenAIChatAPI(LLM):
+    def __init__(self, model_name: str = "gpt-3.5-turbo", temperature: float = 0.2, max_tokens: int = 1000):
+        from openai import OpenAI
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
 
-def openai_api_call(chat_messages: list[dict], model_name: str = "gpt-3.5-turbo-0125", temperature: float = 0.2, max_tokens: int = 1000, additional_stop_sequences: list[str] = []) -> str:
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    max_tokens = int(max_tokens)
-    temperature = float(temperature)
+    def make_llm_call(self, chat_messages: list[dict]) -> str:
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=chat_messages,
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+        )
+        llm_output = response.choices[0].message.content.strip()
+        return llm_output
 
-    # call the OpenAI API
-    response = client.chat.completions.create(model=model_name,
-        messages=chat_messages,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        stop=additional_stop_sequences,
-    )
-    llm_output = response.choices[0].message.content.strip()
-    
-    return llm_output
+class AnthropicChatAPI(LLM):
+    def __init__(self, model_name: str = "claude-3-haiku-20240307", temperature: float = 0.2, max_tokens: int = 1000):
+        from anthropic import Anthropic
+        self.client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
 
-def anthropic_api_call(chat_messages: list[dict], model_name: str = "claude-3-sonnet-20240229", temperature: float = 0.2, max_tokens: int = 1000, additional_stop_sequences: list[str] = [], response_starter_text: str = "") -> str:
-    max_tokens = int(max_tokens)
-    temperature = float(temperature)
+    def make_llm_call(self, chat_messages: list[dict]) -> str:
+        system_message = ""
+        num_system_messages = 0
+        normal_chat_messages = []
+        for message in chat_messages:
+            if message["role"] == "system":
+                if num_system_messages > 0:
+                    raise ValueError("ERROR: more than one system message detected")
+                system_message = message["content"]
+                num_system_messages += 1
+            else:
+                normal_chat_messages.append(message)
 
-    # extract the system message from the chat_messages list
-    system_message = ""
-    num_system_messages = 0
-    normal_chat_messages = [] # chat messages that are not system messages
-    for message in chat_messages:
-        if message["role"] == "system":
-            if num_system_messages > 0:
-                raise ValueError("ERROR: more than one system message detected")
-            system_message = message["content"]
-            num_system_messages += 1
-        else:
-            normal_chat_messages.append(message)
+        message = self.client.messages.create(
+            system=system_message,
+            messages=normal_chat_messages,
+            model=self.model_name,
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+        )
+        return message.content[0].text
 
-    if response_starter_text != "":
-        normal_chat_messages.append({"role": "assistant", "content": response_starter_text})
-    
-    # call the Anthropic API
-    client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    message = client.messages.create(
-        system=system_message,
-        messages=normal_chat_messages,
-        model=model_name,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        stop_sequences=additional_stop_sequences,
-    )
 
-    return message.content[0].text
+def test_openai_chat_api():
+    chat_api = OpenAIChatAPI()
+    chat_messages = [
+        {"role": "user", "content": "Hello, how are you?"},
+    ]
+    response = chat_api.make_llm_call(chat_messages)
+    assert isinstance(response, str) and len(response) > 0, "Response should be a non-empty string"
+
+def test_anthropic_chat_api():
+    chat_api = AnthropicChatAPI()
+    chat_messages = [
+        {"role": "user", "content": "What's the weather like today?"},
+    ]
+    response = chat_api.make_llm_call(chat_messages)
+    assert isinstance(response, str) and len(response) > 0, "Response should be a non-empty string"
+
+if __name__ == "__main__":
+    test_openai_chat_api()
+    test_anthropic_chat_api()
