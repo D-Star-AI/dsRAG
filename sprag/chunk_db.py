@@ -6,7 +6,7 @@ class ChunkDB(ABC):
     @abstractmethod
     def add_document(self, doc_id: str, chunks: dict[dict]):
         """
-        Store a list of chunks with associated metadata.
+        Store all chunks for a given document.
         """
         pass
 
@@ -18,7 +18,7 @@ class ChunkDB(ABC):
         pass
 
     @abstractmethod
-    def get_chunk(self, doc_id: str, chunk_index: int) -> dict:
+    def get_chunk_text(self, doc_id: str, chunk_index: int) -> dict:
         """
         Retrieve a specific chunk from a given document ID.
         """
@@ -44,26 +44,30 @@ class BasicChunkDB(ChunkDB):
         self.load()
 
     def add_document(self, doc_id: str, chunks: dict[dict]):
-        self.chunks[doc_id] = chunks
+        self.data[doc_id] = chunks
         self.save()
 
     def remove_document(self, doc_id: str):
-        self.chunks.pop(doc_id, None)
+        self.data.pop(doc_id, None)
         self.save()
 
-    def get_chunk(self, doc_id: str, chunk_index: int) -> dict:
-        return self.chunks[doc_id][chunk_index]
+    def get_chunk_text(self, doc_id: str, chunk_index: int) -> str:
+        if doc_id in self.data and chunk_index in self.data[doc_id]:
+            return self.data[doc_id][chunk_index]['chunk_text']
+        return None
 
     def get_chunk_header(self, doc_id: str, chunk_index: int) -> str:
-        return self.chunks[doc_id][chunk_index]['chunk_header']
+        if doc_id in self.data and chunk_index in self.data[doc_id]:
+            return self.data[doc_id][chunk_index]['chunk_header']
+        return None
 
     def load(self):
         try:
             with open(self.storage_path, 'rb') as f:
-                self.chunks = pickle.load(f)
+                self.data = pickle.load(f)
         except FileNotFoundError:
-            self.chunks = {}
+            self.data = {}
 
     def save(self):
         with open(self.storage_path, 'wb') as f:
-            pickle.dump(self.chunks, f)
+            pickle.dump(self.data, f)

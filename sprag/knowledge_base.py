@@ -4,21 +4,22 @@ import pickle
 import os
 import time
 from sprag.auto_context import get_document_context, get_chunk_header
-from sprag.document_parsing import extract_text_from_pdf, extract_text_from_docx
 from sprag.reranker import rerank_search_results
 from sprag.rse import get_relevance_values, get_best_segments, get_meta_document
 from sprag.vector_db import VectorDB, BasicVectorDB
 from sprag.chunk_db import ChunkDB, BasicChunkDB
-from sprag.embedding_model import Embedding, OpenAIEmbedding
+from sprag.embedding import Embedding, OpenAIEmbedding
+from sprag.reranker import Reranker, CohereReranker
 from sprag.llm import LLM, AnthropicChatAPI
 
 
 class KnowledgeBase:
-    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", embedding_model: Embedding = None, auto_context_model: LLM = None, vector_db: VectorDB = None, chunk_db: ChunkDB = None, storage_directory: str = '~/spRAG'):
+    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", embedding_model: Embedding = None, reranker: Reranker = None, auto_context_model: LLM = None, vector_db: VectorDB = None, chunk_db: ChunkDB = None, storage_directory: str = '~/spRAG'):
         self.kb_id = kb_id
         self.embedding_model = embedding_model
+        self.reranker = reranker
         self.auto_context_model = auto_context_model
-        self.chunk_db = {} # store chunk text and chunk headers
+        self.chunk_db = chunk_db # store chunk text and chunk headers
         self.vector_db = vector_db # to store embeddings
         self.kb_metadata = {} # to store title, description, etc.
         self.chunk_size = 800 # max number of characters in a chunk
@@ -26,14 +27,19 @@ class KnowledgeBase:
 
         if self.embedding_model is None:
             self.embedding_model = OpenAIEmbedding()
-
         self.vector_dimension = self.embedding_model.dimension
+
+        if self.reranker is None:
+            self.reranker = CohereReranker()
 
         if self.auto_context_model is None:
             self.auto_context_model = AnthropicChatAPI()
 
         if self.vector_db is None:
             self.vector_db = BasicVectorDB(kb_id, self.storage_directory)
+
+        if chunk_db is None:
+            self.chunk_db = BasicChunkDB(kb_id, self.storage_directory)
 
         # load the database from disk if it exists
         if os.path.exists(f'{self.storage_directory}{self.kb_id}_metadata.pkl'):
@@ -101,7 +107,7 @@ class KnowledgeBase:
         chunks = self.split_into_chunks(text)
         print (f'Adding {len(chunks)} chunks to the database')
 
-        # add chunk headers and section summaries to the chunks before embedding them
+        # add chunk headers to the chunks before embedding them
         chunks_to_embed = []
         for i, chunk in enumerate(chunks):
             chunk_to_embed = f'[{chunk_header}]\n{chunk}'
@@ -118,7 +124,7 @@ class KnowledgeBase:
                 chunk_embeddings += self.get_embeddings(chunks_to_embed[i:i+50], input_type="document")
 
         assert len(chunks) == len(chunk_embeddings) == len(chunks_to_embed)
-        self.chunk_db[doc_id] = {i: {'chunk_text': chunk, 'chunk_header': chunk_header} for i, chunk in enumerate(chunks)}
+        self.chunk_db.add_document(doc_id, {i: {'chunk_text': chunk, 'chunk_header': chunk_header} for i, chunk in enumerate(chunks)})
 
         # create metadata list
         metadata = []
@@ -139,15 +145,11 @@ class KnowledgeBase:
             return self.chunk_db[doc_id]
         return None
 
-    def get_chunk(self, doc_id: str, chunk_index: int) -> str:
-        if doc_id in self.chunk_db and chunk_index in self.chunk_db[doc_id]:
-            return self.chunk_db[doc_id][chunk_index]['text']
-        return None
+    def get_chunk_text(self, doc_id: str, chunk_index: int) -> str:
+        return self.chunk_db.get_chunk_text(doc_id, chunk_index)
     
     def get_chunk_header(self, doc_id: str, chunk_index: int) -> str:
-        if doc_id in self.chunk_db and chunk_index in self.chunk_db[doc_id]:
-            return self.chunk_db[doc_id][chunk_index]['chunk_header']
-        return None
+        return self.chunk_db.get_chunk_header(doc_id, chunk_index)
 
     def get_embeddings(self, text: str or list[str], input_type: str = ""):
         return self.embedding_model.get_embeddings(text, input_type)
@@ -164,17 +166,11 @@ class KnowledgeBase:
     def search(self, query: str, top_k: int, use_reranker: bool = True) -> list:
         """
         Get top k most relevant chunks for a given query. This is where we interface with the vector database.
-        - returns a list of dictionaries, where each dictionary has the following keys: `metadata` (which contains 'doc_id' and 'chunk_index'), `similarity`, and `content`
+        - returns a list of dictionaries, where each dictionary has the following keys: `metadata` (which contains 'doc_id', 'chunk_index', 'chunk_text', and 'chunk_header') and `similarity`
         """
-        query_vector = self.get_embeddings(query, input_type="query")
-
-        # do a vector database search
-        search_results = self.vector_db.search(query_vector, top_k)
-
-        # rerank search results using a reranker
-        if use_reranker:
-            search_results = rerank_search_results(query, search_results)
-        
+        query_vector = self.get_embeddings(query, input_type="query") # embed the query
+        search_results = self.vector_db.search(query_vector, top_k) # do a vector database search
+        search_results = self.reranker.rerank_search_results(query, search_results) # rerank search results using a reranker
         return search_results
     
     def get_all_ranked_results(self, search_queries: list[str]):
@@ -190,7 +186,7 @@ class KnowledgeBase:
     def get_segment_text_from_database(self, doc_id: str, chunk_start: int, chunk_end: int) -> str:
         segment = f"[{self.get_chunk_header(doc_id, chunk_start)}]\n" # initialize the segment with the chunk header
         for chunk_index in range(chunk_start, chunk_end): # NOTE: end index is non-inclusive
-            chunk_text = self.get_chunk(doc_id, chunk_index)
+            chunk_text = self.get_chunk_text(doc_id, chunk_index)
             segment += chunk_text
         return segment.strip()
     
@@ -246,105 +242,3 @@ class KnowledgeBase:
             segment_info["text"] = (self.get_segment_text_from_database(segment_info["doc_id"], segment_info["chunk_start"], segment_info["chunk_end"])) # NOTE: this is where the chunk header is added to the segment text
 
         return relevant_segment_info
-
-
-def create_kb_from_directory(kb_id: str, directory: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, embedding_model: str = 'text-embedding-3-small-768', auto_context_guidance: str = ""):
-    """
-    - kb_id is the name of the knowledge base
-    - directory is the absolute path to the directory containing the documents
-    - no support for manually defined chunk headers here, because they would have to be defined for each file in the directory
-
-    Supported file types: .docx, .md, .txt, .pdf
-    """
-    if not title:
-        title = kb_id
-    
-    # create a new KB
-    kb = KnowledgeBase(kb_id, title=title, description=description, language=language, embedding_model=embedding_model)
-
-    # verify that the new KB doesn't already exist by making sure kb.database is an empty dictionary
-    if kb.chunk_db:
-        print (f'KB with id {kb_id} already exists. No documents were added.')
-        return
-
-    # add documents
-    for root, dirs, files in os.walk(directory):
-        for file_name in files:
-            if file_name.endswith(('.docx', '.md', '.txt', '.pdf')):
-                try:
-                    file_path = os.path.join(root, file_name)
-                    clean_file_path = file_path.replace(directory, "")
-                    
-                    if file_name.endswith('.docx'):
-                        text = extract_text_from_docx(file_path)
-                    elif file_name.endswith('.pdf'):
-                        text = extract_text_from_pdf(file_path)
-                    elif file_name.endswith('.md') or file_name.endswith('.txt'):
-                        with open(file_path, 'r') as f:
-                            text = f.read()
-
-                    kb.add_document(clean_file_path, text, auto_context=auto_context, auto_context_guidance=auto_context_guidance)
-                    time.sleep(1) # pause for 1 second to avoid hitting API rate limits
-                except:
-                    print (f"Error reading {file_name}")
-                    continue
-            else:
-                print (f"Unsupported file type: {file_name}")
-                continue
-    
-    return kb
-
-def create_kb_from_file(kb_id: str, file_path: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, embedding_model: str = 'text-embedding-3-small-768', auto_context_guidance: str = ""):
-    """
-    - kb_id is the name of the knowledge base
-    - file_path is the absolute path to the file containing the documents
-
-    Supported file types: .docx, .md, .txt, .pdf
-    """
-    if not title:
-        title = kb_id
-    
-    # create a new KB
-    kb = KnowledgeBase(kb_id, title=title, description=description, language=language, embedding_model=embedding_model)
-
-    # verify that the new KB doesn't already exist by making sure kb.database is an empty dictionary
-    if kb.chunk_db:
-        print (f'KB with id {kb_id} already exists. No documents were added.')
-        return
-    
-    print (f'Creating KB with id {kb_id}...')
-
-    file_name = os.path.basename(file_path)
-
-    # add document
-    if file_path.endswith(('.docx', '.md', '.txt', '.pdf')):
-        # define clean file path as just the file name here since we're not using a directory
-        clean_file_path = file_name
-        
-        if file_path.endswith('.docx'):
-            text = extract_text_from_docx(file_path)
-        elif file_name.endswith('.pdf'):
-            text = extract_text_from_pdf(file_path)
-        elif file_path.endswith('.md') or file_path.endswith('.txt'):
-            with open(file_path, 'r') as f:
-                text = f.read()
-
-        kb.add_document(clean_file_path, text, auto_context=auto_context, auto_context_guidance=auto_context_guidance)
-    else:
-        print (f"Unsupported file type: {file_name}")
-        return
-    
-    return kb
-
-def load_kb(kb_id: str, storage_directory: str = '~/spRAG/knowledge_bases/'):
-    """
-    Load a knowledge base
-    """
-    kb = KnowledgeBase(kb_id)
-    return kb
-
-if __name__ == "__main__":
-    kb_id = "bvp_cloud_no_ss"
-    kb = KnowledgeBase(kb_id)
-    documents = list(kb.chunk_db.keys())
-    print (documents)
