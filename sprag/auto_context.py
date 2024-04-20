@@ -1,4 +1,4 @@
-from sprag.llm import make_llm_call
+from sprag.llm import LLM
 import tiktoken
 
 PROMPT = """
@@ -31,7 +31,7 @@ def truncate_content(content: str, max_tokens: int):
     truncated_tokens = tokens[:max_tokens]
     return TOKEN_ENCODER.decode(truncated_tokens), min(len(tokens), max_tokens)
 
-def get_document_context(text: str, document_title: str, auto_context_guidance: str = "", model_name="claude-3-haiku-20240307"):
+def get_document_context(auto_context_model: LLM, text: str, document_title: str, auto_context_guidance: str = ""):
     # truncate the content if it's too long
     max_content_tokens = 6000 # if this number changes, also update the truncation message above
     text, num_tokens = truncate_content(text, max_content_tokens)
@@ -43,7 +43,7 @@ def get_document_context(text: str, document_title: str, auto_context_guidance: 
     # get document context
     prompt = PROMPT.format(auto_context_guidance=auto_context_guidance, document=text, document_title=document_title, truncation_message=truncation_message)
     chat_messages = [{"role": "user", "content": prompt}]
-    document_context = make_llm_call(chat_messages, model_name=model_name, max_tokens=1000)
+    document_context = auto_context_model.make_llm_call(chat_messages)
     return document_context
 
 def get_chunk_header(file_name, document_context):

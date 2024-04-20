@@ -8,12 +8,13 @@ from sprag.document_parsing import extract_text_from_pdf, extract_text_from_docx
 from sprag.reranker import rerank_search_results
 from sprag.rse import get_relevance_values, get_best_segments, get_meta_document
 from sprag.vector_db import VectorDB, BasicVectorDB
+from sprag.chunk_db import ChunkDB, BasicChunkDB
 from sprag.embedding_model import Embedding, OpenAIEmbedding
 from sprag.llm import LLM, AnthropicChatAPI
 
 
 class KnowledgeBase:
-    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", embedding_model: Embedding = None, auto_context_model: LLM = None, vector_db: VectorDB = None, storage_directory: str = '~/spRAG'):
+    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", embedding_model: Embedding = None, auto_context_model: LLM = None, vector_db: VectorDB = None, chunk_db: ChunkDB = None, storage_directory: str = '~/spRAG'):
         self.kb_id = kb_id
         self.embedding_model = embedding_model
         self.auto_context_model = auto_context_model
@@ -90,8 +91,7 @@ class KnowledgeBase:
         
         # AutoContext
         if auto_context:
-            auto_context_model_name = "gpt-3.5-turbo-0125" # "mistral-tiny" "gpt-3.5-turbo-0125"
-            document_context = get_document_context(text, document_title=doc_id, auto_context_guidance=auto_context_guidance, model_name=auto_context_model_name)
+            document_context = get_document_context(self.auto_context_model, text, document_title=doc_id, auto_context_guidance=auto_context_guidance)
             chunk_header = get_chunk_header(file_name=doc_id, document_context=document_context)
         elif chunk_header:
             pass
@@ -133,7 +133,6 @@ class KnowledgeBase:
     def delete_document(self, doc_id: str):
         del self.chunk_db[doc_id]
         self.save() # save the database to disk after deleting a document
-
 
     def get_document(self, doc_id: str) -> str:
         if doc_id in self.chunk_db:
