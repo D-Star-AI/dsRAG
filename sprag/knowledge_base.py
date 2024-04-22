@@ -16,11 +16,10 @@ from sprag.llm import LLM, AnthropicChatAPI
 class KnowledgeBase:
     def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", storage_directory: str = '~/spRAG', embedding_model: Embedding = None, reranker: Reranker = None, auto_context_model: LLM = None, vector_db: VectorDB = None, chunk_db: ChunkDB = None):
         self.kb_id = kb_id
-        self.storage_directory = os.path.expanduser(f'{storage_directory}/knowledge_bases/')
-        metadata_path = f'{self.storage_directory}/metadata/{self.kb_id}.json'
-        self.chunk_size = 800 # max number of characters in a chunk - should be replaced with a Chunking class for more flexibility
+        self.storage_directory = os.path.expanduser(storage_directory)
 
         # load the KB if it exists; otherwise, initialize it and save it to disk
+        metadata_path = self.get_metadata_path()
         if os.path.exists(metadata_path):
             self.load()
         else:
@@ -28,9 +27,13 @@ class KnowledgeBase:
                 'title': title,
                 'description': description,
                 'language': language,
+                'chunk_size': 800, # max number of characters in a chunk - should be replaced with a Chunking class for more flexibility
             }
             self.initialize_components(embedding_model, reranker, auto_context_model, vector_db, chunk_db)
             self.save() # save the config for the KB to disk
+
+    def get_metadata_path(self):
+        return os.path.join(self.storage_directory, 'metadata', f'{self.kb_id}.json')
 
     def initialize_components(self, embedding_model, reranker, auto_context_model, vector_db, chunk_db):
         self.embedding_model = embedding_model if embedding_model else OpenAIEmbedding()
@@ -51,11 +54,16 @@ class KnowledgeBase:
         }
         # Combine metadata and components
         full_data = {**self.kb_metadata, 'components': components}
-        with open(f'{self.storage_directory}/metadata/{self.kb_id}.json', 'w') as f:
+
+        metadata_dir = os.path.join(self.storage_directory, 'metadata')
+        if not os.path.exists(metadata_dir):
+            os.makedirs(metadata_dir)
+
+        with open(self.get_metadata_path(), 'w') as f:
             json.dump(full_data, f, indent=4)
 
     def load(self):
-        with open(f'{self.storage_directory}/metadata/{self.kb_id}.json', 'r') as f:
+        with open(self.get_metadata_path(), 'r') as f:
             data = json.load(f)
             self.kb_metadata = {key: value for key, value in data.items() if key != 'components'}
             components = data.get('components', {})
@@ -73,15 +81,8 @@ class KnowledgeBase:
         for doc_id in doc_ids_to_delete:
             self.delete_document(doc_id)
 
-        # get all doc_ids
-        doc_ids = self.chunk_db.get_all_doc_ids()
-
-        for doc_id in doc_ids:
-            self.chunk_db.remove_document(doc_id)
-            self.vector_db.remove_document(doc_id)
-
         # delete the metadata file
-        os.remove(f'{self.storage_directory}metadata/{self.kb_id}.json')
+        os.remove(self.get_metadata_path())
 
     def add_document(self, doc_id: str, text: str, auto_context: bool = True, chunk_header: str = None, auto_context_guidance: str = ""):
         # verify that only one of auto_context and chunk_header is set
@@ -142,13 +143,8 @@ class KnowledgeBase:
         self.save() # save the database to disk after adding a document
 
     def delete_document(self, doc_id: str):
-        del self.chunk_db[doc_id]
-        self.save() # save the database to disk after deleting a document
-
-    def get_document(self, doc_id: str) -> str:
-        if doc_id in self.chunk_db:
-            return self.chunk_db[doc_id]
-        return None
+        self.chunk_db.remove_document(doc_id)
+        self.vector_db.remove_document(doc_id)
 
     def get_chunk_text(self, doc_id: str, chunk_index: int) -> str:
         return self.chunk_db.get_chunk_text(doc_id, chunk_index)
@@ -160,7 +156,7 @@ class KnowledgeBase:
         return self.embedding_model.get_embeddings(text, input_type)
     
     def split_into_chunks(self, text):
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size = self.chunk_size, chunk_overlap = 0, length_function = len)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size = self.kb_metadata['chunk_size'], chunk_overlap = 0, length_function = len)
         texts = text_splitter.create_documents([text])
         chunks = [text.page_content for text in texts]
         return chunks
@@ -168,7 +164,7 @@ class KnowledgeBase:
     def cosine_similarity(self, v1, v2):
         return np.dot(v1, v2) # since the embeddings are normalized
 
-    def search(self, query: str, top_k: int, use_reranker: bool = True) -> list:
+    def search(self, query: str, top_k: int) -> list:
         """
         Get top k most relevant chunks for a given query. This is where we interface with the vector database.
         - returns a list of dictionaries, where each dictionary has the following keys: `metadata` (which contains 'doc_id', 'chunk_index', 'chunk_text', and 'chunk_header') and `similarity`
@@ -184,7 +180,7 @@ class KnowledgeBase:
         """
         all_ranked_results = []
         for query in search_queries:
-            ranked_results = self.search(query, 100, use_reranker=True)
+            ranked_results = self.search(query, 100)
             all_ranked_results.append(ranked_results)
         return all_ranked_results
     
