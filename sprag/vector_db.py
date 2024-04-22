@@ -5,6 +5,26 @@ import os
 
 
 class VectorDB(ABC):
+    subclasses = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.subclasses[cls.__name__] = cls
+
+    def to_dict(self):
+        return {
+            'subclass_name': self.__class__.__name__,
+        }
+
+    @classmethod
+    def from_dict(cls, config):
+        subclass_name = config.pop('subclass_name', None)  # Remove subclass_name from config
+        subclass = cls.subclasses.get(subclass_name)
+        if subclass:
+            return subclass(**config)  # Pass the modified config without subclass_name
+        else:
+            raise ValueError(f"Unknown subclass: {subclass_name}")
+
     @abstractmethod
     def add_vectors(self, vector, metadata):
         """
@@ -40,8 +60,9 @@ class VectorDB(ABC):
 
 class BasicVectorDB(VectorDB):
     def __init__(self, kb_id: str, storage_directory: str = '~/spRAG'):
-        self.storage_directory = os.path.expanduser(storage_directory)  # Expand the user path
-        self.storage_path = os.path.join(self.storage_directory, 'vector_storage', f'{kb_id}.pkl')
+        self.kb_id = kb_id
+        self.storage_directory = storage_directory
+        self.vector_storage_path = os.path.join(self.storage_directory, 'vector_storage', f'{kb_id}.pkl')
         self.load()
 
     def add_vectors(self, vectors, metadata):
@@ -78,14 +99,21 @@ class BasicVectorDB(VectorDB):
         self.save()
 
     def save(self):
-        os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)  # Ensure the directory exists
-        with open(self.storage_path, 'wb') as f:
+        os.makedirs(os.path.dirname(self.vector_storage_path), exist_ok=True)  # Ensure the directory exists
+        with open(self.vector_storage_path, 'wb') as f:
             pickle.dump((self.vectors, self.metadata), f)
 
     def load(self):
-        if os.path.exists(self.storage_path):
-            with open(self.storage_path, 'rb') as f:
+        if os.path.exists(self.vector_storage_path):
+            with open(self.vector_storage_path, 'rb') as f:
                 self.vectors, self.metadata = pickle.load(f)
         else:
             self.vectors = []
             self.metadata = []
+
+    def to_dict(self):
+        return {
+            **super().to_dict(),
+            'kb_id': self.kb_id,
+            'storage_directory': self.storage_directory,
+        }

@@ -2,7 +2,7 @@ import numpy as np
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-from sprag.vector_db import BasicVectorDB
+from sprag.vector_db import BasicVectorDB, VectorDB
 
 def teardown():
     storage_directory = "/tmp"
@@ -64,6 +64,25 @@ def test_save_and_load():
     assert new_db.metadata[1]['doc_id'] == '2'
     teardown()
 
+def test_load_from_dict():
+    config = {
+        'subclass_name': 'BasicVectorDB',
+        'kb_id': 'test_db',
+        'storage_directory': '/tmp'
+    }
+    vector_db_instance = VectorDB.from_dict(config)
+    assert isinstance(vector_db_instance, BasicVectorDB)
+    assert vector_db_instance.kb_id == 'test_db'
+    teardown()
+
+def test_save_and_load_from_dict():
+    db = BasicVectorDB("test_db", "/tmp")
+    config = db.to_dict()
+    vector_db_instance = VectorDB.from_dict(config)
+    assert isinstance(vector_db_instance, BasicVectorDB)
+    assert vector_db_instance.kb_id == 'test_db'
+    teardown()
+
 def test_assertion_error_on_mismatched_input_lengths():
     db = BasicVectorDB("test_db", "/tmp")
     vectors = [np.array([1, 0])]
@@ -84,4 +103,6 @@ if __name__ == '__main__':
     test_empty_search()
     test_save_and_load()
     test_assertion_error_on_mismatched_input_lengths()
+    test_load_from_dict()
+    test_save_and_load_from_dict()
     print("All tests passed!")

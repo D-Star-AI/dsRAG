@@ -16,9 +16,30 @@ dimensionality = {
 }
 
 class Embedding(ABC):
+    subclasses = {}
+
     def __init__(self, dimension=None):
         self.dimension = dimension
 
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.subclasses[cls.__name__] = cls
+
+    def to_dict(self):
+        return {
+            'subclass_name': self.__class__.__name__,
+            'dimension': self.dimension
+        }
+
+    @classmethod
+    def from_dict(cls, config):
+        subclass_name = config.pop('subclass_name', None)  # Remove subclass_name from config
+        subclass = cls.subclasses.get(subclass_name)
+        if subclass:
+            return subclass(**config)  # Pass the modified config without subclass_name
+        else:
+            raise ValueError(f"Unknown subclass: {subclass_name}")
+        
     @abstractmethod
     def get_embeddings(self, text, input_type=None):
         pass
@@ -36,6 +57,13 @@ class OpenAIEmbedding(Embedding):
         response = self.client.embeddings.create(input=text, model=self.model, dimensions=int(self.dimension))
         embeddings = [embedding_item.embedding for embedding_item in response.data]
         return embeddings[0] if isinstance(text, str) else embeddings
+    
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update({
+            'model': self.model
+        })
+        return base_dict
 
 class CohereEmbedding(Embedding):
     def __init__(self, model: str = "embed-english-v3.0", dimension: int = None):
@@ -59,6 +87,13 @@ class CohereEmbedding(Embedding):
             input_type = "search_document"
         response = self.client.embed(texts=[text] if isinstance(text, str) else text, input_type=input_type, model=self.model)
         return response.embeddings[0] if isinstance(text, str) else response.embeddings
+    
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update({
+            'model': self.model
+        })
+        return base_dict
 
 class VoyageAIEmbedding(Embedding):
     def __init__(self, model: str = "voyage-large-2", dimension: int = None):
@@ -79,3 +114,10 @@ class VoyageAIEmbedding(Embedding):
             return voyageai.get_embedding(text, model=self.model, input_type=input_type)
         else:
             return voyageai.get_embeddings(text, model=self.model, input_type=input_type)
+        
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update({
+            'model': self.model
+        })
+        return base_dict

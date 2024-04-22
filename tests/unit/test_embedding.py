@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
-from sprag.embedding import OpenAIEmbedding, CohereEmbedding, VoyageAIEmbedding
+from sprag.embedding import OpenAIEmbedding, CohereEmbedding, VoyageAIEmbedding, Embedding
 
 def test_get_embeddings_openai():
     input_text = "Hello, world!"
@@ -51,6 +51,17 @@ def test_get_embeddings_voyage_with_list():
     assert len(embeddings) == 2
     assert all(len(embed) == 1536 for embed in embeddings)
 
+def test_initialize_from_config():
+    config = {
+        'subclass_name': 'OpenAIEmbedding',
+        'model': 'text-embedding-3-small',
+        'dimension': 1024
+    }
+    embedding_instance = Embedding.from_dict(config)
+    assert isinstance(embedding_instance, OpenAIEmbedding)
+    assert embedding_instance.model == 'text-embedding-3-small'
+    assert embedding_instance.dimension == 1024
+
 
 if __name__ == "__main__":
     # run tests
@@ -60,3 +71,5 @@ if __name__ == "__main__":
     test_get_embeddings_openai_with_list()
     test_get_embeddings_cohere_with_list()
     test_get_embeddings_voyage_with_list()
+    test_initialize_from_config()
+    print("All tests passed!")

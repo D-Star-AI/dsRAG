@@ -3,8 +3,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 import pickle
 import os
 import time
+import json
 from sprag.auto_context import get_document_context, get_chunk_header
-from sprag.reranker import rerank_search_results
 from sprag.rse import get_relevance_values, get_best_segments, get_meta_document
 from sprag.vector_db import VectorDB, BasicVectorDB
 from sprag.chunk_db import ChunkDB, BasicChunkDB
@@ -14,69 +14,74 @@ from sprag.llm import LLM, AnthropicChatAPI
 
 
 class KnowledgeBase:
-    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", embedding_model: Embedding = None, reranker: Reranker = None, auto_context_model: LLM = None, vector_db: VectorDB = None, chunk_db: ChunkDB = None, storage_directory: str = '~/spRAG'):
+    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", storage_directory: str = '~/spRAG', embedding_model: Embedding = None, reranker: Reranker = None, auto_context_model: LLM = None, vector_db: VectorDB = None, chunk_db: ChunkDB = None):
         self.kb_id = kb_id
-        self.embedding_model = embedding_model
-        self.reranker = reranker
-        self.auto_context_model = auto_context_model
-        self.chunk_db = chunk_db # store chunk text and chunk headers
-        self.vector_db = vector_db # to store embeddings
-        self.kb_metadata = {} # to store title, description, etc.
-        self.chunk_size = 800 # max number of characters in a chunk
-        self.storage_directory = f'{storage_directory}/knowledge_bases/'
+        self.storage_directory = os.path.expanduser(f'{storage_directory}/knowledge_bases/')
+        metadata_path = f'{self.storage_directory}/metadata/{self.kb_id}.json'
+        self.chunk_size = 800 # max number of characters in a chunk - should be replaced with a Chunking class for more flexibility
 
-        if self.embedding_model is None:
-            self.embedding_model = OpenAIEmbedding()
-        self.vector_dimension = self.embedding_model.dimension
-
-        if self.reranker is None:
-            self.reranker = CohereReranker()
-
-        if self.auto_context_model is None:
-            self.auto_context_model = AnthropicChatAPI()
-
-        if self.vector_db is None:
-            self.vector_db = BasicVectorDB(kb_id, self.storage_directory)
-
-        if chunk_db is None:
-            self.chunk_db = BasicChunkDB(kb_id, self.storage_directory)
-
-        # load the database from disk if it exists
-        if os.path.exists(f'{self.storage_directory}{self.kb_id}_metadata.pkl'):
+        # load the KB if it exists; otherwise, initialize it and save it to disk
+        if os.path.exists(metadata_path):
             self.load()
         else:
-            self.kb_metadata['title'] = title
-            self.kb_metadata['description'] = description
-            self.kb_metadata['language'] = language
-            self.kb_metadata['embedding_model'] = embedding_model
-            self.save() # save the metadata
+            self.kb_metadata = {
+                'title': title,
+                'description': description,
+                'language': language,
+            }
+            self.initialize_components(embedding_model, reranker, auto_context_model, vector_db, chunk_db)
+            self.save() # save the config for the KB to disk
+
+    def initialize_components(self, embedding_model, reranker, auto_context_model, vector_db, chunk_db):
+        self.embedding_model = embedding_model if embedding_model else OpenAIEmbedding()
+        self.reranker = reranker if reranker else CohereReranker()
+        self.auto_context_model = auto_context_model if auto_context_model else AnthropicChatAPI()
+        self.vector_db = vector_db if vector_db else BasicVectorDB(self.kb_id, self.storage_directory)
+        self.chunk_db = chunk_db if chunk_db else BasicChunkDB(self.kb_id, self.storage_directory)
+        self.vector_dimension = self.embedding_model.dimension
 
     def save(self):
-        with open(f'{self.storage_directory}{self.kb_id}_database.pkl', 'wb') as f:
-            pickle.dump(self.chunk_db, f)
-        with open(f'{self.storage_directory}{self.kb_id}_metadata.pkl', 'wb') as f:
-            pickle.dump(self.kb_metadata, f)
+        # Serialize components
+        components = {
+            'embedding_model': self.embedding_model.to_dict(),
+            'reranker': self.reranker.to_dict(),
+            'auto_context_model': self.auto_context_model.to_dict(),
+            'vector_db': self.vector_db.to_dict(),
+            'chunk_db': self.chunk_db.to_dict()
+        }
+        # Combine metadata and components
+        full_data = {**self.kb_metadata, 'components': components}
+        with open(f'{self.storage_directory}/metadata/{self.kb_id}.json', 'w') as f:
+            json.dump(full_data, f, indent=4)
 
     def load(self):
-        with open(f'{self.storage_directory}{self.kb_id}_metadata.pkl', 'rb') as f:
-            self.kb_metadata = pickle.load(f)
-        try:
-            with open(f'{self.storage_directory}{self.kb_id}_database.pkl', 'rb') as f:
-                self.chunk_db = pickle.load(f)
-        except:
-            self.chunk_db = {}
+        with open(f'{self.storage_directory}/metadata/{self.kb_id}.json', 'r') as f:
+            data = json.load(f)
+            self.kb_metadata = {key: value for key, value in data.items() if key != 'components'}
+            components = data.get('components', {})
+            # Deserialize components
+            self.embedding_model = Embedding.from_dict(components.get('embedding_model', {}))
+            self.reranker = Reranker.from_dict(components.get('reranker', {}))
+            self.auto_context_model = LLM.from_dict(components.get('auto_context_model', {}))
+            self.vector_db = VectorDB.from_dict(components.get('vector_db', {}))
+            self.chunk_db = ChunkDB.from_dict(components.get('chunk_db', {}))
+            self.vector_dimension = self.embedding_model.dimension
 
-    def delete(self, retain_metadata: bool = False):
-        # delete all documents in the KB so they get removed from the doc_id_to_kb_id mapping
-        doc_ids_to_delete = list(self.chunk_db.keys())
+    def delete(self):
+        # delete all documents in the KB
+        doc_ids_to_delete = self.chunk_db.get_all_doc_ids()
         for doc_id in doc_ids_to_delete:
             self.delete_document(doc_id)
 
-        # delete the database and metadata files
-        os.remove(f'{self.storage_directory}{self.kb_id}_database.pkl')
+        # get all doc_ids
+        doc_ids = self.chunk_db.get_all_doc_ids()
 
-        if not retain_metadata:
-            os.remove(f'{self.storage_directory}{self.kb_id}_metadata.pkl')
+        for doc_id in doc_ids:
+            self.chunk_db.remove_document(doc_id)
+            self.vector_db.remove_document(doc_id)
+
+        # delete the metadata file
+        os.remove(f'{self.storage_directory}metadata/{self.kb_id}.json')
 
     def add_document(self, doc_id: str, text: str, auto_context: bool = True, chunk_header: str = None, auto_context_guidance: str = ""):
         # verify that only one of auto_context and chunk_header is set

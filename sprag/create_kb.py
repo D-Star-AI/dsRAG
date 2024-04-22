@@ -3,7 +3,7 @@ from sprag.knowledge_base import KnowledgeBase
 import os
 import time
 
-def create_kb_from_directory(kb_id: str, directory: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, embedding_model: str = 'text-embedding-3-small-768', auto_context_guidance: str = ""):
+def create_kb_from_directory(kb_id: str, directory: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, auto_context_guidance: str = ""):
     """
     - kb_id is the name of the knowledge base
     - directory is the absolute path to the directory containing the documents
@@ -15,7 +15,7 @@ def create_kb_from_directory(kb_id: str, directory: str, title: str = None, desc
         title = kb_id
     
     # create a new KB
-    kb = KnowledgeBase(kb_id, title=title, description=description, language=language, embedding_model=embedding_model)
+    kb = KnowledgeBase(kb_id, title=title, description=description, language=language)
 
     # verify that the new KB doesn't already exist by making sure kb.database is an empty dictionary
     if kb.chunk_db:
@@ -49,7 +49,7 @@ def create_kb_from_directory(kb_id: str, directory: str, title: str = None, desc
     
     return kb
 
-def create_kb_from_file(kb_id: str, file_path: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, embedding_model: str = 'text-embedding-3-small-768', auto_context_guidance: str = ""):
+def create_kb_from_file(kb_id: str, file_path: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, auto_context_guidance: str = ""):
     """
     - kb_id is the name of the knowledge base
     - file_path is the absolute path to the file containing the documents
@@ -60,7 +60,7 @@ def create_kb_from_file(kb_id: str, file_path: str, title: str = None, descripti
         title = kb_id
     
     # create a new KB
-    kb = KnowledgeBase(kb_id, title=title, description=description, language=language, embedding_model=embedding_model)
+    kb = KnowledgeBase(kb_id, title=title, description=description, language=language)
 
     # verify that the new KB doesn't already exist by making sure kb.database is an empty dictionary
     if kb.chunk_db:

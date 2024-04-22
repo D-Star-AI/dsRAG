@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
-from sprag.reranker import CohereReranker
+from sprag.reranker import CohereReranker, Reranker
 
 def test_rerank_search_results():
     query = "Hello, world!"
@@ -26,6 +26,13 @@ def test_rerank_search_results():
     assert reranked_search_results[0]["metadata"]["chunk_text"] == "Hello, world!"
     assert reranked_search_results[1]["metadata"]["chunk_text"] == "Goodbye, world!"
 
+def test_save_and_load_from_dict():
+    reranker = CohereReranker(model="embed-english-v3.0")
+    config = reranker.to_dict()
+    reranker_instance = Reranker.from_dict(config)
+    assert reranker_instance.model == "embed-english-v3.0"
+
 if __name__ == "__main__":
     # run tests
     test_rerank_search_results()
+    test_save_and_load_from_dict()

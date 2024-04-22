@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from sprag.chunk_db import BasicChunkDB
+from sprag.chunk_db import BasicChunkDB, ChunkDB
 import shutil
 
 
@@ -63,11 +63,19 @@ def test_persistence():
     assert doc_id in db2.data, "Data was not persisted correctly."
     print("test_persistence passed.")
 
+def test_save_and_load_from_dict():
+    kb_id, storage_directory = setup_test_environment()
+    db = BasicChunkDB(kb_id, storage_directory)
+    config = db.to_dict()
+    db2 = ChunkDB.from_dict(config)
+    assert db2.kb_id == db.kb_id, "Failed to load kb_id from dict."
+
 def run_all_tests():
     test_add_and_get_chunk_text()
     test_get_chunk_header()
     test_remove_document()
     test_persistence()
+    test_save_and_load_from_dict()
     cleanup_test_environment()
 
 def cleanup_test_environment():
