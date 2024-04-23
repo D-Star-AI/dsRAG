@@ -15,12 +15,7 @@ def create_kb_from_directory(kb_id: str, directory: str, title: str = None, desc
         title = kb_id
     
     # create a new KB
-    kb = KnowledgeBase(kb_id, title=title, description=description, language=language)
-
-    # verify that the new KB doesn't already exist by making sure kb.database is an empty dictionary
-    if kb.chunk_db:
-        print (f'KB with id {kb_id} already exists. No documents were added.')
-        return
+    kb = KnowledgeBase(kb_id, title=title, description=description, language=language, exists_ok=False)
 
     # add documents
     for root, dirs, files in os.walk(directory):
@@ -60,12 +55,7 @@ def create_kb_from_file(kb_id: str, file_path: str, title: str = None, descripti
         title = kb_id
     
     # create a new KB
-    kb = KnowledgeBase(kb_id, title=title, description=description, language=language)
-
-    # verify that the new KB doesn't already exist by making sure kb.database is an empty dictionary
-    if kb.chunk_db:
-        print (f'KB with id {kb_id} already exists. No documents were added.')
-        return
+    kb = KnowledgeBase(kb_id, title=title, description=description, language=language, exists_ok=False)
     
     print (f'Creating KB with id {kb_id}...')
 

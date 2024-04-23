@@ -14,14 +14,16 @@ from sprag.llm import LLM, AnthropicChatAPI
 
 
 class KnowledgeBase:
-    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", storage_directory: str = '~/spRAG', embedding_model: Embedding = None, reranker: Reranker = None, auto_context_model: LLM = None, vector_db: VectorDB = None, chunk_db: ChunkDB = None):
+    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", storage_directory: str = '~/spRAG', embedding_model: Embedding = None, reranker: Reranker = None, auto_context_model: LLM = None, vector_db: VectorDB = None, chunk_db: ChunkDB = None, exists_ok: bool = True):
         self.kb_id = kb_id
         self.storage_directory = os.path.expanduser(storage_directory)
 
         # load the KB if it exists; otherwise, initialize it and save it to disk
         metadata_path = self.get_metadata_path()
-        if os.path.exists(metadata_path):
+        if os.path.exists(metadata_path) and exists_ok:
             self.load()
+        elif os.path.exists(metadata_path) and not exists_ok:
+            raise ValueError(f"Knowledge Base with ID {kb_id} already exists. Use exists_ok=True to load it.")
         else:
             self.kb_metadata = {
                 'title': title,
@@ -91,15 +93,10 @@ class KnowledgeBase:
         except:
             print ("Error in add_document: only one of auto_context and chunk_header can be set")
 
-        # verify that the document doesn't already exist in this KB
-        with open(f'{self.storage_directory}doc_id_to_kb_id.pkl', 'rb') as f:
-            mapping = pickle.load(f)
-
-        if doc_id in mapping:
-            if mapping[doc_id] == self.kb_id:
-                # document already exists in this KB - skip it
-                print (f'Document with id {doc_id} already exists in this KB')
-                return
+        # verify that the document does not already exist in the KB
+        if doc_id in self.chunk_db.get_all_doc_ids():
+            print (f"Document with ID {doc_id} already exists in the KB. Skipping...")
+            return
         
         # AutoContext
         if auto_context:
