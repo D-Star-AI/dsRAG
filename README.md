@@ -17,25 +17,49 @@ For example, suppose you have a bunch of SEC filings in a knowledge base and you
 In our benchmarking, the combination of these two techniques dramatically improves accuracy on complex open-book question answering tasks. On one especially challenging benchmark, FinanceBench, spRAG gets accurate answers 43% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
 
 # Tutorial
+#### Quickstart
 By default, spRAG uses OpenAI for embeddings, Claude 3 Haiku for AutoContext, and Cohere for reranking, so to run the code below you'll need to make sure you have API keys for those providers set as environmental variables with the following names: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `COHERE_API_KEY`.
 
-You can create a new KnowledgeBase like this:
-```
+You can create a new KnowledgeBase directly from a file using the `create_kb_from_file` function:
+```python
 from sprag.create_kb import create_kb_from_file
+
 file_path = "spRAG/tests/data/levels_of_agi.pdf"
 kb_id = "levels_of_agi"
 kb = create_kb_from_file(kb_id, file_path)
 ```
-The KnowledgeBase persists to disk automatically, so you don't need to explicitly save it at this point.
+KnowledgeBase objects persists to disk automatically, so you don't need to explicitly save it at this point.
 
 Now you can load the KnowledgeBase by its `kb_id` (only necessary if you run this from a separate script) and query it using the `query` method:
-```
+```python
 from sprag.knowledge_base import KnowledgeBase
+
 kb = KnowledgeBase("levels_of_agi")
 search_queries = ["What are the levels of AGI?", "What is the highest level of AGI?"]
 results = kb.query(search_queries)
 for segment in results:
     print(segment)
+```
+
+#### Basic customization
+Now let's look at an example of how we can customize the configuration of a KnowledgeBase. In this case, we'll customize it so that it only uses OpenAI (useful if you don't have API keys for Anthropic and Cohere). To do so, we need to pass in a subclass of `LLM` and a subclass of `Reranker`. We'll use `gpt-3.5-turbo` for the LLM (this is what gets used for document summarization in AutoContext) and since OpenAI doesn't offer a reranker, we'll use the `NoReranker` class for that.
+```python
+from sprag.llm import OpenAIChatAPI
+from sprag.reranker import NoReranker
+
+llm = OpenAIChatAPI(model='gpt-3.5-turbo')
+reranker = NoReranker()
+
+kb = KnowledgeBase(kb_id="levels_of_agi", reranker=reranker, auto_context_model=llm)
+```
+
+Now we can add documents to this KnowledgeBase using the `add_document` method. Note that the `add_document` method takes in raw text, not files, so we'll have to extract the text from our file first. There are some utility functions for doing this in the `document_parsing.py` file.
+```python
+from sprag.document_parsing import extract_text_from_pdf
+
+file_path = "spRAG/tests/data/levels_of_agi.pdf"
+text = extract_text_from_pdf(file_path)
+kb.add_document(doc_id=file_path, text=text)
 ```
 
 # Architecture
