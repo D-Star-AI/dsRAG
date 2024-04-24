@@ -16,6 +16,28 @@ For example, suppose you have a bunch of SEC filings in a knowledge base and you
 ## Benchmark results
 In our benchmarking, the combination of these two techniques dramatically improves accuracy on complex open-book question answering tasks. On one especially challenging benchmark, FinanceBench, spRAG gets accurate answers 43% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
 
+# Tutorial
+By default, spRAG uses OpenAI for embeddings, Claude 3 Haiku for AutoContext, and Cohere for reranking, so to run the code below you'll need to make sure you have API keys for those providers set as environmental variables with the following names: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `COHERE_API_KEY`.
+
+You can create a new KnowledgeBase like this:
+```
+from sprag.create_kb import create_kb_from_file
+file_path = "spRAG/tests/data/levels_of_agi.pdf"
+kb_id = "levels_of_agi"
+kb = create_kb_from_file(kb_id, file_path)
+```
+The KnowledgeBase persists to disk automatically, so you don't need to explicitly save it at this point.
+
+Now you can load the KnowledgeBase by its `kb_id` (only necessary if you run this from a separate script) and query it using the `query` method:
+```
+from sprag.knowledge_base import KnowledgeBase
+kb = KnowledgeBase("levels_of_agi")
+search_queries = ["What are the levels of AGI?", "What is the highest level of AGI?"]
+results = kb.query(search_queries)
+for segment in results:
+    print(segment)
+```
+
 # Architecture
 
 ## KnowledgeBase object
