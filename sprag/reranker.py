@@ -50,3 +50,10 @@ class CohereReranker(Reranker):
             'model': self.model,
         })
         return base_dict
+    
+class NoReranker(Reranker):
+    def rerank_search_results(self, query: str, search_results: list) -> list:
+        return search_results
+
+    def to_dict(self):
+        return super().to_dict()
