@@ -14,7 +14,7 @@ Relevant Segment Extraction (RSE) is a post-processing step that takes clusters 
 For example, suppose you have a bunch of SEC filings in a knowledge base and you ask “What were Apple’s key financial results in the most recent fiscal year?” RSE will identify the most relevant segment as the entire “Consolidated Statement of Operations” section, which will be 5-10 chunks long. Whereas if you ask “Who is Apple’s CEO?” the most relevant segment will be identified as a single chunk that mentions “Tim Cook, CEO.”
 
 ## Benchmark results
-In our benchmarking, the combination of these two techniques dramatically improves accuracy on complex open-book question answering tasks. On one especially challenging benchmark, FinanceBench, spRAG gets accurate answers 43% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
+spRAG achieves substantially higher accuracy than vanilla RAG baselines on complex open-book question answering tasks. On one especially challenging benchmark, FinanceBench, spRAG gets accurate answers 80% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
 
 # Tutorial
 #### Quickstart
