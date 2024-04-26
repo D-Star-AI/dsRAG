@@ -59,9 +59,10 @@ class VectorDB(ABC):
 
 
 class BasicVectorDB(VectorDB):
-    def __init__(self, kb_id: str, storage_directory: str = '~/spRAG'):
+    def __init__(self, kb_id: str, storage_directory: str = '~/spRAG', use_faiss: bool = True):
         self.kb_id = kb_id
         self.storage_directory = storage_directory
+        self.use_faiss = use_faiss
         self.vector_storage_path = os.path.join(self.storage_directory, 'vector_storage', f'{kb_id}.pkl')
         self.load()
 
@@ -77,6 +78,10 @@ class BasicVectorDB(VectorDB):
     def search(self, query_vector, top_k=10):
         if not self.vectors:
             return []
+        
+        if self.use_faiss:
+            return self.search_faiss(query_vector, top_k)
+
         similarities = cosine_similarity([query_vector], self.vectors)[0]
         indexed_similarities = sorted(enumerate(similarities), key=lambda x: x[1], reverse=True)
         results = []
@@ -84,6 +89,24 @@ class BasicVectorDB(VectorDB):
             result = {
                 'metadata': self.metadata[i],
                 'similarity': similarity,
+            }
+            results.append(result)
+        return results
+    
+    def search_faiss(self, query_vector, top_k=10):
+        from faiss.contrib.exhaustive_search import knn
+        import numpy as np
+
+        # faiss expects 2D arrays of vectors
+        vectors_array = np.array(self.vectors).astype('float32').reshape(len(self.vectors), -1)
+        query_vector_array = np.array(query_vector).astype('float32').reshape(1, -1)
+        
+        _, I = knn(query_vector_array, vectors_array, top_k) # I is a list of indices in the corpus_vectors array
+        results = []
+        for i in I[0][:top_k]:
+            result = {
+                'metadata': self.metadata[i],
+                'similarity': cosine_similarity([query_vector], [self.vectors[i]])[0][0],
             }
             results.append(result)
         return results
@@ -116,4 +139,5 @@ class BasicVectorDB(VectorDB):
             **super().to_dict(),
             'kb_id': self.kb_id,
             'storage_directory': self.storage_directory,
+            'use_faiss': False,
         }

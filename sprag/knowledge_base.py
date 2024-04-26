@@ -1,6 +1,5 @@
 import numpy as np
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-import pickle
 import os
 import time
 import json
@@ -177,7 +176,7 @@ class KnowledgeBase:
         """
         all_ranked_results = []
         for query in search_queries:
-            ranked_results = self.search(query, 100)
+            ranked_results = self.search(query, 200)
             all_ranked_results.append(ranked_results)
         return all_ranked_results
     
@@ -188,15 +187,18 @@ class KnowledgeBase:
             segment += chunk_text
         return segment.strip()
     
-    def query(self, search_queries: list[str], max_length: int = 10, overall_max_length: int = 20, minimum_value: float = 0.7, irrelevant_chunk_penalty: float = 0.2, overall_max_length_extension: int = 5, decay_rate: int = 20, top_k_for_document_selection: int = 7, latency_profiling: bool = False) -> list[dict]:
+    def query(self, search_queries: list[str], rse_params: dict = {}, latency_profiling: bool = False) -> list[dict]:
         """
         Inputs:
         - search_queries: list of search queries
-        - max_length: maximum length of a segment, measured in number of chunks
-        - overall_max_length: maximum length of all segments combined, measured in number of chunks
-        - minimum_value: minimum value of a segment, measured in relevance value
-        - irrelevant_chunk_penalty: float between 0 and 1
-        - overall_max_length_extension: the maximum length of all segments combined will be increased by this amount for each additional query beyond the first
+        - rse_params: dictionary containing the following parameters:
+            - max_length: maximum length of a segment, measured in number of chunks
+            - overall_max_length: maximum length of all segments combined, measured in number of chunks
+            - minimum_value: minimum value of a segment, measured in relevance value
+            - irrelevant_chunk_penalty: float between 0 and 1
+            - overall_max_length_extension: the maximum length of all segments combined will be increased by this amount for each additional query beyond the first
+            - decay_rate
+            - top_k_for_document_selection: the number of documents to consider
 
         Returns relevant_segment_info, a list of segment_info dictionaries, ordered by relevance, that each contain:
         - doc_id: the document ID of the document that the segment is from
@@ -204,6 +206,25 @@ class KnowledgeBase:
         - chunk_end: the (non-inclusive) end index of the segment in the document
         - text: the full text of the segment
         """
+
+        default_rse_params = {
+            'max_length': 10,
+            'overall_max_length': 20,
+            'minimum_value': 0.7,
+            'irrelevant_chunk_penalty': 0.2,
+            'overall_max_length_extension': 5,
+            'decay_rate': 20,
+            'top_k_for_document_selection': 7
+        }
+
+        # set the RSE parameters
+        max_length = rse_params.get('max_length', default_rse_params['max_length'])
+        overall_max_length = rse_params.get('overall_max_length', default_rse_params['overall_max_length'])
+        minimum_value = rse_params.get('minimum_value', default_rse_params['minimum_value'])
+        irrelevant_chunk_penalty = rse_params.get('irrelevant_chunk_penalty', default_rse_params['irrelevant_chunk_penalty'])
+        overall_max_length_extension = rse_params.get('overall_max_length_extension', default_rse_params['overall_max_length_extension'])
+        decay_rate = rse_params.get('decay_rate', default_rse_params['decay_rate'])
+        top_k_for_document_selection = rse_params.get('top_k_for_document_selection', default_rse_params['top_k_for_document_selection'])
 
         overall_max_length += (len(search_queries) - 1) * overall_max_length_extension # increase the overall max length for each additional query
 

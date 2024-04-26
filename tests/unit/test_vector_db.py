@@ -95,6 +95,23 @@ def test_assertion_error_on_mismatched_input_lengths():
         assert str(e) == 'Error in add_vectors: the number of vectors and metadata items must be the same.'
     teardown()
 
+def test_faiss_search():
+    db = BasicVectorDB("test_db", "/tmp", use_faiss=True)
+    vectors = [np.array([1, 0]), np.array([0, 1])]
+    metadata = [{'doc_id': '1', 'chunk_index': 0, 'chunk_header': 'Header1', 'chunk_text': 'Text1'},
+                {'doc_id': '2', 'chunk_index': 1, 'chunk_header': 'Header2', 'chunk_text': 'Text2'}]
+    
+    db.add_vectors(vectors, metadata)
+    query_vector = np.array([1, 0])
+    
+    faiss_results = db.search(query_vector, top_k=1)
+
+    db.use_faiss = False
+    non_faiss_results = db.search(query_vector, top_k=1)
+
+    assert faiss_results == non_faiss_results
+    teardown()
+
 
 if __name__ == '__main__':
     teardown()
@@ -105,4 +122,5 @@ if __name__ == '__main__':
     test_assertion_error_on_mismatched_input_lengths()
     test_load_from_dict()
     test_save_and_load_from_dict()
+    test_faiss_search()
     print("All tests passed!")
