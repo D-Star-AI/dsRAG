@@ -1,7 +1,7 @@
 # spRAG
 spRAG is a high-performance RAG framework for unstructured data. It is especially good at handling complex queries over dense text, like financial reports and legal documents.
 
-spRAG achieves substantially higher accuracy than vanilla RAG baselines on complex open-book question answering tasks. On one especially challenging benchmark, [FinanceBench](https://arxiv.org/abs/2311.11944), spRAG gets accurate answers 80% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
+spRAG achieves substantially higher accuracy than vanilla RAG baselines on complex open-book question answering tasks. On one especially challenging benchmark, [FinanceBench](https://arxiv.org/abs/2311.11944), spRAG gets accurate answers 83% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
 
 There are two key methods used to improve performance over vanilla RAG systems:
 1. AutoContext
