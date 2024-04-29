@@ -102,4 +102,4 @@ Documents -> chunking -> embedding -> chunk and vector database upsert
 Queries -> vector database search -> reranking -> RSE -> results
 
 # Community and support
-You can join our [Discord](https://discord.gg/szrqPJPr5w) to ask questions, make suggestions, and discuss contributions.
+You can join our [Discord](https://discord.gg/NTUVX9DmQ3) to ask questions, make suggestions, and discuss contributions.
