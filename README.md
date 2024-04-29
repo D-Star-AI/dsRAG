@@ -29,7 +29,7 @@ file_path = "spRAG/tests/data/levels_of_agi.pdf"
 kb_id = "levels_of_agi"
 kb = create_kb_from_file(kb_id, file_path)
 ```
-KnowledgeBase objects persists to disk automatically, so you don't need to explicitly save it at this point.
+KnowledgeBase objects persist to disk automatically, so you don't need to explicitly save it at this point.
 
 Now you can load the KnowledgeBase by its `kb_id` (only necessary if you run this from a separate script) and query it using the `query` method:
 ```python
@@ -100,3 +100,6 @@ Documents -> chunking -> embedding -> chunk and vector database upsert
 
 ## Query flow
 Queries -> vector database search -> reranking -> RSE -> results
+
+# Community and support
+You can join our [Discord](https://discord.gg/szrqPJPr5w) to ask questions, make suggestions, and discuss contributions.
