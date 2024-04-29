@@ -1,0 +1,15 @@
+tiktoken
+faiss-cpu
+instructor
+anthropic
+pydantic
+openai
+typing
+cohere
+scikit-learn
+numpy
+langchain
+voyageai
+PyPDF2
+docx2txt
+pandas
