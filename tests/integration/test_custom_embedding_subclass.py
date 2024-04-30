@@ -45,5 +45,8 @@ def test_custom_embedding_subclass():
     assert kb.embedding_model.model == "text-embedding-3-large"
     assert kb.embedding_model.dimension == 1024
 
+    # delete the knowledge base
+    cleanup()
+
 if __name__ == "__main__":
     test_custom_embedding_subclass()

@@ -28,8 +28,11 @@ def get_response(question: str, context: str):
     chat_messages = [{"role": "system", "content": RESPONSE_SYSTEM_MESSAGE.format(context=context)}, {"role": "user", "content": question}]
     return client.make_llm_call(chat_messages)
 
-dataset_file_path = "spRAG/tests/data/financebench_sample_150.csv"
-dataset_file_path = os.path.abspath(dataset_file_path) # convert to absolute path
+# Get the absolute path of the script file
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Construct the absolute path to the dataset file
+dataset_file_path = os.path.join(script_dir, "../../tests/data/financebench_sample_150.csv")
 
 # Read in the data
 df = pd.read_csv(dataset_file_path)

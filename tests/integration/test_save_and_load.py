@@ -8,11 +8,16 @@ from sprag.knowledge_base import KnowledgeBase
 from sprag.llm import OpenAIChatAPI
 from sprag.embedding import VoyageAIEmbedding
 
+def cleanup():
+    kb = KnowledgeBase(kb_id="test_kb", exists_ok=True)
+    kb.delete()
+
+cleanup()
 
 # initialize a KnowledgeBase object
 auto_context_model = OpenAIChatAPI(model="gpt-4-turbo")
 embedding_model = VoyageAIEmbedding(model="voyage-code-2")
-kb = KnowledgeBase(kb_id="test_kb", auto_context_model=auto_context_model, embedding_model=embedding_model)
+kb = KnowledgeBase(kb_id="test_kb", auto_context_model=auto_context_model, embedding_model=embedding_model, exists_ok=False)
 
 # load the KnowledgeBase object
 kb1 = KnowledgeBase(kb_id="test_kb")

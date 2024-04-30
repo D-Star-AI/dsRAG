@@ -11,8 +11,11 @@ if __name__ == "__main__":
     When deciding what to search for, first consider the pieces of information that will be needed to answer the question. Then, consider what to search for to find those pieces of information. For example, if the question asks what the change in revenue was from 2019 to 2020, you would want to search for the 2019 and 2020 revenue numbers in two separate search queries, since those are the two separate pieces of information needed. You should also think about where you are most likely to find the information you're looking for. If you're looking for assets and liabilities, you may want to search for the balance sheet, for example.
     """.strip()
 
-    dataset_file_path = "spRAG/tests/data/financebench_sample_150.csv"
-    dataset_file_path = os.path.abspath(dataset_file_path) # convert to absolute path
+    # Get the absolute path of the script file
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Construct the absolute path to the dataset file
+    dataset_file_path = os.path.join(script_dir, "../data/financebench_sample_150.csv")
 
     # Read in the data
     df = pd.read_csv(dataset_file_path)

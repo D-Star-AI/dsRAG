@@ -38,7 +38,7 @@ class CohereReranker(Reranker):
         Use Cohere Rerank API to rerank the search results
         """
         documents = [f"[{result['metadata']['chunk_header']}]\n{result['metadata']['chunk_text']}" for result in search_results]
-        reranked_results = self.client.rerank(query, documents, model=self.model)
+        reranked_results = self.client.rerank(model=self.model, query=query, documents=documents)
         results = reranked_results.results
         reranked_indices = [result.index for result in results]
         reranked_search_results = [search_results[i] for i in reranked_indices]
