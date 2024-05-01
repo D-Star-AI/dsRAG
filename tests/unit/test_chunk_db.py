@@ -1,90 +1,79 @@
 import os
 import sys
+import unittest
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from sprag.chunk_db import BasicChunkDB, ChunkDB
 import shutil
 
 
-def setup_test_environment():
-    test_storage_directory = '~/test_spRAG'
-    test_kb_id = 'test_kb'
-    resolved_test_storage_directory = os.path.expanduser(test_storage_directory)
-    if os.path.exists(resolved_test_storage_directory):
-        shutil.rmtree(resolved_test_storage_directory)
-    return test_kb_id, test_storage_directory
+class TestChunkDB(unittest.TestCase):
+    def setUp(self):
+        self.storage_directory = '~/test_spRAG'
+        self.kb_id = 'test_kb'
+        resolved_test_storage_directory = os.path.expanduser(self.storage_directory)
+        if os.path.exists(resolved_test_storage_directory):
+            shutil.rmtree(resolved_test_storage_directory)
+        return super().setUp()
 
-def test_add_and_get_chunk_text():
-    kb_id, storage_directory = setup_test_environment()
-    db = BasicChunkDB(kb_id, storage_directory)
-    doc_id = 'doc1'
-    chunks = {
-        0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'},
-        1: {'chunk_header': 'Header 2', 'chunk_text': 'Content of chunk 2'}
-    }
-    db.add_document(doc_id, chunks)
-    retrieved_chunk = db.get_chunk_text(doc_id, 0)
-    assert retrieved_chunk == chunks[0]['chunk_text'], "Failed to retrieve the correct chunk."
-    print("test_add_and_get_chunk passed.")
+    @classmethod
+    def tearDownClass(cls):
+        test_storage_directory = '~/test_spRAG'
+        resolved_test_storage_directory = os.path.expanduser(test_storage_directory)
+        if os.path.exists(resolved_test_storage_directory):
+            shutil.rmtree(resolved_test_storage_directory)
+        return super().tearDownClass()
 
-def test_get_chunk_header():
-    kb_id, storage_directory = setup_test_environment()
-    db = BasicChunkDB(kb_id, storage_directory)
-    doc_id = 'doc1'
-    chunks = {
-        0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'}
-    }
-    db.add_document(doc_id, chunks)
-    header = db.get_chunk_header(doc_id, 0)
-    assert header == 'Header 1', "Failed to retrieve the correct chunk header."
-    print("test_get_chunk_header passed.")
 
-def test_remove_document():
-    kb_id, storage_directory = setup_test_environment()
-    db = BasicChunkDB(kb_id, storage_directory)
-    doc_id = 'doc1'
-    chunks = {
-        0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'}
-    }
-    db.add_document(doc_id, chunks)
-    db.remove_document(doc_id)
-    assert doc_id not in db.data, "Document was not removed."
-    print("test_remove_document passed.")
+    def test__add_and_get_chunk_text(self):
+        db = BasicChunkDB(self.kb_id, self.storage_directory)
+        doc_id = 'doc1'
+        chunks = {
+            0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'},
+            1: {'chunk_header': 'Header 2', 'chunk_text': 'Content of chunk 2'}
+        }
+        db.add_document(doc_id, chunks)
+        retrieved_chunk = db.get_chunk_text(doc_id, 0)
+        self.assertEqual(retrieved_chunk, chunks[0]['chunk_text'])
 
-def test_persistence():
-    kb_id, storage_directory = setup_test_environment()
-    db = BasicChunkDB(kb_id, storage_directory)
-    doc_id = 'doc1'
-    chunks = {
-        0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'}
-    }
-    db.add_document(doc_id, chunks)
-    db2 = BasicChunkDB(kb_id, storage_directory)
-    assert doc_id in db2.data, "Data was not persisted correctly."
-    print("test_persistence passed.")
+    def test__get_chunk_header(self):
+        db = BasicChunkDB(self.kb_id, self.storage_directory)
+        doc_id = 'doc1'
+        chunks = {
+            0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'}
+        }
+        db.add_document(doc_id, chunks)
+        header = db.get_chunk_header(doc_id, 0)
+        self.assertEqual(header, 'Header 1')
 
-def test_save_and_load_from_dict():
-    kb_id, storage_directory = setup_test_environment()
-    db = BasicChunkDB(kb_id, storage_directory)
-    config = db.to_dict()
-    db2 = ChunkDB.from_dict(config)
-    assert db2.kb_id == db.kb_id, "Failed to load kb_id from dict."
+    def test__remove_document(self):
+        db = BasicChunkDB(self.kb_id, self.storage_directory)
+        doc_id = 'doc1'
+        chunks = {
+            0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'}
+        }
+        db.add_document(doc_id, chunks)
+        db.remove_document(doc_id)
+        self.assertNotIn(doc_id, db.data)
 
-def run_all_tests():
-    test_add_and_get_chunk_text()
-    test_get_chunk_header()
-    test_remove_document()
-    test_persistence()
-    test_save_and_load_from_dict()
-    cleanup_test_environment()
+    def test__persistence(self):
+        db = BasicChunkDB(self.kb_id, self.storage_directory)
+        doc_id = 'doc1'
+        chunks = {
+            0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'}
+        }
+        db.add_document(doc_id, chunks)
+        db2 = BasicChunkDB(self.kb_id, self.storage_directory)
+        self.assertIn(doc_id, db2.data)
 
-def cleanup_test_environment():
-    test_storage_directory = '~/test_spRAG'
-    resolved_test_storage_directory = os.path.expanduser(test_storage_directory)
-    if os.path.exists(resolved_test_storage_directory):
-        shutil.rmtree(resolved_test_storage_directory)
-    print("Cleaned up test environment.")
+    def test__save_and_load_from_dict(self):
+        db = BasicChunkDB(self.kb_id, self.storage_directory)
+        config = db.to_dict()
+        db2 = ChunkDB.from_dict(config)
+        assert db2.kb_id == db.kb_id, "Failed to load kb_id from dict."
+        self.assertEqual(db2.kb_id, db.kb_id)
 
 # Run all tests
 if __name__ == '__main__':
-    run_all_tests()
+    unittest.main()

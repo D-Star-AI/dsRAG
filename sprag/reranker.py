@@ -30,7 +30,7 @@ class Reranker(ABC):
 class CohereReranker(Reranker):
     def __init__(self, model: str = "rerank-english-v3.0"):
         self.model = model
-        cohere_api_key = os.environ['COHERE_API_KEY']
+        cohere_api_key = os.environ['CO_API_KEY']
         self.client = cohere.Client(f'{cohere_api_key}')
 
     def rerank_search_results(self, query: str, search_results: list) -> list:

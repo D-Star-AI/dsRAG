@@ -1,6 +1,7 @@
 import sys
 import os
 from openai import OpenAI
+import unittest
 
 # add ../../ to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
@@ -26,27 +27,29 @@ class CustomEmbedding(Embedding):
         })
         return base_dict
     
-def cleanup():
-    kb = KnowledgeBase(kb_id="test_kb", exists_ok=True)
-    kb.delete()
 
-def test_custom_embedding_subclass():
-    # cleanup the knowledge base
-    cleanup()
+class TestCustomEmbeddingSubclass(unittest.TestCase):
+    def cleanup(self):
+        kb = KnowledgeBase(kb_id="test_kb", exists_ok=True)
+        kb.delete()
 
-    # initialize a KnowledgeBase object with the custom embedding
-    kb_id = "test_kb"
-    kb = KnowledgeBase(kb_id, embedding_model=CustomEmbedding(model="text-embedding-3-large", dimension=1024), exists_ok=False)
+    def test_custom_embedding_subclass(self):
+        # cleanup the knowledge base
+        self.cleanup()
 
-    # load the knowledge base
-    kb = KnowledgeBase(kb_id, exists_ok=True)
+        # initialize a KnowledgeBase object with the custom embedding
+        kb_id = "test_kb"
+        kb = KnowledgeBase(kb_id, embedding_model=CustomEmbedding(model="text-embedding-3-large", dimension=1024), exists_ok=False)
 
-    # verify that the embedding model is set correctly
-    assert kb.embedding_model.model == "text-embedding-3-large"
-    assert kb.embedding_model.dimension == 1024
+        # load the knowledge base
+        kb = KnowledgeBase(kb_id, exists_ok=True)
 
-    # delete the knowledge base
-    cleanup()
+        # verify that the embedding model is set correctly
+        self.assertEqual(kb.embedding_model.model, "text-embedding-3-large")
+        self.assertEqual(kb.embedding_model.dimension, 1024)
+
+        # delete the knowledge base
+        self.cleanup()
 
 if __name__ == "__main__":
-    test_custom_embedding_subclass()
+    unittest.main()
