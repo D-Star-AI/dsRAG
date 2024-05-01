@@ -69,7 +69,7 @@ class CohereEmbedding(Embedding):
     def __init__(self, model: str = "embed-english-v3.0", dimension: int = None):
         super().__init__()
         self.model = model
-        self.client = cohere.Client(os.environ['COHERE_API_KEY'])
+        self.client = cohere.Client()
         
         # Set dimension if not provided
         if dimension is None:
