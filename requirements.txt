@@ -9,7 +9,7 @@ pydantic
 typing
 scikit-learn
 numpy
-langchain
+langchain_text_splitters
 PyPDF2
 docx2txt
 pandas
