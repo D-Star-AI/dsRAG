@@ -20,6 +20,8 @@ Relevant Segment Extraction (RSE) is a post-processing step that takes clusters 
 For example, suppose you have a bunch of SEC filings in a knowledge base and you ask “What were Apple’s key financial results in the most recent fiscal year?” RSE will identify the most relevant segment as the entire “Consolidated Statement of Operations” section, which will be 5-10 chunks long. Whereas if you ask “Who is Apple’s CEO?” the most relevant segment will be identified as a single chunk that mentions “Tim Cook, CEO.”
 
 # Tutorial
+The easiest way to install spRAG is to use the Python package: `pip install sprag`
+
 #### Quickstart
 By default, spRAG uses OpenAI for embeddings, Claude 3 Haiku for AutoContext, and Cohere for reranking, so to run the code below you'll need to make sure you have API keys for those providers set as environmental variables with the following names: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `CO_API_KEY`.
 
