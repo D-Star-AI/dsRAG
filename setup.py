@@ -25,10 +25,10 @@ setuptools.setup(
     project_urls={
         "Homepage": "https://github.com/SuperpoweredAI/spRAG",
         "Documentation": "https://github.com/SuperpoweredAI/spRAG",
-        "Contact": "zach@superpowered.ai",
+        "Contact": "https://github.com/SuperpoweredAI/spRAG",
     },
     author="Superpowered AI",
-    author_email="zach@superpowered.ai",
+    author_email="zach@superpowered.ai, justin@superpowered.ai",
     packages=["sprag"],
     install_requires=read("requirements.txt"),
     include_package_data=True,
