@@ -1,7 +1,7 @@
 # spRAG
 [![Discord](https://img.shields.io/discord/1234629280755875881.svg?label=Discord&logo=discord&color=7289DA)](https://discord.gg/NTUVX9DmQ3)
 
-spRAG is a high-performance RAG framework for unstructured data. It is especially good at handling complex queries over dense text, like financial reports and legal documents.
+spRAG is a RAG framework for unstructured data. It is especially good at handling challenging queries over dense text, like financial reports, legal documents, and academic papers.
 
 spRAG achieves substantially higher accuracy than vanilla RAG baselines on complex open-book question answering tasks. On one especially challenging benchmark, [FinanceBench](https://arxiv.org/abs/2311.11944), spRAG gets accurate answers 83% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
 
@@ -23,7 +23,7 @@ For example, suppose you have a bunch of SEC filings in a knowledge base and you
 The easiest way to install spRAG is to use the Python package: `pip install sprag`
 
 #### Quickstart
-By default, spRAG uses OpenAI for embeddings, Claude 3 Haiku for AutoContext, and Cohere for reranking, so to run the code below you'll need to make sure you have API keys for those providers set as environmental variables with the following names: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `CO_API_KEY`.
+By default, spRAG uses OpenAI for embeddings, Claude 3 Haiku for AutoContext, and Cohere for reranking, so to run the code below you'll need to make sure you have API keys for those providers set as environmental variables with the following names: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `CO_API_KEY`. **If you want to run spRAG with different models, take a look at the "Basic customization" section below.**
 
 You can create a new KnowledgeBase directly from a file using the `create_kb_from_file` function:
 ```python
@@ -87,17 +87,35 @@ There are defaults for each of these components, as well as alternative options 
 #### VectorDB
 The VectorDB component stores the embedding vectors, as well as a small amount of metadata.
 
+The currently available options are:
+- `BasicVectorDB`
+
 #### ChunkDB
 The ChunkDB stores the content of text chunks in a nested dictionary format, keyed on `doc_id` and `chunk_index`. This is used by RSE to retrieve the full text associated with specific chunks.
+
+The currently available options are:
+- `BasicChunkDB`
 
 #### Embedding
 The Embedding component defines the embedding model.
 
+The currently available options are:
+- `OpenAIEmbedding`
+- `CohereEmbedding`
+- `VoyageAIEmbedding`
+
 #### Reranker
 The Reranker components define the reranker. This is used after the vector database search (and before RSE) to provide a more accurate ranking of chunks.
 
+The currently available options are:
+- `CohereReranker`
+
 #### LLM
 This defines the LLM to be used for document summarization, which is only used in AutoContext.
+
+The currently available options are:
+- `OpenAIChatAPI`
+- `AnthropicChatAPI`
 
 ## Document upload flow
 Documents -> chunking -> embedding -> chunk and vector database upsert
