@@ -42,15 +42,6 @@ class WeaviateVectorDB(VectorDB):
             class_name: The name of the Weaviate class to use for storing data.
             kb_id: An optional identifier for the knowledge base.
         """
-        connection_params = weaviate.connect.ConnectionParams.from_params(
-            http_host=http_host,
-            http_port=http_port,
-            http_secure=http_secure,
-            grpc_host=grpc_host,
-            grpc_port=grpc_port,
-            grpc_secure=grpc_secure,
-        )
-
         additional_headers = {}
         if openai_api_key != None:
             additional_headers = {"X-OpenAI-Api-Key": openai_api_key}
@@ -67,6 +58,14 @@ class WeaviateVectorDB(VectorDB):
                 additional_headers=additional_headers,
             )
         else:
+            connection_params = weaviate.connect.ConnectionParams.from_params(
+                http_host=http_host,
+                http_port=http_port,
+                http_secure=http_secure,
+                grpc_host=grpc_host,
+                grpc_port=grpc_port,
+                grpc_secure=grpc_secure,
+            )
             self.client = weaviate.WeaviateClient(
                 connection_params=connection_params,
                 auth_client_secret=weaviate.auth.AuthApiKey(weaviate_secret),

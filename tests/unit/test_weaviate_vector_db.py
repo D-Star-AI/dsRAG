@@ -49,37 +49,6 @@ class TestWeaviateVectorDB(unittest.TestCase):
         results = self.db.search(query_vector, top_k=2)
         self.assertEqual(len(results), 1)  # Expect 1 result as document 1 is deleted
 
-    # def test_semantic_search(self):
-    #     vectors = [np.array([1, 0]), np.array([0, 1])]
-    #     metadata = [
-    #         {"doc_id": "1", "chunk_text": "This is document 1."},
-    #         {"doc_id": "2", "chunk_text": "This is document 2."},
-    #     ]
-    #     self.db.add_vectors(vectors, metadata)
-
-    #     results = self.db.semantic_search("document", top_k=2)
-
-    #     self.assertEqual(len(results), 2)
-    #     self.assertIn(results[0]["metadata"]["doc_id"], ["1", "2"])
-    #     self.assertIn(results[1]["metadata"]["doc_id"], ["1", "2"])
-
-    # def test_generative_search(self):
-    #     vectors = [np.array([1, 0]), np.array([0, 1])]
-    #     metadata = [
-    #         {"doc_id": "1", "chunk_text": "This is document 1."},
-    #         {"doc_id": "2", "chunk_text": "This is document 2."},
-    #     ]
-    #     self.db.add_vectors(vectors, metadata)
-
-    #     prompt_template = "Summarize the content: {chunk_text}"
-    #     results = self.db.generative_search("document", prompt_template, top_k=2)
-
-    #     self.assertEqual(len(results), 2)
-    #     self.assertIn(results[0]["metadata"]["doc_id"], ["1", "2"])
-    #     self.assertIn(results[1]["metadata"]["doc_id"], ["1", "2"])
-    #     self.assertIsNotNone(results[0]["generated_text"])
-    #     self.assertIsNotNone(results[1]["generated_text"])
-
 
 if __name__ == "__main__":
     unittest.main()
