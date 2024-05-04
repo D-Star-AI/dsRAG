@@ -71,10 +71,28 @@ class TestEmbedding(unittest.TestCase):
         self.assertEqual(len(embeddings), 2)
         self.assertTrue(all(len(embed) == 1536 for embed in embeddings))
 
-    def test__get_embeddings_ollama_with_list(self):
+    def test__get_embeddings_ollama_with_list_llama2(self):
         input_texts = ["Hello, world!", "Goodbye, world!"]
         model = "llama2"
         dimension = 4096
+        embedding_provider = OllamaEmbedding(model, dimension)
+        embeddings = embedding_provider.get_embeddings(input_texts)
+        self.assertEqual(len(embeddings), 2)
+        self.assertTrue(all(len(embed) == dimension for embed in embeddings))
+
+    def test__get_embeddings_ollama_with_list_minilm(self):
+        input_texts = ["Hello, world!", "Goodbye, world!"]
+        model = "all-minilm"
+        dimension = 384
+        embedding_provider = OllamaEmbedding(model, dimension)
+        embeddings = embedding_provider.get_embeddings(input_texts)
+        self.assertEqual(len(embeddings), 2)
+        self.assertTrue(all(len(embed) == dimension for embed in embeddings))
+
+    def test__get_embeddings_ollama_with_list_nomic(self):
+        input_texts = ["Hello, world!", "Goodbye, world!"]
+        model = "nomic-embed-text"
+        dimension = 768
         embedding_provider = OllamaEmbedding(model, dimension)
         embeddings = embedding_provider.get_embeddings(input_texts)
         self.assertEqual(len(embeddings), 2)
