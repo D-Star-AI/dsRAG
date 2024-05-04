@@ -103,6 +103,7 @@ The currently available options are:
 - `OpenAIEmbedding`
 - `CohereEmbedding`
 - `VoyageAIEmbedding`
+- `OllamaEmbedding`
 
 #### Reranker
 The Reranker components define the reranker. This is used after the vector database search (and before RSE) to provide a more accurate ranking of chunks.
@@ -116,6 +117,7 @@ This defines the LLM to be used for document summarization, which is only used i
 The currently available options are:
 - `OpenAIChatAPI`
 - `AnthropicChatAPI`
+- `OllamaChatAPI`
 
 ## Document upload flow
 Documents -> chunking -> embedding -> chunk and vector database upsert
