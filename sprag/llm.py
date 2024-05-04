@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 import os
+import ollama
+
 
 class LLM(ABC):
     subclasses = {}
@@ -93,4 +95,36 @@ class AnthropicChatAPI(LLM):
             'temperature': self.temperature,
             'max_tokens': self.max_tokens
         })
+        return base_dict
+
+class OllamaAPI(LLM):
+    def __init__(
+        self, model: str = "llama3", temperature: float = 0.2, max_tokens: int = 1000
+    ):
+        self.client = ollama.Client()  # Assuming default host
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        ollama.pull(self.model)
+
+    def make_llm_call(self, chat_messages: list[dict]) -> str:
+        response = self.client.chat(
+            model=self.model,
+            messages=chat_messages,
+            options={
+                "num_predict": self.max_tokens,
+                "temperature": self.temperature,
+            },
+        )
+        return response["message"]["content"].strip()
+
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update(
+            {
+                "model": self.model,
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
+            }
+        )
         return base_dict

@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from openai import OpenAI
 import cohere
 import voyageai
+import ollama
 
 
 dimensionality = {
@@ -119,4 +120,28 @@ class VoyageAIEmbedding(Embedding):
         base_dict.update({
             'model': self.model
         })
+        return base_dictclass OllamaEmbedding(Embedding):
+
+
+class OllamaEmbedding(Embedding):
+    def __init__(self, model: str = "llama3", dimension: int = 4096):
+        super().__init__(dimension)
+        self.model = model
+        self.client = ollama.Client()
+        ollama.pull(model)
+
+    def get_embeddings(self, text, input_type=None):
+        if isinstance(text, list):
+            responses = []
+            for text in text:
+                response = self.client.embeddings(model=self.model, prompt=text)
+                responses.append(response["embedding"])
+            return responses
+        else:
+            response = self.client.embeddings(model=self.model, prompt=text)
+            return response["embedding"]
+
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update({"model": self.model})
         return base_dict
