@@ -120,7 +120,8 @@ class VoyageAIEmbedding(Embedding):
         base_dict.update({
             'model': self.model
         })
-        return base_dictclass OllamaEmbedding(Embedding):
+        base_dict.update({"model": self.model})
+        return base_dict
 
 
 class OllamaEmbedding(Embedding):
