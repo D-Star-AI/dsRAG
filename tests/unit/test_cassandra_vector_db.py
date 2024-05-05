@@ -54,6 +54,7 @@ class TestCassandraVectorDB(unittest.TestCase):
 
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0]["metadata"]["doc_id"], "doc1")
+        self.assertEqual(results[0]["doc_id"], "doc1")
         self.assertAlmostEqual(results[0]["similarity"], 1.0)
 
     def test_remove_document(self):
