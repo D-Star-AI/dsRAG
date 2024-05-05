@@ -48,6 +48,7 @@ class TestWeaviateVectorDB(unittest.TestCase):
         query_vector = np.array([1, 0])
         results = self.db.search(query_vector, top_k=2)
         self.assertEqual(len(results), 1)  # Expect 1 result as document 1 is deleted
+        self.assertEqual(results[0]["metadata"]["doc_id"], "2")
 
 
 if __name__ == "__main__":
