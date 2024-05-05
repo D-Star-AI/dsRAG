@@ -83,6 +83,8 @@ class CassandraVectorDB(VectorDB):
                 "similarity": match[
                     "distance"
                 ],  # Distance is "similarity" in this version of Cassio
+                "vector": match["vector"],
+                "doc_id": match["row_id"],
             }
             for match in results
         ]
