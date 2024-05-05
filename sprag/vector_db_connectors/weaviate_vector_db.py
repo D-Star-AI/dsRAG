@@ -115,6 +115,7 @@ class WeaviateVectorDB(VectorDB):
                     properties={
                         "content": chunk_text,
                         "doc_id": doc_id,
+                        "metadata": meta,
                     },
                     vector=vector,
                     uuid=uuid,
@@ -151,12 +152,9 @@ class WeaviateVectorDB(VectorDB):
         for obj in response.objects:
             results.append(
                 {
-                    "metadata": {
-                        "doc_id": obj.properties["doc_id"],
-                        "chunk_text": obj.properties["content"],
-                    },
+                    "doc_id": obj.properties["doc_id"],
+                    "metadata": obj.properties["metadata"],
                     "similarity": 1.0 - obj.metadata.distance,
-                    "uuid": obj.uuid,
                     "vector": obj.vector,
                 }
             )
