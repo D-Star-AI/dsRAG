@@ -129,10 +129,13 @@ class VoyageAIEmbedding(Embedding):
 
 
 class OllamaEmbedding(Embedding):
-    def __init__(self, model: str = "llama3", dimension: int = None):
+
+    def __init__(
+        self, model: str = "llama3", dimension: int = None, client: ollama.Client = None
+    ):
         super().__init__(dimension)
         self.model = model
-        self.client = ollama.Client()
+        self.client = client or ollama.Client()
         ollama.pull(model)
 
         if dimension is None:

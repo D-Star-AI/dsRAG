@@ -99,9 +99,9 @@ class AnthropicChatAPI(LLM):
 
 class OllamaAPI(LLM):
     def __init__(
-        self, model: str = "llama3", temperature: float = 0.2, max_tokens: int = 1000
+        self, model: str = "llama3", temperature: float = 0.2, max_tokens: int = 1000, client: ollama.Client = None
     ):
-        self.client = ollama.Client()  # Assuming default host
+        self.client = client or ollama.Client()
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
