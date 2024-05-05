@@ -14,6 +14,10 @@ dimensionality = {
     "voyage-large-2": 1536,
     "voyage-law-2": 1024,
     "voyage-code-2": 1536,
+    "llama2": 4096,
+    "llama3": 4096,
+    "all-minilm": 384,
+    "nomic-embed-text": 768,
 }
 
 class Embedding(ABC):
@@ -125,11 +129,21 @@ class VoyageAIEmbedding(Embedding):
 
 
 class OllamaEmbedding(Embedding):
-    def __init__(self, model: str = "llama3", dimension: int = 4096):
+    def __init__(self, model: str = "llama3", dimension: int = None):
         super().__init__(dimension)
         self.model = model
         self.client = ollama.Client()
         ollama.pull(model)
+
+        if dimension is None:
+            try:
+                self.dimension = dimensionality[model]
+            except KeyError:
+                raise ValueError(
+                    f"Dimension for model {model} is unknown. Please provide the dimension manually."
+                )
+        else:
+            self.dimension = dimension
 
     def get_embeddings(self, text, input_type=None):
         if isinstance(text, list):
