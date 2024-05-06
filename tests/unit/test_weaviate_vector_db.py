@@ -3,9 +3,9 @@ import os
 import sys
 import unittest
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.append(os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../..")))
 from sprag.vector_db_connectors.weaviate_vector_db import WeaviateVectorDB
-
 
 class TestWeaviateVectorDB(unittest.TestCase):
     def setUp(self):
@@ -20,11 +20,10 @@ class TestWeaviateVectorDB(unittest.TestCase):
         return super().tearDown()
 
     def test_add_vectors_and_search(self):
-        vectors = [np.array([1, 0]), np.array([0, 1])]
-        metadata = [
-            {"doc_id": "1", "chunk_text": "This is document 1."},
-            {"doc_id": "2", "chunk_text": "This is document 2."},
-        ]
+        vectors = [np.array([1, 0]), np.array([0, 1]), np.array([1, 1])]
+        metadata = [{'doc_id': '1', 'chunk_index': 0, 'chunk_header': 'Header1', 'chunk_text': 'Text1'},
+                    {'doc_id': '1', 'chunk_index': 1, 'chunk_header': 'Header2', 'chunk_text': 'Text2'},
+                    {'doc_id': '2', 'chunk_index': 0, 'chunk_header': 'Header3', 'chunk_text': 'Text3'}]
         self.db.add_vectors(vectors, metadata)
 
         query_vector = np.array([1, 0])
@@ -32,22 +31,25 @@ class TestWeaviateVectorDB(unittest.TestCase):
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["metadata"]["doc_id"], "1")
+        self.assertEqual(results[0]["metadata"]["chunk_index"], 0)
+        self.assertEqual(results[0]["metadata"]["chunk_header"], "Header1")
+        self.assertEqual(results[0]["metadata"]["chunk_text"], "Text1")
         self.assertGreaterEqual(results[0]["similarity"], 0.99)
 
     def test_remove_document(self):
-        vectors = [np.array([1, 0]), np.array([0, 1])]
-        metadata = [
-            {"doc_id": "1", "chunk_text": "This is document 1."},
-            {"doc_id": "2", "chunk_text": "This is document 2."},
-        ]
+        vectors = [np.array([1, 0]), np.array([0, 1]), np.array([1, 1])]
+        metadata = [{'doc_id': '1', 'chunk_index': 0, 'chunk_header': 'Header1', 'chunk_text': 'Text1'},
+                    {'doc_id': '1', 'chunk_index': 1, 'chunk_header': 'Header2', 'chunk_text': 'Text2'},
+                    {'doc_id': '2', 'chunk_index': 0, 'chunk_header': 'Header3', 'chunk_text': 'Text3'}]
         self.db.add_vectors(vectors, metadata)
 
         self.db.remove_document("1")
 
         # Verify document removal indirectly (Weaviate doesn't provide a direct way to list documents)
         query_vector = np.array([1, 0])
-        results = self.db.search(query_vector, top_k=2)
-        self.assertEqual(len(results), 1)  # Expect 1 result as document 1 is deleted
+        results = self.db.search(query_vector, top_k=3)
+        # Expect 1 result as document 1 is deleted
+        self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["metadata"]["doc_id"], "2")
 
 

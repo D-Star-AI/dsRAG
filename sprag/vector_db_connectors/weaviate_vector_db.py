@@ -110,11 +110,13 @@ class WeaviateVectorDB(VectorDB):
             for vector, meta in zip(vectors, metadata):
                 doc_id = meta.get("doc_id", "")
                 chunk_text = meta.get("chunk_text", "")
-                uuid = generate_uuid5(doc_id)
+                chunk_index = meta.get("chunk_index", 0)
+                uuid = generate_uuid5(f"{doc_id}_{chunk_index}")
                 batch.add_object(
                     properties={
                         "content": chunk_text,
                         "doc_id": doc_id,
+                        "chunk_index": chunk_index,
                         "metadata": meta,
                     },
                     vector=vector,
@@ -128,8 +130,10 @@ class WeaviateVectorDB(VectorDB):
         Args:
             doc_id: The UUID of the document to remove.
         """
-        uuid = generate_uuid5(doc_id)
-        self.collection.data.delete_by_id(uuid)
+        self.collection.data.delete_many(
+            where=wvc.query.Filter.by_property("doc_id").contains_any([doc_id])
+        )
+
 
     def search(self, query_vector, top_k=10):
         """
