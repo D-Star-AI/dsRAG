@@ -1,3 +1,4 @@
+import numpy as np
 import weaviate
 import weaviate.classes as wvc
 from weaviate.util import generate_uuid5
@@ -154,9 +155,13 @@ class WeaviateVectorDB(VectorDB):
             A list of dictionaries containing the metadata and similarity scores of
             the top-k results.
         """
+        # convert the query vector to a list if it's not already
+        if isinstance(query_vector, np.ndarray):
+            query_vector = query_vector.tolist()
+
         results = []
         response = self.collection.query.near_vector(
-            near_vector=query_vector.tolist(),
+            near_vector=query_vector,
             limit=top_k,
             return_metadata=wvc.query.MetadataQuery(distance=True),
         )
