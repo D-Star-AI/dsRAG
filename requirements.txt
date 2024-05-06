@@ -14,3 +14,4 @@ PyPDF2
 docx2txt
 pandas
 ollama
+weaviate-client

@@ -89,6 +89,7 @@ The VectorDB component stores the embedding vectors, as well as a small amount o
 
 The currently available options are:
 - `BasicVectorDB`
+- `WeaviateVectorDB`
 
 #### ChunkDB
 The ChunkDB stores the content of text chunks in a nested dictionary format, keyed on `doc_id` and `chunk_index`. This is used by RSE to retrieve the full text associated with specific chunks.
