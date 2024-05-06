@@ -13,3 +13,4 @@ langchain-text-splitters
 PyPDF2
 docx2txt
 pandas
+weaviate-client
