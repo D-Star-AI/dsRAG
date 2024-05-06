@@ -14,6 +14,7 @@ class WeaviateVectorDB(VectorDB):
 
     def __init__(
         self,
+        kb_id: str,
         http_host="localhost",
         http_port="8099",
         http_secure=False,
@@ -21,9 +22,6 @@ class WeaviateVectorDB(VectorDB):
         grpc_port="50052",
         grpc_secure=False,
         weaviate_secret="secr3tk3y",
-        openai_api_key: str = None,
-        class_name="Document",
-        kb_id: str = "WeaviateVectorDBKnowledgeBase",
         init_timeout: int = 2,
         query_timeout: int = 45,
         insert_timeout: int = 120,
@@ -42,10 +40,22 @@ class WeaviateVectorDB(VectorDB):
             class_name: The name of the Weaviate class to use for storing data.
             kb_id: An optional identifier for the knowledge base.
         """
-        additional_headers = {}
-        if openai_api_key != None:
-            additional_headers = {"X-OpenAI-Api-Key": openai_api_key}
+        
+        # save all of these parameters as attributes so they're easily accessible for the to_dict method
+        self.kb_id = kb_id
+        self.http_host = http_host
+        self.http_port = http_port
+        self.http_secure = http_secure
+        self.grpc_host = grpc_host
+        self.grpc_port = grpc_port
+        self.grpc_secure = grpc_secure
+        self.weaviate_secret = weaviate_secret
+        self.init_timeout = init_timeout
+        self.query_timeout = query_timeout
+        self.insert_timeout = insert_timeout
+        self.use_embedded_weaviate = use_embedded_weaviate
 
+        additional_headers = {}
         if use_embedded_weaviate:
             additional_headers["ENABLE_MODULES"] = (
                 "backup-filesystem,text2vec-openai,text2vec-cohere,text2vec-huggingface,ref2vec-centroid,generative-openai,qna-openai"
@@ -76,11 +86,9 @@ class WeaviateVectorDB(VectorDB):
                     )
                 ),
             )
+        
         self.client.connect()
-        self.class_name = class_name
-        self.kb_id = kb_id
-
-        self.collection = self.client.collections.get(kb_id)
+        self.collection = self.client.collections.get(kb_id) # assume this creates a new collection if it doesn't exist
 
     def close(self):
         """
@@ -134,7 +142,6 @@ class WeaviateVectorDB(VectorDB):
             where=wvc.query.Filter.by_property("doc_id").contains_any([doc_id])
         )
 
-
     def search(self, query_vector, top_k=10):
         """
         Searches for the top-k closest vectors to the given query vector.
@@ -163,3 +170,20 @@ class WeaviateVectorDB(VectorDB):
                 }
             )
         return results
+
+    def to_dict(self):
+        return {
+            **super().to_dict(),
+            'kb_id': self.kb_id,
+            'http_host': self.http_host,
+            'http_port': self.http_port,
+            'http_secure': self.http_secure,
+            'grpc_host': self.grpc_host,
+            'grpc_port': self.grpc_port,
+            'grpc_secure': self.grpc_secure,
+            'weaviate_secret': self.weaviate_secret,
+            'init_timeout': self.init_timeout,
+            'query_timeout': self.query_timeout,
+            'insert_timeout': self.insert_timeout,
+            'use_embedded_weaviate': self.use_embedded_weaviate,
+        }
