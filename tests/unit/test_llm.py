@@ -1,8 +1,9 @@
 import os
 import sys
 import unittest
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-from sprag.llm import OpenAIChatAPI, AnthropicChatAPI, LLM
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+from sprag.llm import OpenAIChatAPI, AnthropicChatAPI, OllamaAPI, LLM
 
 
 class TestLLM(unittest.TestCase):
@@ -19,6 +20,15 @@ class TestLLM(unittest.TestCase):
         chat_api = AnthropicChatAPI()
         chat_messages = [
             {"role": "user", "content": "What's the weather like today?"},
+        ]
+        response = chat_api.make_llm_call(chat_messages)
+        self.assertIsInstance(response, str)
+        self.assertGreater(len(response), 0)
+
+    def test__ollama_api(self):
+        chat_api = OllamaAPI()
+        chat_messages = [
+            {"role": "user", "content": "Who's your daddy?"},
         ]
         response = chat_api.make_llm_call(chat_messages)
         self.assertIsInstance(response, str)

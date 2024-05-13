@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from openai import OpenAI
 import cohere
 import voyageai
+import ollama
 
 
 dimensionality = {
@@ -13,6 +14,10 @@ dimensionality = {
     "voyage-large-2": 1536,
     "voyage-law-2": 1024,
     "voyage-code-2": 1536,
+    "llama2": 4096,
+    "llama3": 4096,
+    "all-minilm": 384,
+    "nomic-embed-text": 768,
 }
 
 class Embedding(ABC):
@@ -119,4 +124,42 @@ class VoyageAIEmbedding(Embedding):
         base_dict.update({
             'model': self.model
         })
+        base_dict.update({"model": self.model})
+        return base_dict
+
+
+class OllamaEmbedding(Embedding):
+
+    def __init__(
+        self, model: str = "llama3", dimension: int = None, client: ollama.Client = None
+    ):
+        super().__init__(dimension)
+        self.model = model
+        self.client = client or ollama.Client()
+        ollama.pull(model)
+
+        if dimension is None:
+            try:
+                self.dimension = dimensionality[model]
+            except KeyError:
+                raise ValueError(
+                    f"Dimension for model {model} is unknown. Please provide the dimension manually."
+                )
+        else:
+            self.dimension = dimension
+
+    def get_embeddings(self, text, input_type=None):
+        if isinstance(text, list):
+            responses = []
+            for text in text:
+                response = self.client.embeddings(model=self.model, prompt=text)
+                responses.append(response["embedding"])
+            return responses
+        else:
+            response = self.client.embeddings(model=self.model, prompt=text)
+            return response["embedding"]
+
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update({"model": self.model})
         return base_dict

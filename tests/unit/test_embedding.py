@@ -1,9 +1,16 @@
 import sys
 import os
 import unittest
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
-from sprag.embedding import OpenAIEmbedding, CohereEmbedding, VoyageAIEmbedding, Embedding
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
+
+from sprag.embedding import (
+    OpenAIEmbedding,
+    CohereEmbedding,
+    VoyageAIEmbedding,
+    OllamaEmbedding,
+    Embedding,
+)
 
 
 class TestEmbedding(unittest.TestCase):
@@ -28,6 +35,14 @@ class TestEmbedding(unittest.TestCase):
         embedding_provider = VoyageAIEmbedding(model)
         embedding = embedding_provider.get_embeddings(input_text, input_type="query")
         self.assertEqual(len(embedding), 1536)
+
+    def test__get_embeddings_ollama(self):
+        input_text = "Hello, world!"
+        model = "llama3"
+        dimension = 4096
+        embedding_provider = OllamaEmbedding(model, dimension)
+        embedding = embedding_provider.get_embeddings(input_text)
+        self.assertEqual(len(embedding), dimension)
 
     def test__get_embeddings_openai_with_list(self):
         input_texts = ["Hello, world!", "Goodbye, world!"]
@@ -55,6 +70,33 @@ class TestEmbedding(unittest.TestCase):
         embeddings = embedding_provider.get_embeddings(input_texts, input_type="query")
         self.assertEqual(len(embeddings), 2)
         self.assertTrue(all(len(embed) == 1536 for embed in embeddings))
+
+    def test__get_embeddings_ollama_with_list_llama2(self):
+        input_texts = ["Hello, world!", "Goodbye, world!"]
+        model = "llama2"
+        dimension = 4096
+        embedding_provider = OllamaEmbedding(model, dimension)
+        embeddings = embedding_provider.get_embeddings(input_texts)
+        self.assertEqual(len(embeddings), 2)
+        self.assertTrue(all(len(embed) == dimension for embed in embeddings))
+
+    def test__get_embeddings_ollama_with_list_minilm(self):
+        input_texts = ["Hello, world!", "Goodbye, world!"]
+        model = "all-minilm"
+        dimension = 384
+        embedding_provider = OllamaEmbedding(model, dimension)
+        embeddings = embedding_provider.get_embeddings(input_texts)
+        self.assertEqual(len(embeddings), 2)
+        self.assertTrue(all(len(embed) == dimension for embed in embeddings))
+
+    def test__get_embeddings_ollama_with_list_nomic(self):
+        input_texts = ["Hello, world!", "Goodbye, world!"]
+        model = "nomic-embed-text"
+        dimension = 768
+        embedding_provider = OllamaEmbedding(model, dimension)
+        embeddings = embedding_provider.get_embeddings(input_texts)
+        self.assertEqual(len(embeddings), 2)
+        self.assertTrue(all(len(embed) == dimension for embed in embeddings))
 
     def test__initialize_from_config(self):
         config = {
