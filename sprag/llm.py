@@ -105,7 +105,7 @@ class OllamaAPI(LLM):
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
-        ollama.pull(self.model)
+        self.client.pull(self.model)
 
     def make_llm_call(self, chat_messages: list[dict]) -> str:
         response = self.client.chat(
