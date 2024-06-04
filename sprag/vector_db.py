@@ -139,5 +139,5 @@ class BasicVectorDB(VectorDB):
             **super().to_dict(),
             'kb_id': self.kb_id,
             'storage_directory': self.storage_directory,
-            'use_faiss': False,
+            'use_faiss': self.use_faiss,
         }
