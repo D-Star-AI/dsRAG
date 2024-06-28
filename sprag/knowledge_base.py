@@ -210,11 +210,11 @@ class KnowledgeBase:
         default_rse_params = {
             'max_length': 10,
             'overall_max_length': 20,
-            'minimum_value': 0.7,
-            'irrelevant_chunk_penalty': 0.2,
+            'minimum_value': 0.6,
+            'irrelevant_chunk_penalty': 0.15,
             'overall_max_length_extension': 5,
-            'decay_rate': 20,
-            'top_k_for_document_selection': 7
+            'decay_rate': 30,
+            'top_k_for_document_selection': 7,
         }
 
         # set the RSE parameters
@@ -244,11 +244,11 @@ class KnowledgeBase:
 
         # get the relevance values for each chunk in the meta-document and use those to find the best segments
         all_relevance_values = get_relevance_values(all_ranked_results=all_ranked_results, meta_document_length=meta_document_length, document_start_points=document_start_points, unique_document_ids=unique_document_ids, irrelevant_chunk_penalty=irrelevant_chunk_penalty, decay_rate=decay_rate)
-        best_segments = get_best_segments(all_relevance_values=all_relevance_values, document_splits=document_splits, max_length=max_length, overall_max_length=overall_max_length, minimum_value=minimum_value)
+        best_segments, scores = get_best_segments(all_relevance_values=all_relevance_values, document_splits=document_splits, max_length=max_length, overall_max_length=overall_max_length, minimum_value=minimum_value)
         
         # convert the best segments into a list of dictionaries that contain the document id and the start and end of the chunk
         relevant_segment_info = []
-        for start, end in best_segments:
+        for segment_index, (start, end) in enumerate(best_segments):
             # find the document that this segment starts in
             for i, split in enumerate(document_splits):
                 if start < split: # splits represent the end of each document
@@ -256,6 +256,9 @@ class KnowledgeBase:
                     relevant_segment_info.append({"doc_id": unique_document_ids[i], "chunk_start": start - doc_start, "chunk_end": end - doc_start}) # NOTE: end index is non-inclusive
                     break
         
+            score = scores[segment_index]
+            relevant_segment_info[-1]["score"] = score
+
         # retrieve the actual text for the segments from the database
         for segment_info in relevant_segment_info:
             segment_info["text"] = (self.get_segment_text_from_database(segment_info["doc_id"], segment_info["chunk_start"], segment_info["chunk_end"])) # NOTE: this is where the chunk header is added to the segment text
