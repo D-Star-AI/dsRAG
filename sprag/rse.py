@@ -145,3 +145,33 @@ def adjust_relevance_values_for_chunk_length(relevance_values: list[float], chun
     for relevance_value, chunk_length in zip(relevance_values, chunk_lengths):
         adjusted_relevance_values.append(relevance_value * (chunk_length / reference_length))
     return adjusted_relevance_values
+
+RSE_PARAMS_PRESETS = {
+    "balanced": {
+        'max_length': 15,
+        'overall_max_length': 30,
+        'minimum_value': 0.5,
+        'irrelevant_chunk_penalty': 0.18,
+        'overall_max_length_extension': 5,
+        'decay_rate': 30,
+        'top_k_for_document_selection': 10,
+    },
+    "precision": {
+        'max_length': 15,
+        'overall_max_length': 30,
+        'minimum_value': 0.7,
+        'irrelevant_chunk_penalty': 0.2,
+        'overall_max_length_extension': 5,
+        'decay_rate': 30,
+        'top_k_for_document_selection': 10,
+    },
+    "find_all": {
+        'max_length': 40,
+        'overall_max_length': 200,
+        'minimum_value': 0.4,
+        'irrelevant_chunk_penalty': 0.18,
+        'overall_max_length_extension': 0,
+        'decay_rate': 200,
+        'top_k_for_document_selection': 200,
+    },
+}

@@ -3,8 +3,9 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
 import time
 import json
+from typing import Union, Dict
 from sprag.auto_context import get_document_context, get_chunk_header
-from sprag.rse import get_relevance_values, get_best_segments, get_meta_document
+from sprag.rse import get_relevance_values, get_best_segments, get_meta_document, RSE_PARAMS_PRESETS
 from sprag.vector_db import VectorDB, BasicVectorDB
 from sprag.chunk_db import ChunkDB, BasicChunkDB
 from sprag.embedding import Embedding, OpenAIEmbedding
@@ -187,7 +188,7 @@ class KnowledgeBase:
             segment += chunk_text
         return segment.strip()
     
-    def query(self, search_queries: list[str], rse_params: dict = {}, latency_profiling: bool = False) -> list[dict]:
+    def query(self, search_queries: list[str], rse_params: Union[Dict, str] = "balanced", latency_profiling: bool = False) -> list[dict]:
         """
         Inputs:
         - search_queries: list of search queries
@@ -206,18 +207,14 @@ class KnowledgeBase:
         - chunk_end: the (non-inclusive) end index of the segment in the document
         - text: the full text of the segment
         """
-
-        default_rse_params = {
-            'max_length': 10,
-            'overall_max_length': 20,
-            'minimum_value': 0.6,
-            'irrelevant_chunk_penalty': 0.15,
-            'overall_max_length_extension': 5,
-            'decay_rate': 30,
-            'top_k_for_document_selection': 7,
-        }
+        # check if the rse_params is a preset name and convert it to a dictionary if it is
+        if isinstance(rse_params, str) and rse_params in RSE_PARAMS_PRESETS:
+            rse_params = RSE_PARAMS_PRESETS[rse_params]
+        elif isinstance(rse_params, str):
+            raise ValueError(f"Invalid rse_params preset name: {rse_params}")
 
         # set the RSE parameters
+        default_rse_params = RSE_PARAMS_PRESETS['balanced'] # use the 'balanced' preset as the default for any missing parameters
         max_length = rse_params.get('max_length', default_rse_params['max_length'])
         overall_max_length = rse_params.get('overall_max_length', default_rse_params['overall_max_length'])
         minimum_value = rse_params.get('minimum_value', default_rse_params['minimum_value'])
