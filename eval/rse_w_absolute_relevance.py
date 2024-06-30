@@ -5,7 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
 from sprag.create_kb import create_kb_from_file
 from sprag.knowledge_base import KnowledgeBase
-from sprag.reranker import NoReranker, CohereReranker
+from sprag.reranker import NoReranker, CohereReranker, VoyageReranker
 from sprag.embedding import OpenAIEmbedding, CohereEmbedding
 from sprag.document_parsing import extract_text_from_pdf
 
@@ -29,6 +29,10 @@ def cleanup():
     kb = KnowledgeBase(kb_id="levels_of_agi", exists_ok=True)
     kb.delete()
 
+"""
+This script is for doing qualitative evaluation of RSE
+"""
+
 
 if __name__ == "__main__":
     """
@@ -51,6 +55,7 @@ if __name__ == "__main__":
 
     #reranker = NoReranker(ignore_absolute_relevance=True)
     reranker = CohereReranker()
+    #reranker = VoyageReranker()
     
     # load the KnowledgeBase and query it
     kb = KnowledgeBase(kb_id="levels_of_agi", exists_ok=True, reranker=reranker)
@@ -62,9 +67,9 @@ if __name__ == "__main__":
     #search_queries = ["What is the difference between AGI and ASI?"]
     #search_queries = ["How does autonomy factor into AGI?"]
     #search_queries = ["Self-driving cars"]
-    #search_queries = ["Methodology for determining levels of AGI"]
+    search_queries = ["Methodology for determining levels of AGI"]
     #search_queries = ["Principles for defining levels of AGI"]
-    search_queries = ["What is Autonomy Level 3"]
+    #search_queries = ["What is Autonomy Level 3"]
     #search_queries = ["Use of existing AI benchmarks like Big-bench and HELM"]
     #search_queries = ["Introduction", "Conclusion"]
     #search_queries = ["References"]
@@ -74,6 +79,6 @@ if __name__ == "__main__":
     print ()
     for segment in relevant_segments:
         print (len(segment["text"]))
-        print (segment["score"])
-        print (segment["text"])
+        #print (segment["score"])
+        #print (segment["text"])
         print ("---\n")

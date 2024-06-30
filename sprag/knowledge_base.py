@@ -21,7 +21,7 @@ class KnowledgeBase:
         # load the KB if it exists; otherwise, initialize it and save it to disk
         metadata_path = self.get_metadata_path()
         if os.path.exists(metadata_path) and exists_ok:
-            self.load()
+            self.load(auto_context_model, reranker) # allow the user to override the auto_context_model and reranker
         elif os.path.exists(metadata_path) and not exists_ok:
             raise ValueError(f"Knowledge Base with ID {kb_id} already exists. Use exists_ok=True to load it.")
         else:
@@ -64,15 +64,18 @@ class KnowledgeBase:
         with open(self.get_metadata_path(), 'w') as f:
             json.dump(full_data, f, indent=4)
 
-    def load(self):
+    def load(self, auto_context_model=None, reranker=None):
+        """
+        Note: auto_context_model and reranker can be passed in to override the models in the metadata file. The other components are not overridable because that would break things.
+        """
         with open(self.get_metadata_path(), 'r') as f:
             data = json.load(f)
             self.kb_metadata = {key: value for key, value in data.items() if key != 'components'}
             components = data.get('components', {})
             # Deserialize components
             self.embedding_model = Embedding.from_dict(components.get('embedding_model', {}))
-            self.reranker = Reranker.from_dict(components.get('reranker', {}))
-            self.auto_context_model = LLM.from_dict(components.get('auto_context_model', {}))
+            self.reranker = reranker if reranker else Reranker.from_dict(components.get('reranker', {}))
+            self.auto_context_model = auto_context_model if auto_context_model else LLM.from_dict(components.get('auto_context_model', {}))
             self.vector_db = VectorDB.from_dict(components.get('vector_db', {}))
             self.chunk_db = ChunkDB.from_dict(components.get('chunk_db', {}))
             self.vector_dimension = self.embedding_model.dimension
