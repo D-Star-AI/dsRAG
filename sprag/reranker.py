@@ -93,7 +93,6 @@ class VoyageReranker(Reranker):
             section_title = result['metadata'].get('section_title', '')
             section_title_addendum = f"From section: {section_title}\n" if section_title else ""
             documents.append(f"[result['metadata']['chunk_header']]\n{section_title_addendum}{result['metadata']['chunk_text']}")
-        print ("Calling Voyage Rerank API")
         reranked_results = self.client.rerank(model=self.model, query=query, documents=documents)
         results = reranked_results.results
         reranked_indices = [result.index for result in results]
