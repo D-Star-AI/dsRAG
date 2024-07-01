@@ -3,8 +3,9 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
 import time
 import json
+from typing import Union, Dict
 from sprag.auto_context import get_document_context, get_chunk_header
-from sprag.rse import get_relevance_values, get_best_segments, get_meta_document
+from sprag.rse import get_relevance_values, get_best_segments, get_meta_document, RSE_PARAMS_PRESETS
 from sprag.vector_db import VectorDB, BasicVectorDB
 from sprag.chunk_db import ChunkDB, BasicChunkDB
 from sprag.embedding import Embedding, OpenAIEmbedding
@@ -20,7 +21,7 @@ class KnowledgeBase:
         # load the KB if it exists; otherwise, initialize it and save it to disk
         metadata_path = self.get_metadata_path()
         if os.path.exists(metadata_path) and exists_ok:
-            self.load()
+            self.load(auto_context_model, reranker) # allow the user to override the auto_context_model and reranker
         elif os.path.exists(metadata_path) and not exists_ok:
             raise ValueError(f"Knowledge Base with ID {kb_id} already exists. Use exists_ok=True to load it.")
         else:
@@ -63,15 +64,18 @@ class KnowledgeBase:
         with open(self.get_metadata_path(), 'w') as f:
             json.dump(full_data, f, indent=4)
 
-    def load(self):
+    def load(self, auto_context_model=None, reranker=None):
+        """
+        Note: auto_context_model and reranker can be passed in to override the models in the metadata file. The other components are not overridable because that would break things.
+        """
         with open(self.get_metadata_path(), 'r') as f:
             data = json.load(f)
             self.kb_metadata = {key: value for key, value in data.items() if key != 'components'}
             components = data.get('components', {})
             # Deserialize components
             self.embedding_model = Embedding.from_dict(components.get('embedding_model', {}))
-            self.reranker = Reranker.from_dict(components.get('reranker', {}))
-            self.auto_context_model = LLM.from_dict(components.get('auto_context_model', {}))
+            self.reranker = reranker if reranker else Reranker.from_dict(components.get('reranker', {}))
+            self.auto_context_model = auto_context_model if auto_context_model else LLM.from_dict(components.get('auto_context_model', {}))
             self.vector_db = VectorDB.from_dict(components.get('vector_db', {}))
             self.chunk_db = ChunkDB.from_dict(components.get('chunk_db', {}))
             self.vector_dimension = self.embedding_model.dimension
@@ -187,7 +191,7 @@ class KnowledgeBase:
             segment += chunk_text
         return segment.strip()
     
-    def query(self, search_queries: list[str], rse_params: dict = {}, latency_profiling: bool = False) -> list[dict]:
+    def query(self, search_queries: list[str], rse_params: Union[Dict, str] = "balanced", latency_profiling: bool = False) -> list[dict]:
         """
         Inputs:
         - search_queries: list of search queries
@@ -206,18 +210,14 @@ class KnowledgeBase:
         - chunk_end: the (non-inclusive) end index of the segment in the document
         - text: the full text of the segment
         """
-
-        default_rse_params = {
-            'max_length': 10,
-            'overall_max_length': 20,
-            'minimum_value': 0.7,
-            'irrelevant_chunk_penalty': 0.2,
-            'overall_max_length_extension': 5,
-            'decay_rate': 20,
-            'top_k_for_document_selection': 7
-        }
+        # check if the rse_params is a preset name and convert it to a dictionary if it is
+        if isinstance(rse_params, str) and rse_params in RSE_PARAMS_PRESETS:
+            rse_params = RSE_PARAMS_PRESETS[rse_params]
+        elif isinstance(rse_params, str):
+            raise ValueError(f"Invalid rse_params preset name: {rse_params}")
 
         # set the RSE parameters
+        default_rse_params = RSE_PARAMS_PRESETS['balanced'] # use the 'balanced' preset as the default for any missing parameters
         max_length = rse_params.get('max_length', default_rse_params['max_length'])
         overall_max_length = rse_params.get('overall_max_length', default_rse_params['overall_max_length'])
         minimum_value = rse_params.get('minimum_value', default_rse_params['minimum_value'])
@@ -244,11 +244,11 @@ class KnowledgeBase:
 
         # get the relevance values for each chunk in the meta-document and use those to find the best segments
         all_relevance_values = get_relevance_values(all_ranked_results=all_ranked_results, meta_document_length=meta_document_length, document_start_points=document_start_points, unique_document_ids=unique_document_ids, irrelevant_chunk_penalty=irrelevant_chunk_penalty, decay_rate=decay_rate)
-        best_segments = get_best_segments(all_relevance_values=all_relevance_values, document_splits=document_splits, max_length=max_length, overall_max_length=overall_max_length, minimum_value=minimum_value)
+        best_segments, scores = get_best_segments(all_relevance_values=all_relevance_values, document_splits=document_splits, max_length=max_length, overall_max_length=overall_max_length, minimum_value=minimum_value)
         
         # convert the best segments into a list of dictionaries that contain the document id and the start and end of the chunk
         relevant_segment_info = []
-        for start, end in best_segments:
+        for segment_index, (start, end) in enumerate(best_segments):
             # find the document that this segment starts in
             for i, split in enumerate(document_splits):
                 if start < split: # splits represent the end of each document
@@ -256,6 +256,9 @@ class KnowledgeBase:
                     relevant_segment_info.append({"doc_id": unique_document_ids[i], "chunk_start": start - doc_start, "chunk_end": end - doc_start}) # NOTE: end index is non-inclusive
                     break
         
+            score = scores[segment_index]
+            relevant_segment_info[-1]["score"] = score
+
         # retrieve the actual text for the segments from the database
         for segment_info in relevant_segment_info:
             segment_info["text"] = (self.get_segment_text_from_database(segment_info["doc_id"], segment_info["chunk_start"], segment_info["chunk_end"])) # NOTE: this is where the chunk header is added to the segment text
