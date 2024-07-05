@@ -1,7 +1,7 @@
 # spRAG
 [![Discord](https://img.shields.io/discord/1234629280755875881.svg?label=Discord&logo=discord&color=7289DA)](https://discord.gg/NTUVX9DmQ3)
 
-spRAG is a RAG framework for unstructured data. It is especially good at handling challenging queries over dense text, like financial reports, legal documents, and academic papers.
+spRAG is a retrieval engine for unstructured data. It is especially good at handling challenging queries over dense text, like financial reports, legal documents, and academic papers.
 
 spRAG achieves substantially higher accuracy than vanilla RAG baselines on complex open-book question answering tasks. On one especially challenging benchmark, [FinanceBench](https://arxiv.org/abs/2311.11944), spRAG gets accurate answers 83% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
 
