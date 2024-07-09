@@ -3,7 +3,7 @@ import sys
 import unittest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-from sprag.llm import OpenAIChatAPI, AnthropicChatAPI, OllamaAPI, LLM
+from dsrag.llm import OpenAIChatAPI, AnthropicChatAPI, OllamaAPI, LLM
 
 
 class TestLLM(unittest.TestCase):

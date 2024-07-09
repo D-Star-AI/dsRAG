@@ -5,9 +5,9 @@ import unittest
 # add ../../ to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from sprag.knowledge_base import KnowledgeBase
-from sprag.llm import OpenAIChatAPI, OllamaAPI
-from sprag.embedding import VoyageAIEmbedding
+from dsrag.knowledge_base import KnowledgeBase
+from dsrag.llm import OpenAIChatAPI, OllamaAPI
+from dsrag.embedding import VoyageAIEmbedding
 
 class TestSaveAndLoad(unittest.TestCase):
     def cleanup(self):

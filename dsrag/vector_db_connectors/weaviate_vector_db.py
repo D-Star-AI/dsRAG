@@ -2,7 +2,7 @@ import numpy as np
 import weaviate
 import weaviate.classes as wvc
 from weaviate.util import generate_uuid5
-from sprag.vector_db import VectorDB
+from dsrag.vector_db import VectorDB
 
 
 class WeaviateVectorDB(VectorDB):

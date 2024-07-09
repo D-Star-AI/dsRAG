@@ -3,7 +3,7 @@ import sys
 import unittest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-from sprag.auto_query import get_search_queries
+from dsrag.auto_query import get_search_queries
 import pandas as pd
 
 

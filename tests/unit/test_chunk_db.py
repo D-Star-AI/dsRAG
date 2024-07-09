@@ -4,7 +4,7 @@ import unittest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from sprag.chunk_db import BasicChunkDB, ChunkDB
+from dsrag.chunk_db import BasicChunkDB, ChunkDB
 import shutil
 
 

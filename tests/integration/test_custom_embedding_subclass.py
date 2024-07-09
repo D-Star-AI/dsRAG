@@ -6,8 +6,8 @@ import unittest
 # add ../../ to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from sprag.embedding import Embedding
-from sprag.knowledge_base import KnowledgeBase
+from dsrag.embedding import Embedding
+from dsrag.knowledge_base import KnowledgeBase
 
 class CustomEmbedding(Embedding):
     def __init__(self, model: str = "text-embedding-3-small", dimension: int = 768):
