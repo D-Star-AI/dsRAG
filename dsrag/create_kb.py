@@ -1,5 +1,5 @@
-from sprag.document_parsing import extract_text_from_pdf, extract_text_from_docx
-from sprag.knowledge_base import KnowledgeBase
+from dsrag.document_parsing import extract_text_from_pdf, extract_text_from_docx
+from dsrag.knowledge_base import KnowledgeBase
 import os
 import time
 

@@ -5,8 +5,8 @@ import unittest
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../..")))
-from sprag.vector_db_connectors.weaviate_vector_db import WeaviateVectorDB
-from sprag.vector_db import VectorDB
+from dsrag.vector_db_connectors.weaviate_vector_db import WeaviateVectorDB
+from dsrag.vector_db import VectorDB
 
 class TestWeaviateVectorDB(unittest.TestCase):
     def setUp(self):

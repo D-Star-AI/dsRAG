@@ -1,4 +1,4 @@
-from sprag.llm import LLM
+from dsrag.llm import LLM
 import tiktoken
 
 PROMPT = """

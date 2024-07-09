@@ -3,7 +3,7 @@ import os
 import unittest
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
-from sprag.reranker import Reranker, CohereReranker, VoyageReranker, NoReranker
+from dsrag.reranker import Reranker, CohereReranker, VoyageReranker, NoReranker
 
 
 class TestReranker(unittest.TestCase):

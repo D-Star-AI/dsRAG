@@ -5,9 +5,9 @@ import unittest
 # add ../../ to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from sprag.knowledge_base import KnowledgeBase
-from sprag.document_parsing import extract_text_from_pdf
-from sprag.vector_db_connectors.weaviate_vector_db import WeaviateVectorDB
+from dsrag.knowledge_base import KnowledgeBase
+from dsrag.document_parsing import extract_text_from_pdf
+from dsrag.vector_db_connectors.weaviate_vector_db import WeaviateVectorDB
 
 
 class TestCreateKB(unittest.TestCase):    
