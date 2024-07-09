@@ -5,8 +5,8 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # import the necessary modules
-from sprag.knowledge_base import KnowledgeBase
-from sprag.embedding import CohereEmbedding
+from dsrag.knowledge_base import KnowledgeBase
+from dsrag.embedding import CohereEmbedding
 
 document_directory = "" # path to the directory containing the documents, links to which are contained in the `tests/data/financebench_sample_150.csv` file
 kb_id = "finance_bench"

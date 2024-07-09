@@ -3,11 +3,11 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
-from sprag.create_kb import create_kb_from_file
-from sprag.knowledge_base import KnowledgeBase
-from sprag.reranker import NoReranker, CohereReranker, VoyageReranker
-from sprag.embedding import OpenAIEmbedding, CohereEmbedding
-from sprag.document_parsing import extract_text_from_pdf
+from dsrag.create_kb import create_kb_from_file
+from dsrag.knowledge_base import KnowledgeBase
+from dsrag.reranker import NoReranker, CohereReranker, VoyageReranker
+from dsrag.embedding import OpenAIEmbedding, CohereEmbedding
+from dsrag.document_parsing import extract_text_from_pdf
 
  
 def test_create_kb_from_file():
