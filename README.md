@@ -30,7 +30,7 @@ You can create a new KnowledgeBase directly from a file using the `create_kb_fro
 ```python
 from dsrag.create_kb import create_kb_from_file
 
-file_path = "spRAG/tests/data/levels_of_agi.pdf"
+file_path = "dsRAG/tests/data/levels_of_agi.pdf"
 kb_id = "levels_of_agi"
 kb = create_kb_from_file(kb_id, file_path)
 ```
