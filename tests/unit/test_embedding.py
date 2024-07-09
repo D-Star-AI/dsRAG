@@ -4,7 +4,7 @@ import unittest
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 
-from sprag.embedding import (
+from dsrag.embedding import (
     OpenAIEmbedding,
     CohereEmbedding,
     VoyageAIEmbedding,

@@ -5,8 +5,8 @@ import unittest
 # add ../../ to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from sprag.create_kb import create_kb_from_file
-from sprag.knowledge_base import KnowledgeBase
+from dsrag.create_kb import create_kb_from_file
+from dsrag.knowledge_base import KnowledgeBase
 
 
 class TestCreateKB(unittest.TestCase):    

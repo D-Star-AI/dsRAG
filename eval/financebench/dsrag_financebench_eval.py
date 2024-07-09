@@ -6,9 +6,9 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # import the necessary modules
-from sprag.knowledge_base import KnowledgeBase
-from sprag.auto_query import get_search_queries
-from sprag.llm import OpenAIChatAPI
+from dsrag.knowledge_base import KnowledgeBase
+from dsrag.auto_query import get_search_queries
+from dsrag.llm import OpenAIChatAPI
 
 AUTO_QUERY_GUIDANCE = """
 The knowledge base contains SEC filings for publicly traded companies, like 10-Ks, 10-Qs, and 8-Ks. Keep this in mind when generating search queries. The things you search for should be things that are likely to be found in these documents.

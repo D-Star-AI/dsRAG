@@ -129,3 +129,5 @@ Queries -> vector database search -> reranking -> RSE -> results
 
 # Community and support
 You can join our [Discord](https://discord.gg/NTUVX9DmQ3) to ask questions, make suggestions, and discuss contributions.
+
+If you need additional support, we also offer consulting and custom development services. Reach out to zach@d-star.ai for more information.

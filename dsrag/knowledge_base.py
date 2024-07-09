@@ -4,13 +4,13 @@ import os
 import time
 import json
 from typing import Union, Dict
-from sprag.auto_context import get_document_context, get_chunk_header
-from sprag.rse import get_relevance_values, get_best_segments, get_meta_document, RSE_PARAMS_PRESETS
-from sprag.vector_db import VectorDB, BasicVectorDB
-from sprag.chunk_db import ChunkDB, BasicChunkDB
-from sprag.embedding import Embedding, OpenAIEmbedding
-from sprag.reranker import Reranker, CohereReranker
-from sprag.llm import LLM, AnthropicChatAPI
+from dsrag.auto_context import get_document_context, get_chunk_header
+from dsrag.rse import get_relevance_values, get_best_segments, get_meta_document, RSE_PARAMS_PRESETS
+from dsrag.vector_db import VectorDB, BasicVectorDB
+from dsrag.chunk_db import ChunkDB, BasicChunkDB
+from dsrag.embedding import Embedding, OpenAIEmbedding
+from dsrag.reranker import Reranker, CohereReranker
+from dsrag.llm import LLM, AnthropicChatAPI
 
 
 class KnowledgeBase:
