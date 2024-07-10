@@ -60,3 +60,7 @@ push = true
     "{version}",
     "{pep440_version}",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dsrag"]
