@@ -36,31 +36,6 @@ Homepage = "https://github.com/D-Star-AI/dsRAG"
 Documentation = "https://github.com/D-Star-AI/dsRAG"
 Contact = "https://github.com/D-Star-AI/dsRAG"
 
-[tool.bumpver]
-current_version = "0.1.0"
-version_pattern = "MAJOR.MINOR.PATCH"
-commit_message = "bump version {old_version} -> {new_version}"
-tag_message = "{new_version}"
-tag_scope = "default"
-pre_commit_hook = ""
-post_commit_hook = ""
-commit = true
-tag = true
-push = true
-
-[tool.bumpver.file_patterns]
-"pyproject.toml" = [
-    'current_version = "{version}"',
-]
-"setup.py" = [
-    "{version}",
-    "{pep440_version}",
-]
-"README.md" = [
-    "{version}",
-    "{pep440_version}",
-]
-
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["dsrag"]
