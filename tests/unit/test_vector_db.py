@@ -128,6 +128,23 @@ class TestVectorDB(unittest.TestCase):
         # Make sure the storage directory does not exist
         self.assertFalse(os.path.exists(db.vector_storage_path))
 
+    def test__top_k_greater_than_num_vectors(self):
+        db = BasicVectorDB(self.kb_id, self.storage_directory)
+        vectors = [np.array([1, 0]), np.array([0, 1])]
+        metadata = [{'doc_id': '1', 'chunk_index': 0, 'chunk_header': 'Header1', 'chunk_text': 'Text1'},
+                    {'doc_id': '2', 'chunk_index': 1, 'chunk_header': 'Header2', 'chunk_text': 'Text2'}]
+        
+        db.add_vectors(vectors, metadata)
+        query_vector = np.array([1, 0])
+
+        db.use_faiss = True
+        results = db.search(query_vector, top_k=3)
+        self.assertEqual(len(results), 2)
+
+        db.use_faiss = False
+        results = db.search(query_vector, top_k=3)
+        self.assertEqual(len(results), 2)
+
 
 if __name__ == '__main__':
     unittest.main()
