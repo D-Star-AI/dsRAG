@@ -1,0 +1,16 @@
+name: PR Approval
+
+on:
+  pull_request_review:
+    types: [submitted]
+jobs:
+  pr-approval:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if PR is approved
+        id: check_approval
+        run: |
+          if [ "${{ github.event.review.state }}" != "approved" ]; then
+            echo "Pull request is not approved. Exiting."
+            exit 1
+          fi
