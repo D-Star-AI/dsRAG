@@ -1,14 +1,12 @@
 name: Run Tests
 
 on:
-  workflow_run:
-    workflows: ["PR Approval"]
-    types:
-      - completed
+  pull_request_review:
+    types: [submitted]
 
 jobs:
   run-tests:
-    # if: github.event.review.state == 'approved'
+    if: github.event.review.state == 'approved'
     runs-on: ubuntu-latest
 
     env:
