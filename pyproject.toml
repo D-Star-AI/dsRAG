@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dsrag"
-version = "1.0.0"
+version = "0.1.0"
 description = "State-of-the-art RAG pipeline from D-Star AI"
 readme = "README.md"
-authors = [{ name = "Zach McCormick", email = "zach@dstar.ai" }]
+authors = [{ name = "Zach McCormick", email = "zach@d-star.ai" }]
 license = { file = "LICENSE" }
 classifiers=[
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
@@ -37,7 +37,7 @@ Documentation = "https://github.com/D-Star-AI/dsRAG"
 Contact = "https://github.com/D-Star-AI/dsRAG"
 
 [tool.bumpver]
-current_version = "1.0.0"
+current_version = "0.1.0"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "bump version {old_version} -> {new_version}"
 tag_message = "{new_version}"
