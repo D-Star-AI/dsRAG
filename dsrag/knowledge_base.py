@@ -14,7 +14,7 @@ from dsrag.llm import LLM, AnthropicChatAPI
 
 
 class KnowledgeBase:
-    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", storage_directory: str = '~/spRAG', embedding_model: Embedding = None, reranker: Reranker = None, auto_context_model: LLM = None, vector_db: VectorDB = None, chunk_db: ChunkDB = None, exists_ok: bool = True):
+    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", storage_directory: str = '~/dsRAG', embedding_model: Embedding = None, reranker: Reranker = None, auto_context_model: LLM = None, vector_db: VectorDB = None, chunk_db: ChunkDB = None, exists_ok: bool = True):
         self.kb_id = kb_id
         self.storage_directory = os.path.expanduser(storage_directory)
 
