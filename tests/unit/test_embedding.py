@@ -40,8 +40,14 @@ class TestEmbedding(unittest.TestCase):
         input_text = "Hello, world!"
         model = "llama3"
         dimension = 4096
-        embedding_provider = OllamaEmbedding(model, dimension)
-        embedding = embedding_provider.get_embeddings(input_text)
+        try:
+            embedding_provider = OllamaEmbedding(model, dimension)
+            embedding = embedding_provider.get_embeddings(input_text)
+        except Exception as e:
+            if e.__class__.__name__ == "ConnectError":
+                print("Connection failed")
+                print (e)
+                return
         self.assertEqual(len(embedding), dimension)
 
     def test__get_embeddings_openai_with_list(self):
@@ -75,8 +81,14 @@ class TestEmbedding(unittest.TestCase):
         input_texts = ["Hello, world!", "Goodbye, world!"]
         model = "llama2"
         dimension = 4096
-        embedding_provider = OllamaEmbedding(model, dimension)
-        embeddings = embedding_provider.get_embeddings(input_texts)
+        try:
+            embedding_provider = OllamaEmbedding(model, dimension)
+            embeddings = embedding_provider.get_embeddings(input_texts)
+        except Exception as e:
+            if e.__class__.__name__ == "ConnectError":
+                print ("Connection failed")
+                print (e)
+                return
         self.assertEqual(len(embeddings), 2)
         self.assertTrue(all(len(embed) == dimension for embed in embeddings))
 
@@ -84,8 +96,14 @@ class TestEmbedding(unittest.TestCase):
         input_texts = ["Hello, world!", "Goodbye, world!"]
         model = "all-minilm"
         dimension = 384
-        embedding_provider = OllamaEmbedding(model, dimension)
-        embeddings = embedding_provider.get_embeddings(input_texts)
+        try:
+            embedding_provider = OllamaEmbedding(model, dimension)
+            embeddings = embedding_provider.get_embeddings(input_texts)
+        except Exception as e:
+            if e.__class__.__name__ == "ConnectError":
+                print ("Connection failed")
+                print (e)
+                return
         self.assertEqual(len(embeddings), 2)
         self.assertTrue(all(len(embed) == dimension for embed in embeddings))
 
@@ -93,8 +111,14 @@ class TestEmbedding(unittest.TestCase):
         input_texts = ["Hello, world!", "Goodbye, world!"]
         model = "nomic-embed-text"
         dimension = 768
-        embedding_provider = OllamaEmbedding(model, dimension)
-        embeddings = embedding_provider.get_embeddings(input_texts)
+        try:
+            embedding_provider = OllamaEmbedding(model, dimension)
+            embeddings = embedding_provider.get_embeddings(input_texts)
+        except Exception as e:
+            if e.__class__.__name__ == "ConnectError":
+                print ("Connection failed")
+                print (e)
+                return
         self.assertEqual(len(embeddings), 2)
         self.assertTrue(all(len(embed) == dimension for embed in embeddings))
 
