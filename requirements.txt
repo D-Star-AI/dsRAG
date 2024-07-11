@@ -159,6 +159,8 @@ protobuf==5.27.2
     # via
     #   grpcio-health-checking
     #   grpcio-tools
+pyarrow
+    # via dsrag (pyproject.toml)
 pycparser==2.22
     # via cffi
 pydantic==2.8.2
