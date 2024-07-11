@@ -63,7 +63,7 @@ class BasicChunkDB(ChunkDB):
     """
     This is a basic implementation of a ChunkDB that stores chunks in a nested dictionary and persists them to disk by pickling the dictionary.
     """
-    def __init__(self, kb_id: str, storage_directory: str = '~/spRAG'):
+    def __init__(self, kb_id: str, storage_directory: str = '~/dsRAG'):
         self.kb_id = kb_id
         self.storage_directory = os.path.expanduser(storage_directory)  # Expand the user path
         # Ensure the base directory and the chunk storage directory exist
