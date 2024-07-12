@@ -10,7 +10,7 @@ import shutil
 
 class TestChunkDB(unittest.TestCase):
     def setUp(self):
-        self.storage_directory = '~/test_dsRAG'
+        self.storage_directory = '~/test__chunk_db_dsRAG'
         self.kb_id = 'test_kb'
         resolved_test_storage_directory = os.path.expanduser(self.storage_directory)
         if os.path.exists(resolved_test_storage_directory):
@@ -19,7 +19,7 @@ class TestChunkDB(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        test_storage_directory = '~/test_dsRAG'
+        test_storage_directory = '~/test__chunk_db_dsRAG'
         resolved_test_storage_directory = os.path.expanduser(test_storage_directory)
         if os.path.exists(resolved_test_storage_directory):
             shutil.rmtree(resolved_test_storage_directory)
