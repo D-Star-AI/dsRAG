@@ -104,13 +104,16 @@ class BasicVectorDB(VectorDB):
         from faiss.contrib.exhaustive_search import knn
         import numpy as np
 
+        # Limit top_k to the number of vectors we have - Faiss doesn't automatically handle this
+        top_k = min(top_k, len(self.vectors))
+
         # faiss expects 2D arrays of vectors
         vectors_array = np.array(self.vectors).astype('float32').reshape(len(self.vectors), -1)
         query_vector_array = np.array(query_vector).astype('float32').reshape(1, -1)
         
         _, I = knn(query_vector_array, vectors_array, top_k) # I is a list of indices in the corpus_vectors array
         results = []
-        for i in I[0][:top_k]:
+        for i in I[0]:
             result = {
                 'metadata': self.metadata[i],
                 'similarity': cosine_similarity([query_vector], [self.vectors[i]])[0][0],
