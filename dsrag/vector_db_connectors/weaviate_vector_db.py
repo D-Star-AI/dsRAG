@@ -192,3 +192,6 @@ class WeaviateVectorDB(VectorDB):
             'insert_timeout': self.insert_timeout,
             'use_embedded_weaviate': self.use_embedded_weaviate,
         }
+    
+    def delete(self):
+        pass
