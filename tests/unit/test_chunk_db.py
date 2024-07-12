@@ -10,7 +10,7 @@ import shutil
 
 class TestChunkDB(unittest.TestCase):
     def setUp(self):
-        self.storage_directory = '~/test_dsRAG'
+        self.storage_directory = '~/test__chunk_db_dsRAG'
         self.kb_id = 'test_kb'
         resolved_test_storage_directory = os.path.expanduser(self.storage_directory)
         if os.path.exists(resolved_test_storage_directory):
@@ -19,7 +19,7 @@ class TestChunkDB(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        test_storage_directory = '~/test_dsRAG'
+        test_storage_directory = '~/test__chunk_db_dsRAG'
         resolved_test_storage_directory = os.path.expanduser(test_storage_directory)
         if os.path.exists(resolved_test_storage_directory):
             shutil.rmtree(resolved_test_storage_directory)
@@ -73,6 +73,20 @@ class TestChunkDB(unittest.TestCase):
         db2 = ChunkDB.from_dict(config)
         assert db2.kb_id == db.kb_id, "Failed to load kb_id from dict."
         self.assertEqual(db2.kb_id, db.kb_id)
+    
+    def test__delete(self):
+        db = BasicChunkDB(self.kb_id, self.storage_directory)
+        doc_id = 'doc1'
+        chunks = {
+            0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'}
+        }
+        db.add_document(doc_id, chunks)
+        # Make sure the storage directory exists before deleting it
+        self.assertTrue(os.path.exists(db.storage_path))
+        db.delete()
+        # Make sure the storage directory does not exist
+        self.assertFalse(os.path.exists(db.storage_path))
+        
 
 # Run all tests
 if __name__ == '__main__':

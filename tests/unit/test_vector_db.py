@@ -9,7 +9,7 @@ from dsrag.vector_db import BasicVectorDB, VectorDB
 
 class TestVectorDB(unittest.TestCase):
     def setUp(self):
-        self.storage_directory = '/tmp'
+        self.storage_directory = '~/test__vector_db_dsRAG'
         self.kb_id = 'test_db'
         return super().setUp()
 
@@ -111,6 +111,22 @@ class TestVectorDB(unittest.TestCase):
         non_faiss_results = db.search(query_vector, top_k=1)
 
         self.assertEqual(faiss_results, non_faiss_results)
+    
+
+    def test__delete(self):
+
+        db = BasicVectorDB(self.kb_id, self.storage_directory, use_faiss=True)
+        vectors = [np.array([1, 0]), np.array([0, 1])]
+        metadata = [{'doc_id': '1', 'chunk_index': 0, 'chunk_header': 'Header1', 'chunk_text': 'Text1'},
+                    {'doc_id': '2', 'chunk_index': 1, 'chunk_header': 'Header2', 'chunk_text': 'Text2'}]
+        
+        db.add_vectors(vectors, metadata)
+
+        # Make sure the storage directory exists before deleting it
+        self.assertTrue(os.path.exists(db.vector_storage_path))
+        db.delete()
+        # Make sure the storage directory does not exist
+        self.assertFalse(os.path.exists(db.vector_storage_path))
 
 
 if __name__ == '__main__':

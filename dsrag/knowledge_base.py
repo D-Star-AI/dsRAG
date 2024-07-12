@@ -85,6 +85,9 @@ class KnowledgeBase:
         doc_ids_to_delete = self.chunk_db.get_all_doc_ids()
         for doc_id in doc_ids_to_delete:
             self.delete_document(doc_id)
+        
+        self.chunk_db.delete()
+        self.vector_db.delete()
 
         # delete the metadata file
         os.remove(self.get_metadata_path())
