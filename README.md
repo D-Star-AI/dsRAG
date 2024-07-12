@@ -23,6 +23,12 @@ For example, suppose you have a bunch of SEC filings in a knowledge base and you
 
 # Tutorial
 
+#### Installation
+To install the python package, run
+```console
+pip install dsrag
+```
+
 #### Quickstart
 By default, dsRAG uses OpenAI for embeddings, Claude 3 Haiku for AutoContext, and Cohere for reranking, so to run the code below you'll need to make sure you have API keys for those providers set as environmental variables with the following names: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `CO_API_KEY`. **If you want to run dsRAG with different models, take a look at the "Basic customization" section below.**
 
