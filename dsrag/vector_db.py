@@ -57,6 +57,13 @@ class VectorDB(ABC):
         """
         pass
 
+    @abstractmethod
+    def delete(self):
+        """
+        Delete the vector database.
+        """
+        pass
+
 
 class BasicVectorDB(VectorDB):
     def __init__(self, kb_id: str, storage_directory: str = '~/dsRAG', use_faiss: bool = True):
@@ -133,6 +140,10 @@ class BasicVectorDB(VectorDB):
         else:
             self.vectors = []
             self.metadata = []
+    
+    def delete(self):
+        if os.path.exists(self.vector_storage_path):
+            os.remove(self.vector_storage_path)
 
     def to_dict(self):
         return {

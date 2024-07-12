@@ -32,5 +32,7 @@ class TestSaveAndLoad(unittest.TestCase):
         # delete the KnowledgeBase object
         kb1.delete()
 
+        self.assertFalse(os.path.exists(kb.chunk_db.storage_path))
+
 if __name__ == "__main__":
     unittest.main()

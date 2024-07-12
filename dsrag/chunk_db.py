@@ -58,6 +58,13 @@ class ChunkDB(ABC):
         """
         pass
 
+    @abstractmethod
+    def delete(self):
+        """
+        Delete the chunk database.
+        """
+        pass
+
 
 class BasicChunkDB(ChunkDB):
     """
@@ -102,6 +109,10 @@ class BasicChunkDB(ChunkDB):
     def save(self):
         with open(self.storage_path, 'wb') as f:
             pickle.dump(self.data, f)
+    
+    def delete(self):
+        if os.path.exists(self.storage_path):
+            os.remove(self.storage_path)
 
     def to_dict(self):
         return {
