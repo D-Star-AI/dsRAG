@@ -94,10 +94,8 @@ class KnowledgeBase:
 
     def add_document(self, doc_id: str, text: str, auto_context: bool = True, chunk_header: str = None, auto_context_guidance: str = ""):
         # verify that only one of auto_context and chunk_header is set
-        try:
-            assert auto_context != (chunk_header is not None)
-        except:
-            print ("Error in add_document: only one of auto_context and chunk_header can be set")
+        if auto_context and chunk_header:
+            print ("Warning in add_document: only one of auto_context and chunk_header should be set. Using the provided chunk_header.")
 
         # verify that the document does not already exist in the KB
         if doc_id in self.chunk_db.get_all_doc_ids():
