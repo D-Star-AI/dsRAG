@@ -162,7 +162,7 @@ class KnowledgeBase:
                 chunk_embeddings += self.get_embeddings(chunks_to_embed[i:i+50], input_type="document")
 
         assert len(chunks) == len(chunk_embeddings) == len(chunks_to_embed)
-        self.chunk_db.add_document(doc_id, {i: {'chunk_text': chunk['chunk_text'], 'chunk_header': chunk_header} for i, chunk in enumerate(chunks)})
+        self.chunk_db.add_document(doc_id, {i: {'chunk_text': chunk['chunk_text'], 'chunk_header': chunk_header, 'section_title': chunk['section_title']} for i, chunk in enumerate(chunks)})
 
         # create metadata list
         metadata = []
