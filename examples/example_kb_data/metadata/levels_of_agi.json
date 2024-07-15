@@ -22,13 +22,13 @@
         "vector_db": {
             "subclass_name": "BasicVectorDB",
             "kb_id": "levels_of_agi",
-            "storage_directory": "/Users/zach/dsRAG",
+            "storage_directory": "example_kb_data",
             "use_faiss": true
         },
         "chunk_db": {
             "subclass_name": "BasicChunkDB",
             "kb_id": "levels_of_agi",
-            "storage_directory": "/Users/zach/dsRAG"
+            "storage_directory": "example_kb_data"
         }
     }
 }
