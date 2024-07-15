@@ -52,6 +52,13 @@ class ChunkDB(ABC):
         pass
 
     @abstractmethod
+    def get_section_title(self, doc_id: str, chunk_index: int) -> str:
+        """
+        Retrieve the section title of a specific chunk from a given document ID.
+        """
+        pass
+
+    @abstractmethod
     def get_all_doc_ids(self) -> list:
         """
         Retrieve all document IDs.
@@ -94,6 +101,14 @@ class BasicChunkDB(ChunkDB):
     def get_chunk_header(self, doc_id: str, chunk_index: int) -> str:
         if doc_id in self.data and chunk_index in self.data[doc_id]:
             return self.data[doc_id][chunk_index]['chunk_header']
+        return None
+    
+    def get_section_title(self, doc_id: str, chunk_index: int) -> str:
+        if doc_id in self.data and chunk_index in self.data[doc_id]:
+            if 'section_title' in self.data[doc_id][chunk_index]:
+                return self.data[doc_id][chunk_index]['section_title']
+            else:
+                return ""
         return None
     
     def get_all_doc_ids(self) -> list:

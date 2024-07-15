@@ -11,6 +11,7 @@ from dsrag.chunk_db import ChunkDB, BasicChunkDB
 from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
 from dsrag.llm import LLM, AnthropicChatAPI
+from dsrag.semantic_sectioning import get_sections
 
 
 class KnowledgeBase:
@@ -92,7 +93,7 @@ class KnowledgeBase:
         # delete the metadata file
         os.remove(self.get_metadata_path())
 
-    def add_document(self, doc_id: str, text: str, auto_context: bool = True, chunk_header: str = None, auto_context_guidance: str = ""):
+    def add_document(self, doc_id: str, text: str, auto_context: bool = True, chunk_header: str = None, auto_context_guidance: str = "", semantic_sectioning: bool = False, min_length_for_chunking: int = 2000):
         # verify that only one of auto_context and chunk_header is set
         if auto_context and chunk_header:
             print ("Warning in add_document: only one of auto_context and chunk_header should be set. Using the provided chunk_header.")
@@ -102,8 +103,39 @@ class KnowledgeBase:
             print (f"Document with ID {doc_id} already exists in the KB. Skipping...")
             return
         
+        # do semantic sectioning
+        if semantic_sectioning:
+            sections = get_sections(text)
+        else:
+            sections = [
+                {
+                    'title': '',
+                    'content': text,
+                }
+            ]
+
+        # split the document into chunks
+        chunks = [] # chunks will be a list of dictionaries with keys 'chunk_text', 'section_title', and 'chunk_header'
+        for section in sections:
+            section_text = section['content']
+            section_title = section['title']
+            if len(section_text) < min_length_for_chunking:
+                chunks.append({
+                    'chunk_text': section_text,
+                    'section_title': section_title,
+                })
+            else:
+                section_chunks = self.split_into_chunks(section_text)
+                for chunk in section_chunks:
+                    chunks.append({
+                        'chunk_text': chunk,
+                        'section_title': section_title,
+                    })
+        
+        print (f'Adding {len(chunks)} chunks to the database')
+
         # AutoContext
-        if auto_context:
+        if auto_context and len(chunks) > 1:
             document_context = get_document_context(self.auto_context_model, text, document_title=doc_id, auto_context_guidance=auto_context_guidance)
             chunk_header = get_chunk_header(file_name=doc_id, document_context=document_context)
         elif chunk_header:
@@ -111,13 +143,12 @@ class KnowledgeBase:
         else:
             chunk_header = ""
 
-        chunks = self.split_into_chunks(text)
-        print (f'Adding {len(chunks)} chunks to the database')
-
-        # add chunk headers to the chunks before embedding them
+        # add chunk headers and section titles to the chunks before embedding them
         chunks_to_embed = []
         for i, chunk in enumerate(chunks):
-            chunk_to_embed = f'[{chunk_header}]\n{chunk}'
+            chunk_text = chunk['chunk_text']
+            section_title = f"{chunk['section_title']}\n" if chunk['section_title'] else ""
+            chunk_to_embed = f'[{chunk_header}]\n{section_title}{chunk_text}'
             chunks_to_embed.append(chunk_to_embed)
 
         # embed the chunks
@@ -131,12 +162,12 @@ class KnowledgeBase:
                 chunk_embeddings += self.get_embeddings(chunks_to_embed[i:i+50], input_type="document")
 
         assert len(chunks) == len(chunk_embeddings) == len(chunks_to_embed)
-        self.chunk_db.add_document(doc_id, {i: {'chunk_text': chunk, 'chunk_header': chunk_header} for i, chunk in enumerate(chunks)})
+        self.chunk_db.add_document(doc_id, {i: {'chunk_text': chunk['chunk_text'], 'chunk_header': chunk_header, 'section_title': chunk['section_title']} for i, chunk in enumerate(chunks)})
 
         # create metadata list
         metadata = []
         for i, chunk in enumerate(chunks):
-            metadata.append({'doc_id': doc_id, 'chunk_index': i, 'chunk_header': chunk_header, 'chunk_text': chunk})
+            metadata.append({'doc_id': doc_id, 'chunk_index': i, 'chunk_header': chunk_header, 'chunk_text': chunk['chunk_text'], 'section_title': chunk['section_title']})
 
         # add the vectors and metadata to the vector database
         self.vector_db.add_vectors(vectors=chunk_embeddings, metadata=metadata)
