@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 
 from dsrag.create_kb import create_kb_from_file
 from dsrag.knowledge_base import KnowledgeBase
-from integrations.retriever import DsRAGLangchainRetriever
+from integrations.langchain_retriever import DsRAGLangchainRetriever
 from langchain_core.documents import Document
 
 
