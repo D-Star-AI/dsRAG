@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dsrag"
-version = "0.1.0"
+version = "0.1.1"
 description = "State-of-the-art RAG pipeline from D-Star AI"
 readme = "README.md"
-authors = [{ name = "Zach McCormick", email = "zach@d-star.ai" }]
+authors = [{ name = "Zach McCormick", email = "zach@d-star.ai" }, { name = "Nick McCormick", email = "nick@d-star.ai" }]
 license = { file = "LICENSE" }
 classifiers=[
     "Development Status :: 4 - Beta",
