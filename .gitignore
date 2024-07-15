@@ -162,5 +162,5 @@ cython_debug/
 # Embedded Weaviate data
 weaviate
 
-# Other
+# DS_Store files
 .DS_Store
