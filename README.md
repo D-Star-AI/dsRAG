@@ -1,11 +1,7 @@
 # dsRAG
 [![Discord](https://img.shields.io/discord/1234629280755875881.svg?label=Discord&logo=discord&color=7289DA)](https://discord.gg/NTUVX9DmQ3)
 
-Note: dsRAG was formerly known as spRAG. We recently spun the project out into a new company called D-Star, hence the renaming.
-
-dsRAG is a retrieval engine for unstructured data. It is especially good at handling challenging queries over dense text, like financial reports, legal documents, and academic papers.
-
-dsRAG achieves substantially higher accuracy than vanilla RAG baselines on complex open-book question answering tasks. On one especially challenging benchmark, [FinanceBench](https://arxiv.org/abs/2311.11944), dsRAG gets accurate answers 83% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
+dsRAG is a retrieval engine for unstructured data. It is especially good at handling challenging queries over dense text, like financial reports, legal documents, and academic papers. dsRAG achieves substantially higher accuracy than vanilla RAG baselines on complex open-book question answering tasks. On one especially challenging benchmark, [FinanceBench](https://arxiv.org/abs/2311.11944), dsRAG gets accurate answers 83% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
 
 There are two key methods used to improve performance over vanilla RAG systems:
 1. AutoContext
@@ -14,7 +10,9 @@ There are two key methods used to improve performance over vanilla RAG systems:
 #### AutoContext
 AutoContext automatically injects document-level context into individual chunks prior to embedding them. This gives the embeddings a much more accurate and complete representation of the content and meaning of the text. In our testing, this feature leads to a dramatic improvement in retrieval quality. In addition to increasing the rate at which the correct information is retrieved, AutoContext also substantially reduces the rate at which irrelevant results show up in the search results. This reduces the rate at which the LLM misinterprets a piece of text in downstream chat and generation applications.
 
-The implementation of AutoContext is fairly straightforward. All we do is generate a 1-2 sentence summary of the document, add the file name to it, and then prepend that to each chunk prior to embedding it.
+The current implementation of AutoContext is fairly straightforward. All we do is generate a 1-2 sentence summary of the document, add the file name to it, and then prepend that to each chunk prior to embedding it.
+
+There is also a new feature called semantic sectioning. This works by annotating the document with line numbers and then prompting an LLM to identify the starting and ending lines for each “semantically cohesive section.” These sections should be anywhere from a few paragraphs to a few pages long. The sections then get broken into smaller chunks if needed. The LLM is also prompted to generate descriptive titles for each section. These titles then get used to provide additional context to the ranking models (embeddings and reranker), enabling better retrieval.
 
 #### Relevant Segment Extraction
 Relevant Segment Extraction (RSE) is a post-processing step that takes clusters of relevant chunks and intelligently combines them into longer sections of text that we call segments. These segments provide better context to the LLM than any individual chunk can. For simple factual questions, the answer is usually contained in a single chunk; but for more complex questions, the answer usually spans a longer section of text. The goal of RSE is to intelligently identify the section(s) of text that provide the most relevant information, without being constrained to fixed length chunks.
@@ -128,7 +126,7 @@ The currently available options are:
 - `OllamaChatAPI`
 
 ## Document upload flow
-Documents -> chunking -> embedding -> chunk and vector database upsert
+Documents -> AutoContext -> chunking -> embedding -> chunk and vector database upsert
 
 ## Query flow
 Queries -> vector database search -> reranking -> RSE -> results
