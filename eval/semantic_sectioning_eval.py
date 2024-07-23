@@ -11,6 +11,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Construct the absolute path to the dataset file
 file_path = os.path.join(script_dir, "../tests/data/levels_of_agi.pdf")
+#file_path = os.path.join(script_dir, "../tests/data/nike_2023_annual_report.txt")
 
 file_name = file_path.split("/")[-1].split(".")[0]
 print(f"Processing {file_name}...")
@@ -23,7 +24,7 @@ elif file_path.endswith(".txt"):
 else:
     raise ValueError("File must be a PDF or TXT file")
 
-segments = get_sections(document_text, max_characters=20000, llm_provider="openai")
+segments = get_sections(document_text, max_characters=20000, llm_provider="openai", model="gpt-4o-mini")
 
 """
 for s in segments[:100]:
