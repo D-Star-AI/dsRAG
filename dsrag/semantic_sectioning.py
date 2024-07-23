@@ -42,14 +42,14 @@ def get_document_with_lines(document_lines: List[str], start_line: int, max_char
             break
     return document_with_line_numbers, end_line
 
-def get_structured_document(document_with_line_numbers: str, start_line: int, end_line: int, provider: str = "anthropic") -> StructuredDocument:
+def get_structured_document(document_with_line_numbers: str, start_line: int, end_line: int, llm_provider: str, model: str) -> StructuredDocument:
     """
-    Note: The only models that work well for this task right now are GPT-4o and Claude 3.5 Sonnet, so that's why they're hardcoded here.
+    Note: This function relies on Instructor, which only supports certain model providers. That's why this function doesn't use the LLM abstract base class that is used elsewhere in the project.
     """
-    if provider == "anthropic":
+    if llm_provider == "anthropic":
         client = instructor.from_anthropic(Anthropic())
         return client.chat.completions.create(
-            model="claude-3-5-sonnet-20240620",
+            model=model,
             response_model=StructuredDocument,
             max_tokens=4000,
             temperature=0.0,
@@ -61,10 +61,10 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, en
                 },
             ],
         )
-    elif provider == "openai":
+    elif llm_provider == "openai":
         client = instructor.from_openai(OpenAI())
         return client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             response_model=StructuredDocument,
             max_tokens=4000,
             temperature=0.0,
@@ -173,12 +173,13 @@ def partition_sections(sections, a, b):
 
     return completed_sections
 
-def get_sections(document: str, max_characters: int = 20000, llm_provider: str = "anthropic") -> List[Dict[str, Any]]:
+def get_sections(document: str, max_characters: int = 20000, llm_provider: str = "openai", model: str = "gpt-4o-mini") -> List[Dict[str, Any]]:
     """
     Inputs
     - document: str - the text of the document
     - max_characters: int - the maximum number of characters to process in one call to the LLM
-    - llm_provider: str - the LLM provider to use (either "anthropic" or "openai", corresponding to GPT-4o and Claude 3.5 Sonnet, respectively)
+    - llm_provider: str - the LLM provider to use (either "anthropic" or "openai")
+    - model: str - the name of the LLM model to use
 
     Returns
     - all_sections: a list of dictionaries, each containing the following keys:
@@ -193,7 +194,7 @@ def get_sections(document: str, max_characters: int = 20000, llm_provider: str =
     all_sections = []
     for _ in range(max_iterations):
         document_with_line_numbers, end_line = get_document_with_lines(document_lines, start_line, max_characters)
-        structured_doc = get_structured_document(document_with_line_numbers, start_line, end_line, provider=llm_provider)
+        structured_doc = get_structured_document(document_with_line_numbers, start_line, end_line, llm_provider=llm_provider, model=model)
         new_sections = structured_doc.sections
         all_sections.extend(new_sections)
         
