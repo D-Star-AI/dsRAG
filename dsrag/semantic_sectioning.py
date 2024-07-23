@@ -154,16 +154,38 @@ def partition_sections(sections, a, b):
         sections.append(Section(title="", start_index=sections[-1].end_index+1, end_index=b))
 
     # Ensure there are no gaps or overlaps between sections
-    for i in range(1, len(sections)):
-        if sections[i].start_index > sections[i-1].end_index + 1:
-            # There is a gap between sections[i-1] and sections[i]
-            sections.insert(i, Section(title="", start_index=sections[i-1].end_index+1, end_index=sections[i].start_index-1))
-        elif sections[i].start_index <= sections[i-1].end_index:
-            # There is an overlap between sections[i-1] and sections[i]
-            sections[i-1].end_index = sections[i].start_index - 1
-            sections[i-1].title = ""
+    completed_sections = []
+    for i in range(0, len(sections)):
+        if i == 0:
+            # Automatically add the first sectoin
+            completed_sections.append(sections[i])
+        else:
+            if sections[i].start_index > sections[i-1].end_index + 1:
+                # There is a gap between sections[i-1] and sections[i]
+                completed_sections.append(Section(title="", start_index=sections[i-1].end_index+1, end_index=sections[i].start_index-1))
+            elif sections[i].start_index <= sections[i-1].end_index:
+                # There is an overlap between sections[i-1] and sections[i]
+                completed_sections[i-1].end_index = sections[i].start_index - 1
+                completed_sections[i-1].title = ""
+            # Always add the current iteration's section
+            completed_sections.append(sections[i])
 
-    return sections
+
+    return completed_sections
+
+
+def is_valid_partition(sections, a, b):
+    if sections[0].start_index != a:
+        return False
+    if sections[-1].end_index != b:
+        return False
+
+    for i in range(1, len(sections)):
+        if sections[i].start_index != sections[i-1].end_index + 1:
+            return False
+    
+    return True
+
 
 def get_sections(document: str, max_characters: int = 20000, llm_provider: str = "openai", model: str = "gpt-4o-mini") -> List[Dict[str, Any]]:
     """
@@ -204,8 +226,12 @@ def get_sections(document: str, max_characters: int = 20000, llm_provider: str =
     b = len(document_lines) - 1
 
     # the fact that this is in a loop is a complete hack to deal with the fact that the partitioning function is not perfect
-    for _ in range(3):
-        all_sections = partition_sections(all_sections, a, b)
+    all_sections = partition_sections(all_sections, a, b)
+
+    # Verify that the sections are non-overlapping and cover the entire document
+    
+    if not is_valid_partition(all_sections, a, b):
+        raise AssertionError("Invalid partition")
 
     # get the section text
     section_dicts = get_sections_text(all_sections, document_lines)
