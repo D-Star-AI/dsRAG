@@ -173,6 +173,20 @@ def partition_sections(sections, a, b):
 
     return completed_sections
 
+
+def is_valid_partition(sections, a, b):
+    if sections[0].start_index != a:
+        return False
+    if sections[-1].end_index != b:
+        return False
+
+    for i in range(1, len(sections)):
+        if sections[i].start_index != sections[i-1].end_index + 1:
+            return False
+    
+    return True
+
+
 def get_sections(document: str, max_characters: int = 20000, llm_provider: str = "openai", model: str = "gpt-4o-mini") -> List[Dict[str, Any]]:
     """
     Inputs
@@ -215,14 +229,9 @@ def get_sections(document: str, max_characters: int = 20000, llm_provider: str =
     all_sections = partition_sections(all_sections, a, b)
 
     # Verify that the sections are non-overlapping and cover the entire document
-    if all_sections[0].start_index != a:
-        raise AssertionError(f"First section does not start at the beginning of the document")
-    if all_sections[-1].end_index != b:
-        raise AssertionError(f"Last section does not end at the end of the document")
-
-    for i in range(1, len(all_sections)):
-        if all_sections[i].start_index != all_sections[i-1].end_index + 1:
-            raise AssertionError(f"Sections are overlapping or missing")
+    
+    if not is_valid_partition(all_sections, a, b):
+        raise AssertionError("Invalid partition")
 
     # get the section text
     section_dicts = get_sections_text(all_sections, document_lines)

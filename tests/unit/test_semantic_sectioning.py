@@ -4,7 +4,7 @@ import unittest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from dsrag.semantic_sectioning import partition_sections, Section
+from dsrag.semantic_sectioning import partition_sections, is_valid_partition, Section
 
 
 class TestPartitionSections(unittest.TestCase):
@@ -176,6 +176,71 @@ class TestPartitionSections(unittest.TestCase):
             ]
         result = partition_sections(sections, a, b)
         assert result == expected, f"Expected {expected}, but got {result}"
+
+
+class TestIsValidPartition(unittest.TestCase):
+
+    # Test case 1: Valid partition
+    def test__valid_partition(self):
+        sections = [
+            Section(title="Introduction", start_index=0, end_index=4),
+            Section(title="Body", start_index=5, end_index=9),
+            Section(title="Conclusion", start_index=10, end_index=14)
+        ]
+        a = 0
+        b = 14
+        result = is_valid_partition(sections, a, b)
+        assert result == True
+    
+    # Test case 2: Invalid partition due to gap
+    def test__invalid_partition(self):
+        sections = [
+            Section(title="Introduction", start_index=0, end_index=4),
+            Section(title="Body", start_index=5, end_index=8),
+            Section(title="Conclusion", start_index=10, end_index=14)
+        ]
+        a = 0
+        b = 14
+        result = is_valid_partition(sections, a, b)
+        assert result == False
+    
+    # Test case 3: Invalid partition due to start index not matching
+    def test__invalid_partition_2(self):
+        sections = [
+            Section(title="Introduction", start_index=1, end_index=4),
+            Section(title="Body", start_index=5, end_index=9),
+            Section(title="Conclusion", start_index=10, end_index=14)
+        ]
+        a = 0
+        b = 14
+        result = is_valid_partition(sections, a, b)
+        assert result == False
+    
+
+    # Test case 4: Invalid partition due to end index not matching
+    def test__invalid_partition_3(self):
+        sections = [
+            Section(title="Introduction", start_index=0, end_index=4),
+            Section(title="Body", start_index=5, end_index=9),
+            Section(title="Conclusion", start_index=10, end_index=13)
+        ]
+        a = 0
+        b = 14
+        result = is_valid_partition(sections, a, b)
+        assert result == False
+    
+
+    # Test case 5: Invalid partition due to overlapping sections
+    def test__invalid_partition_4(self):
+        sections = [
+            Section(title="Introduction", start_index=0, end_index=4),
+            Section(title="Body", start_index=5, end_index=9),
+            Section(title="Conclusion", start_index=8, end_index=14)
+        ]
+        a = 0
+        b = 14
+        result = is_valid_partition(sections, a, b)
+        assert result == False
 
 
 # Run all tests
