@@ -93,7 +93,21 @@ class KnowledgeBase:
         # delete the metadata file
         os.remove(self.get_metadata_path())
 
-    def add_document(self, doc_id: str, text: str, auto_context: bool = True, chunk_header: str = None, auto_context_guidance: str = "", semantic_sectioning: bool = False, min_length_for_chunking: int = 2000):
+    def add_document(self, doc_id: str, text: str, auto_context: bool = True, chunk_header: str = None, auto_context_guidance: str = "", semantic_sectioning: bool = False, semantic_sectioning_config: dict = {}, min_length_for_chunking: int = 2000):
+        """
+        Inputs:
+        - doc_id: should be descriptive, because it gets used as the document title in AutoContext
+        - text: the full text of the document
+        - auto_context: whether to use AutoContext to generate a chunk header
+        - chunk_header: if auto_context is False, the chunk header to use to provide document context
+        - auto_context_guidance: if auto_context is True, this is the guidance to provide to the AutoContext model
+        - semantic_sectioning: whether to use semantic sectioning to split the document into semantically cohesive chunks
+        - semantic_sectioning_config: a dictionary with configuration for the semantic sectioning model
+            - llm_provider: the LLM provider to use for semantic sectioning
+            - model: the LLM model to use for semantic sectioning
+        - min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk
+        """
+        
         # verify that only one of auto_context and chunk_header is set
         if auto_context and chunk_header:
             print ("Warning in add_document: only one of auto_context and chunk_header should be set. Using the provided chunk_header.")
@@ -105,7 +119,9 @@ class KnowledgeBase:
         
         # do semantic sectioning
         if semantic_sectioning:
-            sections = get_sections(text)
+            llm_provider = semantic_sectioning_config.get('llm_provider', 'openai')
+            model = semantic_sectioning_config.get('model', 'gpt-4o-mini')
+            sections = get_sections(text, llm_provider=llm_provider, model=model)
         else:
             sections = [
                 {
@@ -188,6 +204,9 @@ class KnowledgeBase:
         return self.embedding_model.get_embeddings(text, input_type)
     
     def split_into_chunks(self, text):
+        """
+        Note: it's very important that chunk overlap is set to 0 here, since results are created by concatenating chunks.
+        """
         text_splitter = RecursiveCharacterTextSplitter(chunk_size = self.kb_metadata['chunk_size'], chunk_overlap = 0, length_function = len)
         texts = text_splitter.create_documents([text])
         chunks = [text.page_content for text in texts]
