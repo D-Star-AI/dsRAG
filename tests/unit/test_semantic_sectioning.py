@@ -69,7 +69,7 @@ class TestPartitionSections(unittest.TestCase):
         result = partition_sections(sections, a, b)
         assert result == expected, f"Expected {expected}, but got {result}"
     
-    # Test case 5: Gap in the middle
+    # Test case 5: Multiple gaps in the middle
     def test__multiple_gaps_in_middle(self):
         sections = [
             Section(title="Introduction", start_index=0, end_index=4),
