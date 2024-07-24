@@ -4,7 +4,7 @@ import os
 import time
 import json
 from typing import Union, Dict
-from dsrag.auto_context import get_document_context, get_chunk_header
+from dsrag.auto_context import get_document_summary, get_chunk_header
 from dsrag.rse import get_relevance_values, get_best_segments, get_meta_document, RSE_PARAMS_PRESETS
 from dsrag.vector_db import VectorDB, BasicVectorDB
 from dsrag.chunk_db import ChunkDB, BasicChunkDB
@@ -30,7 +30,6 @@ class KnowledgeBase:
                 'title': title,
                 'description': description,
                 'language': language,
-                'chunk_size': 800, # max number of characters in a chunk - should be replaced with a Chunking class for more flexibility
             }
             self.initialize_components(embedding_model, reranker, auto_context_model, vector_db, chunk_db)
             self.save() # save the config for the KB to disk
@@ -93,7 +92,7 @@ class KnowledgeBase:
         # delete the metadata file
         os.remove(self.get_metadata_path())
 
-    def add_document(self, doc_id: str, text: str, auto_context: bool = True, chunk_header: str = None, auto_context_guidance: str = "", semantic_sectioning: bool = False, semantic_sectioning_config: dict = {}, min_length_for_chunking: int = 2000):
+    def add_document(self, doc_id: str, text: str, document_title: str = "", auto_context_config: dict = {}, semantic_sectioning: bool = False, semantic_sectioning_config: dict = {}):
         """
         Inputs:
         - doc_id: should be descriptive, because it gets used as the document title in AutoContext
@@ -107,10 +106,6 @@ class KnowledgeBase:
             - model: the LLM model to use for semantic sectioning
         - min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk
         """
-        
-        # verify that only one of auto_context and chunk_header is set
-        if auto_context and chunk_header:
-            print ("Warning in add_document: only one of auto_context and chunk_header should be set. Using the provided chunk_header.")
 
         # verify that the document does not already exist in the KB
         if doc_id in self.chunk_db.get_all_doc_ids():
@@ -152,8 +147,8 @@ class KnowledgeBase:
 
         # AutoContext
         if auto_context and len(chunks) > 1:
-            document_context = get_document_context(self.auto_context_model, text, document_title=doc_id, auto_context_guidance=auto_context_guidance)
-            chunk_header = get_chunk_header(file_name=doc_id, document_context=document_context)
+            document_context = get_document_summary(self.auto_context_model, text, document_title=doc_id, auto_context_guidance=auto_context_guidance)
+            chunk_header = get_chunk_header(document_title=doc_id, document_summary=document_context)
         elif chunk_header:
             pass
         else:
