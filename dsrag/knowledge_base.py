@@ -4,7 +4,7 @@ import os
 import time
 import json
 from typing import Union, Dict
-from dsrag.auto_context import get_document_summary, get_chunk_header
+from dsrag.auto_context import get_document_title, get_document_summary, get_section_summary, get_chunk_header
 from dsrag.rse import get_relevance_values, get_best_segments, get_meta_document, RSE_PARAMS_PRESETS
 from dsrag.vector_db import VectorDB, BasicVectorDB
 from dsrag.chunk_db import ChunkDB, BasicChunkDB
@@ -92,18 +92,21 @@ class KnowledgeBase:
         # delete the metadata file
         os.remove(self.get_metadata_path())
 
-    def add_document(self, doc_id: str, text: str, document_title: str = "", auto_context_config: dict = {}, semantic_sectioning: bool = False, semantic_sectioning_config: dict = {}):
+    def add_document(self, doc_id: str, text: str, document_title: str = "", auto_context_config: dict = {}, semantic_sectioning_config: dict = {}, chunk_size: int = 800, min_length_for_chunking: int = 2000):
         """
         Inputs:
-        - doc_id: should be descriptive, because it gets used as the document title in AutoContext
+        - doc_id: unique identifier for the document; a file name or path is a good choice
         - text: the full text of the document
-        - auto_context: whether to use AutoContext to generate a chunk header
-        - chunk_header: if auto_context is False, the chunk header to use to provide document context
-        - auto_context_guidance: if auto_context is True, this is the guidance to provide to the AutoContext model
-        - semantic_sectioning: whether to use semantic sectioning to split the document into semantically cohesive chunks
-        - semantic_sectioning_config: a dictionary with configuration for the semantic sectioning model
+        - document_title: the title of the document (if not provided, either the doc_id or an LLM-generated title will be used, depending on the auto_context_config)
+        - auto_context_config: a dictionary with configuration parameters for AutoContext
+            - use_generated_title: whether to use an LLM-generated title if no title is provided (default is False)
+            - document_summarization_guidance
+            - get_section_summaries
+            - section_summarization_guidance
+        - semantic_sectioning_config: a dictionary with configuration for the semantic sectioning model (defaults will be used if not provided)
             - llm_provider: the LLM provider to use for semantic sectioning
             - model: the LLM model to use for semantic sectioning
+        - chunk_size: the maximum number of characters to include in each chunk
         - min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk
         """
 
@@ -112,7 +115,7 @@ class KnowledgeBase:
             print (f"Document with ID {doc_id} already exists in the KB. Skipping...")
             return
         
-        # do semantic sectioning
+        # semantic sectioning
         if semantic_sectioning:
             llm_provider = semantic_sectioning_config.get('llm_provider', 'openai')
             model = semantic_sectioning_config.get('model', 'gpt-4o-mini')
@@ -125,41 +128,52 @@ class KnowledgeBase:
                 }
             ]
 
+        # document title and summary
+        if not document_title and auto_context_config.get('use_generated_title', False):
+            document_title = get_document_title(self.auto_context_model, text)
+        elif not document_title:
+            document_title = doc_id
+        document_summarization_guidance = auto_context_config.get('document_summarization_guidance', '')
+        document_summary = get_document_summary(self.auto_context_model, text, document_title=document_title, document_summarization_guidance=document_summarization_guidance)
+
         # split the document into chunks
-        chunks = [] # chunks will be a list of dictionaries with keys 'chunk_text', 'section_title', and 'chunk_header'
+        chunks = [] # chunks will be a list of dictionaries with keys 'chunk_text', 'document_title', 'document_summary', 'section_title', 'section_summary'
         for section in sections:
             section_text = section['content']
             section_title = section['title']
+            
+            get_section_summaries = auto_context_config.get('get_section_summaries', False)
+            if get_section_summaries:
+                section_summarization_guidance = auto_context_config.get('section_summarization_guidance', '')
+                section_summary = get_section_summary(self.auto_context_model, section_text, document_title=document_title, section_title=section_title, section_summarization_guidance=section_summarization_guidance)
+            else:
+                section_summary = ''
+
             if len(section_text) < min_length_for_chunking:
                 chunks.append({
                     'chunk_text': section_text,
+                    'document_title': document_title,
+                    'document_summary': document_summary,
                     'section_title': section_title,
+                    'section_summary': section_summary,
                 })
             else:
                 section_chunks = self.split_into_chunks(section_text)
                 for chunk in section_chunks:
                     chunks.append({
                         'chunk_text': chunk,
+                        'document_title': document_title,
+                        'document_summary': document_summary,
                         'section_title': section_title,
+                        'section_summary': section_summary,
                     })
         
         print (f'Adding {len(chunks)} chunks to the database')
 
-        # AutoContext
-        if auto_context and len(chunks) > 1:
-            document_context = get_document_summary(self.auto_context_model, text, document_title=doc_id, auto_context_guidance=auto_context_guidance)
-            chunk_header = get_chunk_header(document_title=doc_id, document_summary=document_context)
-        elif chunk_header:
-            pass
-        else:
-            chunk_header = ""
-
-        # add chunk headers and section titles to the chunks before embedding them
         chunks_to_embed = []
         for i, chunk in enumerate(chunks):
-            chunk_text = chunk['chunk_text']
-            section_title = f"{chunk['section_title']}\n" if chunk['section_title'] else ""
-            chunk_to_embed = f'[{chunk_header}]\n{section_title}{chunk_text}'
+            chunk_header = get_chunk_header(document_title=chunk['document_title'], document_summary=chunk['document_summary'], section_title=chunk['section_title'], section_summary=chunk['section_summary'])
+            chunk_to_embed = f"{chunk_header}\n\n{chunk['chunk_text']}"
             chunks_to_embed.append(chunk_to_embed)
 
         # embed the chunks
@@ -198,11 +212,11 @@ class KnowledgeBase:
     def get_embeddings(self, text: str or list[str], input_type: str = ""):
         return self.embedding_model.get_embeddings(text, input_type)
     
-    def split_into_chunks(self, text):
+    def split_into_chunks(self, text: str, chunk_size: int):
         """
         Note: it's very important that chunk overlap is set to 0 here, since results are created by concatenating chunks.
         """
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size = self.kb_metadata['chunk_size'], chunk_overlap = 0, length_function = len)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=0, length_function=len)
         texts = text_splitter.create_documents([text])
         chunks = [text.page_content for text in texts]
         return chunks
