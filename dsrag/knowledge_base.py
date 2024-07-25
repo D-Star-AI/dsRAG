@@ -4,7 +4,7 @@ import os
 import time
 import json
 from typing import Union, Dict
-from dsrag.auto_context import get_document_title, get_document_summary, get_section_summary, get_chunk_header
+from dsrag.auto_context import get_document_title, get_document_summary, get_section_summary, get_chunk_header, get_segment_header
 from dsrag.rse import get_relevance_values, get_best_segments, get_meta_document, RSE_PARAMS_PRESETS
 from dsrag.vector_db import VectorDB, BasicVectorDB
 from dsrag.chunk_db import ChunkDB, BasicChunkDB
@@ -106,6 +106,7 @@ class KnowledgeBase:
         - semantic_sectioning_config: a dictionary with configuration for the semantic sectioning model (defaults will be used if not provided)
             - llm_provider: the LLM provider to use for semantic sectioning
             - model: the LLM model to use for semantic sectioning
+            - no_semantic_sectioning: if True, semantic sectioning will be skipped
         - chunk_size: the maximum number of characters to include in each chunk
         - min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk
         """
@@ -115,8 +116,14 @@ class KnowledgeBase:
             print (f"Document with ID {doc_id} already exists in the KB. Skipping...")
             return
         
+        # do semantic sectioning unless it is explicitly set to False in the config
+        if semantic_sectioning_config.get('no_semantic_sectioning', False):
+            do_semantic_sectioning = False
+        else:
+            do_semantic_sectioning = True
+        
         # semantic sectioning
-        if semantic_sectioning:
+        if do_semantic_sectioning:
             llm_provider = semantic_sectioning_config.get('llm_provider', 'openai')
             model = semantic_sectioning_config.get('model', 'gpt-4o-mini')
             sections = get_sections(text, llm_provider=llm_provider, model=model)
@@ -187,17 +194,17 @@ class KnowledgeBase:
                 chunk_embeddings += self.get_embeddings(chunks_to_embed[i:i+50], input_type="document")
 
         assert len(chunks) == len(chunk_embeddings) == len(chunks_to_embed)
-        self.chunk_db.add_document(doc_id, {i: {'chunk_text': chunk['chunk_text'], 'chunk_header': chunk_header, 'section_title': chunk['section_title']} for i, chunk in enumerate(chunks)})
+        self.chunk_db.add_document(doc_id, {i: {'chunk_text': chunk['chunk_text'], 'document_title': chunk['document_title'], 'document_summary': chunk['document_summary'], 'section_title': chunk['section_title'], 'section_summary': chunk['section_summary']} for i, chunk in enumerate(chunks)})
 
-        # create metadata list
+        # create metadata list - this gets added to the vector database
         metadata = []
         for i, chunk in enumerate(chunks):
-            metadata.append({'doc_id': doc_id, 'chunk_index': i, 'chunk_header': chunk_header, 'chunk_text': chunk['chunk_text'], 'section_title': chunk['section_title']})
+            metadata.append({'doc_id': doc_id, 'chunk_index': i, 'chunk_text': chunk['chunk_text'], 'chunk_header': get_chunk_header(document_title=chunk['document_title'], document_summary=chunk['document_summary'], section_title=chunk['section_title'], section_summary=chunk['section_summary'])})
 
         # add the vectors and metadata to the vector database
         self.vector_db.add_vectors(vectors=chunk_embeddings, metadata=metadata)
 
-        self.save() # save the database to disk after adding a document
+        self.save() # save to disk after adding a document
 
     def delete_document(self, doc_id: str):
         self.chunk_db.remove_document(doc_id)
@@ -206,8 +213,10 @@ class KnowledgeBase:
     def get_chunk_text(self, doc_id: str, chunk_index: int) -> str:
         return self.chunk_db.get_chunk_text(doc_id, chunk_index)
     
-    def get_chunk_header(self, doc_id: str, chunk_index: int) -> str:
-        return self.chunk_db.get_chunk_header(doc_id, chunk_index)
+    def get_segment_header(self, doc_id: str, chunk_index: int) -> str:
+        document_title = self.chunk_db.get_document_title(doc_id, chunk_index)
+        document_summary = self.chunk_db.get_document_summary(doc_id, chunk_index)
+        return get_segment_header(document_title=document_title, document_summary=document_summary)
 
     def get_embeddings(self, text: str or list[str], input_type: str = ""):
         return self.embedding_model.get_embeddings(text, input_type)
@@ -245,7 +254,7 @@ class KnowledgeBase:
         return all_ranked_results
     
     def get_segment_text_from_database(self, doc_id: str, chunk_start: int, chunk_end: int) -> str:
-        segment = f"[{self.get_chunk_header(doc_id, chunk_start)}]\n" # initialize the segment with the chunk header
+        segment = f"{self.get_segment_header(doc_id=doc_id, chunk_index=chunk_start)}\n\n" # initialize the segment with the segment header
         for chunk_index in range(chunk_start, chunk_end): # NOTE: end index is non-inclusive
             chunk_text = self.get_chunk_text(doc_id, chunk_index)
             segment += chunk_text
@@ -319,8 +328,8 @@ class KnowledgeBase:
             score = scores[segment_index]
             relevant_segment_info[-1]["score"] = score
 
-        # retrieve the actual text for the segments from the database
+        # retrieve the actual text (including segment header) for each of the segments
         for segment_info in relevant_segment_info:
-            segment_info["text"] = (self.get_segment_text_from_database(segment_info["doc_id"], segment_info["chunk_start"], segment_info["chunk_end"])) # NOTE: this is where the chunk header is added to the segment text
+            segment_info["text"] = (self.get_segment_text_from_database(segment_info["doc_id"], segment_info["chunk_start"], segment_info["chunk_end"]))
 
         return relevant_segment_info

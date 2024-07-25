@@ -109,8 +109,9 @@ def get_chunk_header(document_title: str = "", document_summary: str = "", secti
 
 def get_segment_header(document_title: str = "", document_summary: str = ""):
     """
-    The segment header is what gets prepended to each segment (i.e. search result). This provides context to the LLM about the segment.
+    The segment header is what gets prepended to each segment (i.e. search result). This provides context to the LLM about the segment. The segment header only contains document-level information. Section-level information is not needed here, because either the segment will be large enough to not need section-level context, or the it will be a chunk where the section-level context isn't relevant to the query (because otherwise more of the section would have been included in the segment).
     """
     segment_header = ""
     if document_title:
         segment_header += f"Document context: the following excerpt is from a document titled '{document_title}'. {document_summary}"
+    return segment_header

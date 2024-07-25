@@ -69,7 +69,12 @@ class TestAutoContext(unittest.TestCase):
         assert "NIKE, Inc. Annual Report on Form 10-K for the Fiscal Year Ended May 31, 2023" in chunk_header
 
     def test__get_segment_header(self):
-        pass
+        document_title = "NIKE, Inc. Annual Report on Form 10-K for the Fiscal Year Ended May 31, 2023"
+        document_summary = "This document is about: the financial performance, business operations, and strategic initiatives of NIKE, Inc. for the fiscal year ended May 31, 2023, as detailed in its Annual Report on Form 10-K."
+        segment_header = get_segment_header(document_title, document_summary)
+        assert "Document context" in segment_header
+        assert "NIKE, Inc. Annual Report on Form 10-K for the Fiscal Year Ended May 31, 2023" in segment_header
+        assert "financial performance" in segment_header
 
 if __name__ == "__main__":
     unittest.main()
