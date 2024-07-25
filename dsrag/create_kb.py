@@ -3,7 +3,7 @@ from dsrag.knowledge_base import KnowledgeBase
 import os
 import time
 
-def create_kb_from_directory(kb_id: str, directory: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, auto_context_guidance: str = ""):
+def create_kb_from_directory(kb_id: str, directory: str, title: str = None, description: str = "", language: str = 'en'):
     """
     - kb_id is the name of the knowledge base
     - directory is the absolute path to the directory containing the documents
@@ -33,7 +33,7 @@ def create_kb_from_directory(kb_id: str, directory: str, title: str = None, desc
                         with open(file_path, 'r') as f:
                             text = f.read()
 
-                    kb.add_document(clean_file_path, text, auto_context=auto_context, auto_context_guidance=auto_context_guidance)
+                    kb.add_document(doc_id=clean_file_path, text=text)
                     time.sleep(1) # pause for 1 second to avoid hitting API rate limits
                 except:
                     print (f"Error reading {file_name}")
@@ -44,7 +44,7 @@ def create_kb_from_directory(kb_id: str, directory: str, title: str = None, desc
     
     return kb
 
-def create_kb_from_file(kb_id: str, file_path: str, title: str = None, description: str = "", language: str = 'en', auto_context: bool = True, auto_context_guidance: str = ""):
+def create_kb_from_file(kb_id: str, file_path: str, title: str = None, description: str = "", language: str = 'en'):
     """
     - kb_id is the name of the knowledge base
     - file_path is the absolute path to the file containing the documents
@@ -74,7 +74,7 @@ def create_kb_from_file(kb_id: str, file_path: str, title: str = None, descripti
             with open(file_path, 'r') as f:
                 text = f.read()
 
-        kb.add_document(clean_file_path, text, auto_context=auto_context, auto_context_guidance=auto_context_guidance)
+        kb.add_document(doc_id=clean_file_path, text=text)
     else:
         print (f"Unsupported file type: {file_name}")
         return

@@ -165,7 +165,7 @@ class KnowledgeBase:
                     'section_summary': section_summary,
                 })
             else:
-                section_chunks = self.split_into_chunks(section_text)
+                section_chunks = self.split_into_chunks(section_text, chunk_size=chunk_size)
                 for chunk in section_chunks:
                     chunks.append({
                         'chunk_text': chunk,
