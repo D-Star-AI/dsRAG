@@ -165,8 +165,8 @@ def partition_sections(sections, a, b):
                 completed_sections.append(Section(title="", start_index=sections[i-1].end_index+1, end_index=sections[i].start_index-1))
             elif sections[i].start_index <= sections[i-1].end_index:
                 # There is an overlap between sections[i-1] and sections[i]
-                completed_sections[i-1].end_index = sections[i].start_index - 1
-                completed_sections[i-1].title = ""
+                completed_sections[-1].end_index = sections[i].start_index - 1
+                completed_sections[-1].title = ""
             # Always add the current iteration's section
             completed_sections.append(sections[i])
 
