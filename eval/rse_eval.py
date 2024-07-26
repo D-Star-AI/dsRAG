@@ -23,7 +23,14 @@ def test_create_kb_from_file():
     #kb = create_kb_from_file(kb_id, file_path)
     kb = KnowledgeBase(kb_id=kb_id, exists_ok=False)
     text = extract_text_from_pdf(file_path)
-    kb.add_document(file_path, text)
+
+    auto_context_config = {
+        'use_generated_title': True,
+        'get_document_summary': True,
+        'get_section_summaries': True,
+    }
+
+    kb.add_document(file_path, text, auto_context_config=auto_context_config)
 
 def cleanup():
     kb = KnowledgeBase(kb_id="levels_of_agi", exists_ok=True)
@@ -35,13 +42,11 @@ This script is for doing qualitative evaluation of RSE
 
 
 if __name__ == "__main__":
-    """
     # create the KnowledgeBase
     try:
         test_create_kb_from_file()
     except ValueError as e:
         print(e)
-    """
 
     rse_params = {
         'max_length': 20,
@@ -78,7 +83,7 @@ if __name__ == "__main__":
     
     print ()
     for segment in relevant_segments:
-        print (len(segment["text"]))
+        #print (len(segment["text"]))
         #print (segment["score"])
-        #print (segment["text"])
+        print (segment["text"])
         print ("---\n")
