@@ -4,13 +4,13 @@ import os
 import time
 import json
 from typing import Union, Dict
-from dsrag.auto_context import get_document_context, get_chunk_header
+from dsrag.auto_context import get_document_title, get_document_summary, get_section_summary, get_chunk_header, get_segment_header
 from dsrag.rse import get_relevance_values, get_best_segments, get_meta_document, RSE_PARAMS_PRESETS
 from dsrag.vector_db import VectorDB, BasicVectorDB
 from dsrag.chunk_db import ChunkDB, BasicChunkDB
 from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
-from dsrag.llm import LLM, AnthropicChatAPI
+from dsrag.llm import LLM, OpenAIChatAPI
 from dsrag.semantic_sectioning import get_sections
 
 
@@ -30,7 +30,6 @@ class KnowledgeBase:
                 'title': title,
                 'description': description,
                 'language': language,
-                'chunk_size': 800, # max number of characters in a chunk - should be replaced with a Chunking class for more flexibility
             }
             self.initialize_components(embedding_model, reranker, auto_context_model, vector_db, chunk_db)
             self.save() # save the config for the KB to disk
@@ -41,7 +40,7 @@ class KnowledgeBase:
     def initialize_components(self, embedding_model, reranker, auto_context_model, vector_db, chunk_db):
         self.embedding_model = embedding_model if embedding_model else OpenAIEmbedding()
         self.reranker = reranker if reranker else CohereReranker()
-        self.auto_context_model = auto_context_model if auto_context_model else AnthropicChatAPI()
+        self.auto_context_model = auto_context_model if auto_context_model else OpenAIChatAPI()
         self.vector_db = vector_db if vector_db else BasicVectorDB(self.kb_id, self.storage_directory)
         self.chunk_db = chunk_db if chunk_db else BasicChunkDB(self.kb_id, self.storage_directory)
         self.vector_dimension = self.embedding_model.dimension
@@ -93,32 +92,34 @@ class KnowledgeBase:
         # delete the metadata file
         os.remove(self.get_metadata_path())
 
-    def add_document(self, doc_id: str, text: str, auto_context: bool = True, chunk_header: str = None, auto_context_guidance: str = "", semantic_sectioning: bool = False, semantic_sectioning_config: dict = {}, min_length_for_chunking: int = 2000):
+    def add_document(self, doc_id: str, text: str, document_title: str = "", auto_context_config: dict = {}, semantic_sectioning_config: dict = {}, chunk_size: int = 800, min_length_for_chunking: int = 1600):
         """
         Inputs:
-        - doc_id: should be descriptive, because it gets used as the document title in AutoContext
+        - doc_id: unique identifier for the document; a file name or path is a good choice
         - text: the full text of the document
-        - auto_context: whether to use AutoContext to generate a chunk header
-        - chunk_header: if auto_context is False, the chunk header to use to provide document context
-        - auto_context_guidance: if auto_context is True, this is the guidance to provide to the AutoContext model
-        - semantic_sectioning: whether to use semantic sectioning to split the document into semantically cohesive chunks
-        - semantic_sectioning_config: a dictionary with configuration for the semantic sectioning model
-            - llm_provider: the LLM provider to use for semantic sectioning
+        - document_title: the title of the document (if not provided, either the doc_id or an LLM-generated title will be used, depending on the auto_context_config)
+        - auto_context_config: a dictionary with configuration parameters for AutoContext
+            - use_generated_title: bool - whether to use an LLM-generated title if no title is provided (default is True)
+            - document_title_guidance: str - guidance for generating the document title
+            - get_document_summary: bool - whether to get a document summary (default is True)
+            - document_summarization_guidance: str
+            - get_section_summaries: bool - whether to get section summaries (default is False)
+            - section_summarization_guidance: str
+        - semantic_sectioning_config: a dictionary with configuration for the semantic sectioning model (defaults will be used if not provided)
+            - llm_provider: the LLM provider to use for semantic sectioning - only "openai" and "anthropic" are supported at the moment
             - model: the LLM model to use for semantic sectioning
-        - min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk
+            - use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
+        - chunk_size: the maximum number of characters to include in each chunk
+        - min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk. If semantic sectioning is used, this parameter will be applied to each section. Setting this to a higher value than the chunk_size can help avoid unnecessary chunking of short documents or sections.
         """
-        
-        # verify that only one of auto_context and chunk_header is set
-        if auto_context and chunk_header:
-            print ("Warning in add_document: only one of auto_context and chunk_header should be set. Using the provided chunk_header.")
 
-        # verify that the document does not already exist in the KB
+        # verify that the document does not already exist in the KB - the doc_id should be unique
         if doc_id in self.chunk_db.get_all_doc_ids():
             print (f"Document with ID {doc_id} already exists in the KB. Skipping...")
             return
-        
-        # do semantic sectioning
-        if semantic_sectioning:
+
+        # semantic sectioning
+        if semantic_sectioning_config.get('use_semantic_sectioning', True):
             llm_provider = semantic_sectioning_config.get('llm_provider', 'openai')
             model = semantic_sectioning_config.get('model', 'gpt-4o-mini')
             sections = get_sections(text, llm_provider=llm_provider, model=model)
@@ -130,41 +131,60 @@ class KnowledgeBase:
                 }
             ]
 
+        # document title and summary
+        if not document_title and auto_context_config.get('use_generated_title', True):
+            document_title_guidance = auto_context_config.get('document_title_guidance', '')
+            document_title = get_document_title(self.auto_context_model, text, document_title_guidance=document_title_guidance)
+        elif not document_title:
+            document_title = doc_id
+
+        if auto_context_config.get('get_document_summary', True):
+            document_summarization_guidance = auto_context_config.get('document_summarization_guidance', '')
+            document_summary = get_document_summary(self.auto_context_model, text, document_title=document_title, document_summarization_guidance=document_summarization_guidance)
+        else:
+            document_summary = ''
+
         # split the document into chunks
-        chunks = [] # chunks will be a list of dictionaries with keys 'chunk_text', 'section_title', and 'chunk_header'
+        chunks = [] # chunks is a list of dictionaries with keys 'chunk_text', 'document_title', 'document_summary', 'section_title', 'section_summary'
         for section in sections:
             section_text = section['content']
             section_title = section['title']
+            
+            # section summary
+            get_section_summaries = auto_context_config.get('get_section_summaries', False)
+            if get_section_summaries and len(sections) > 1:
+                section_summarization_guidance = auto_context_config.get('section_summarization_guidance', '')
+                section_summary = get_section_summary(self.auto_context_model, section_text, document_title=document_title, section_title=section_title, section_summarization_guidance=section_summarization_guidance)
+            else:
+                section_summary = ''
+
+            # break section into chunks
             if len(section_text) < min_length_for_chunking:
                 chunks.append({
                     'chunk_text': section_text,
+                    'document_title': document_title,
+                    'document_summary': document_summary,
                     'section_title': section_title,
+                    'section_summary': section_summary,
                 })
             else:
-                section_chunks = self.split_into_chunks(section_text)
+                section_chunks = self.split_into_chunks(section_text, chunk_size=chunk_size)
                 for chunk in section_chunks:
                     chunks.append({
                         'chunk_text': chunk,
+                        'document_title': document_title,
+                        'document_summary': document_summary,
                         'section_title': section_title,
+                        'section_summary': section_summary,
                     })
         
         print (f'Adding {len(chunks)} chunks to the database')
 
-        # AutoContext
-        if auto_context and len(chunks) > 1:
-            document_context = get_document_context(self.auto_context_model, text, document_title=doc_id, auto_context_guidance=auto_context_guidance)
-            chunk_header = get_chunk_header(file_name=doc_id, document_context=document_context)
-        elif chunk_header:
-            pass
-        else:
-            chunk_header = ""
-
-        # add chunk headers and section titles to the chunks before embedding them
+        # prepare the chunks for embedding by prepending the chunk headers
         chunks_to_embed = []
         for i, chunk in enumerate(chunks):
-            chunk_text = chunk['chunk_text']
-            section_title = f"{chunk['section_title']}\n" if chunk['section_title'] else ""
-            chunk_to_embed = f'[{chunk_header}]\n{section_title}{chunk_text}'
+            chunk_header = get_chunk_header(document_title=chunk['document_title'], document_summary=chunk['document_summary'], section_title=chunk['section_title'], section_summary=chunk['section_summary'])
+            chunk_to_embed = f"{chunk_header}\n\n{chunk['chunk_text']}"
             chunks_to_embed.append(chunk_to_embed)
 
         # embed the chunks
@@ -177,18 +197,19 @@ class KnowledgeBase:
             for i in range(0, len(chunks), 50):
                 chunk_embeddings += self.get_embeddings(chunks_to_embed[i:i+50], input_type="document")
 
+        # add the chunks to the chunk database
         assert len(chunks) == len(chunk_embeddings) == len(chunks_to_embed)
-        self.chunk_db.add_document(doc_id, {i: {'chunk_text': chunk['chunk_text'], 'chunk_header': chunk_header, 'section_title': chunk['section_title']} for i, chunk in enumerate(chunks)})
+        self.chunk_db.add_document(doc_id, {i: {'chunk_text': chunk['chunk_text'], 'document_title': chunk['document_title'], 'document_summary': chunk['document_summary'], 'section_title': chunk['section_title'], 'section_summary': chunk['section_summary']} for i, chunk in enumerate(chunks)})
 
-        # create metadata list
+        # create metadata list to add to the vector database
         metadata = []
         for i, chunk in enumerate(chunks):
-            metadata.append({'doc_id': doc_id, 'chunk_index': i, 'chunk_header': chunk_header, 'chunk_text': chunk['chunk_text'], 'section_title': chunk['section_title']})
+            metadata.append({'doc_id': doc_id, 'chunk_index': i, 'chunk_text': chunk['chunk_text'], 'chunk_header': get_chunk_header(document_title=chunk['document_title'], document_summary=chunk['document_summary'], section_title=chunk['section_title'], section_summary=chunk['section_summary'])})
 
         # add the vectors and metadata to the vector database
         self.vector_db.add_vectors(vectors=chunk_embeddings, metadata=metadata)
 
-        self.save() # save the database to disk after adding a document
+        self.save() # save to disk after adding a document
 
     def delete_document(self, doc_id: str):
         self.chunk_db.remove_document(doc_id)
@@ -197,17 +218,19 @@ class KnowledgeBase:
     def get_chunk_text(self, doc_id: str, chunk_index: int) -> str:
         return self.chunk_db.get_chunk_text(doc_id, chunk_index)
     
-    def get_chunk_header(self, doc_id: str, chunk_index: int) -> str:
-        return self.chunk_db.get_chunk_header(doc_id, chunk_index)
+    def get_segment_header(self, doc_id: str, chunk_index: int) -> str:
+        document_title = self.chunk_db.get_document_title(doc_id, chunk_index)
+        document_summary = self.chunk_db.get_document_summary(doc_id, chunk_index)
+        return get_segment_header(document_title=document_title, document_summary=document_summary)
 
     def get_embeddings(self, text: str or list[str], input_type: str = ""):
         return self.embedding_model.get_embeddings(text, input_type)
     
-    def split_into_chunks(self, text):
+    def split_into_chunks(self, text: str, chunk_size: int):
         """
         Note: it's very important that chunk overlap is set to 0 here, since results are created by concatenating chunks.
         """
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size = self.kb_metadata['chunk_size'], chunk_overlap = 0, length_function = len)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=0, length_function=len)
         texts = text_splitter.create_documents([text])
         chunks = [text.page_content for text in texts]
         return chunks
@@ -236,7 +259,7 @@ class KnowledgeBase:
         return all_ranked_results
     
     def get_segment_text_from_database(self, doc_id: str, chunk_start: int, chunk_end: int) -> str:
-        segment = f"[{self.get_chunk_header(doc_id, chunk_start)}]\n" # initialize the segment with the chunk header
+        segment = f"{self.get_segment_header(doc_id=doc_id, chunk_index=chunk_start)}\n\n" # initialize the segment with the segment header
         for chunk_index in range(chunk_start, chunk_end): # NOTE: end index is non-inclusive
             chunk_text = self.get_chunk_text(doc_id, chunk_index)
             segment += chunk_text
@@ -310,8 +333,8 @@ class KnowledgeBase:
             score = scores[segment_index]
             relevant_segment_info[-1]["score"] = score
 
-        # retrieve the actual text for the segments from the database
+        # retrieve the actual text (including segment header) for each of the segments
         for segment_info in relevant_segment_info:
-            segment_info["text"] = (self.get_segment_text_from_database(segment_info["doc_id"], segment_info["chunk_start"], segment_info["chunk_end"])) # NOTE: this is where the chunk header is added to the segment text
+            segment_info["text"] = (self.get_segment_text_from_database(segment_info["doc_id"], segment_info["chunk_start"], segment_info["chunk_end"]))
 
         return relevant_segment_info

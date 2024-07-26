@@ -32,7 +32,7 @@ class LLM(ABC):
         pass
 
 class OpenAIChatAPI(LLM):
-    def __init__(self, model: str = "gpt-3.5-turbo", temperature: float = 0.2, max_tokens: int = 1000):
+    def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.2, max_tokens: int = 1000):
         from openai import OpenAI
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = model

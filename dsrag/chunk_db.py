@@ -45,16 +45,27 @@ class ChunkDB(ABC):
         pass
 
     @abstractmethod
-    def get_chunk_header(self, doc_id: str, chunk_index: int) -> str:
+    def get_document_title(self, doc_id: str, chunk_index: int) -> str:
         """
-        Retrieve the header of a specific chunk from a given document ID.
+        Retrieve the document title of a specific chunk from a given document ID.
         """
         pass
 
-    @abstractmethod
+    def get_document_summary(self, doc_id: str, chunk_index: int) -> str:
+        """
+        Retrieve the document summary of a specific chunk from a given document ID.
+        """
+        pass
+
     def get_section_title(self, doc_id: str, chunk_index: int) -> str:
         """
         Retrieve the section title of a specific chunk from a given document ID.
+        """
+        pass
+
+    def get_section_summary(self, doc_id: str, chunk_index: int) -> str:
+        """
+        Retrieve the section summary of a specific chunk from a given document ID.
         """
         pass
 
@@ -98,15 +109,34 @@ class BasicChunkDB(ChunkDB):
             return self.data[doc_id][chunk_index]['chunk_text']
         return None
 
-    def get_chunk_header(self, doc_id: str, chunk_index: int) -> str:
+    def get_document_title(self, doc_id: str, chunk_index: int) -> str:
         if doc_id in self.data and chunk_index in self.data[doc_id]:
-            return self.data[doc_id][chunk_index]['chunk_header']
+            if 'document_title' in self.data[doc_id][chunk_index]:
+                return self.data[doc_id][chunk_index]['document_title']
+            else:
+                return ""
+        return None
+    
+    def get_document_summary(self, doc_id: str, chunk_index: int) -> str:
+        if doc_id in self.data and chunk_index in self.data[doc_id]:
+            if 'document_summary' in self.data[doc_id][chunk_index]:
+                return self.data[doc_id][chunk_index]['document_summary']
+            else:
+                return ""
         return None
     
     def get_section_title(self, doc_id: str, chunk_index: int) -> str:
         if doc_id in self.data and chunk_index in self.data[doc_id]:
             if 'section_title' in self.data[doc_id][chunk_index]:
                 return self.data[doc_id][chunk_index]['section_title']
+            else:
+                return ""
+        return None
+    
+    def get_section_summary(self, doc_id: str, chunk_index: int) -> str:
+        if doc_id in self.data and chunk_index in self.data[doc_id]:
+            if 'section_summary' in self.data[doc_id][chunk_index]:
+                return self.data[doc_id][chunk_index]['section_summary']
             else:
                 return ""
         return None

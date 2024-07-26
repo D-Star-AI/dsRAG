@@ -30,28 +30,58 @@ class TestChunkDB(unittest.TestCase):
         db = BasicChunkDB(self.kb_id, self.storage_directory)
         doc_id = 'doc1'
         chunks = {
-            0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'},
-            1: {'chunk_header': 'Header 2', 'chunk_text': 'Content of chunk 2'}
+            0: {'chunk_text': 'Content of chunk 1', 'document_title': 'Title of document 1', 'document_summary': 'Summary of document 1', 'section_title': 'Section title 1', 'section_summary': 'Section summary 1'},
+            1: {'chunk_text': 'Content of chunk 2', 'document_title': 'Title of document 2', 'document_summary': 'Summary of document 2', 'section_title': 'Section title 2', 'section_summary': 'Section summary 2'},
         }
         db.add_document(doc_id, chunks)
         retrieved_chunk = db.get_chunk_text(doc_id, 0)
         self.assertEqual(retrieved_chunk, chunks[0]['chunk_text'])
 
-    def test__get_chunk_header(self):
+    def test__get_document_title(self):
         db = BasicChunkDB(self.kb_id, self.storage_directory)
         doc_id = 'doc1'
         chunks = {
-            0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'}
+            0: {'document_title': 'Title 1', 'chunk_text': 'Content of chunk 1'}
         }
         db.add_document(doc_id, chunks)
-        header = db.get_chunk_header(doc_id, 0)
-        self.assertEqual(header, 'Header 1')
+        title = db.get_document_title(doc_id, 0)
+        self.assertEqual(title, 'Title 1')
+
+    def test__get_document_summary(self):
+        db = BasicChunkDB(self.kb_id, self.storage_directory)
+        doc_id = 'doc1'
+        chunks = {
+            0: {'document_summary': 'Summary 1', 'chunk_text': 'Content of chunk 1'}
+        }
+        db.add_document(doc_id, chunks)
+        summary = db.get_document_summary(doc_id, 0)
+        self.assertEqual(summary, 'Summary 1')
+
+    def test__get_section_title(self):
+        db = BasicChunkDB(self.kb_id, self.storage_directory)
+        doc_id = 'doc1'
+        chunks = {
+            0: {'section_title': 'Title 1', 'chunk_text': 'Content of chunk 1'}
+        }
+        db.add_document(doc_id, chunks)
+        title = db.get_section_title(doc_id, 0)
+        self.assertEqual(title, 'Title 1')
+
+    def test__get_section_summary(self):
+        db = BasicChunkDB(self.kb_id, self.storage_directory)
+        doc_id = 'doc1'
+        chunks = {
+            0: {'section_summary': 'Summary 1', 'chunk_text': 'Content of chunk 1'}
+        }
+        db.add_document(doc_id, chunks)
+        summary = db.get_section_summary(doc_id, 0)
+        self.assertEqual(summary, 'Summary 1')
 
     def test__remove_document(self):
         db = BasicChunkDB(self.kb_id, self.storage_directory)
         doc_id = 'doc1'
         chunks = {
-            0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'}
+            0: {'chunk_text': 'Content of chunk 1'}
         }
         db.add_document(doc_id, chunks)
         db.remove_document(doc_id)
@@ -61,7 +91,7 @@ class TestChunkDB(unittest.TestCase):
         db = BasicChunkDB(self.kb_id, self.storage_directory)
         doc_id = 'doc1'
         chunks = {
-            0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'}
+            0: {'chunk_text': 'Content of chunk 1', 'document_title': 'Title of document 1', 'document_summary': 'Summary of document 1', 'section_title': 'Section title 1', 'section_summary': 'Section summary 1'},
         }
         db.add_document(doc_id, chunks)
         db2 = BasicChunkDB(self.kb_id, self.storage_directory)
@@ -78,7 +108,7 @@ class TestChunkDB(unittest.TestCase):
         db = BasicChunkDB(self.kb_id, self.storage_directory)
         doc_id = 'doc1'
         chunks = {
-            0: {'chunk_header': 'Header 1', 'chunk_text': 'Content of chunk 1'}
+            0: {'chunk_text': 'Content of chunk 1'}
         }
         db.add_document(doc_id, chunks)
         # Make sure the storage directory exists before deleting it
