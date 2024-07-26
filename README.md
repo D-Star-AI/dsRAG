@@ -116,9 +116,10 @@ The Reranker components define the reranker. This is used after the vector datab
 
 The currently available options are:
 - `CohereReranker`
+- `VoyageReranker`
 
 #### LLM
-This defines the LLM to be used for document summarization in AutoContext.
+This defines the LLM to be used for document title generation, document summarization, and section summarization in AutoContext.
 
 The currently available options are:
 - `OpenAIChatAPI`
@@ -131,26 +132,26 @@ There are two config dictionaries that can be passed in to `add_document` (`auto
 Default values will be used for any parameters not provided in these dictionaries, so if you just want to alter one or two parameters there's no need to send in the full dictionary.
 
 auto_context_config
-    - use_generated_title: bool - whether to use an LLM-generated title if no title is provided (default is True)
-    - document_title_guidance: str - guidance for generating the document title
-    - get_document_summary: bool - whether to get a document summary (default is True)
-    - document_summarization_guidance: str
-    - get_section_summaries: bool - whether to get section summaries (default is False)
-    - section_summarization_guidance: str
+- use_generated_title: bool - whether to use an LLM-generated title if no title is provided (default is True)
+- document_title_guidance: str - guidance for generating the document title
+- get_document_summary: bool - whether to get a document summary (default is True)
+- document_summarization_guidance: str
+- get_section_summaries: bool - whether to get section summaries (default is False)
+- section_summarization_guidance: str
 
 semantic_sectioning_config
-    - llm_provider: the LLM provider to use for semantic sectioning - only "openai" and "anthropic" are supported at the moment
-    - model: the LLM model to use for semantic sectioning
-    - use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
+- llm_provider: the LLM provider to use for semantic sectioning - only "openai" and "anthropic" are supported at the moment
+- model: the LLM model to use for semantic sectioning
+- use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
 
 rse_params
-    - max_length: maximum length of a segment, measured in number of chunks
-    - overall_max_length: maximum length of all segments combined, measured in number of chunks
-    - minimum_value: minimum value of a segment, measured in relevance value
-    - irrelevant_chunk_penalty: float between 0 and 1
-    - overall_max_length_extension: the maximum length of all segments combined will be increased by this amount for each additional query beyond the first
-    - decay_rate
-    - top_k_for_document_selection: the number of documents to consider
+- max_length: maximum length of a segment, measured in number of chunks
+- overall_max_length: maximum length of all segments combined, measured in number of chunks
+- minimum_value: minimum value of a segment, measured in relevance value
+- irrelevant_chunk_penalty: float between 0 and 1
+- overall_max_length_extension: the maximum length of all segments combined will be increased by this amount for each additional query beyond the first
+- decay_rate
+- top_k_for_document_selection: the number of documents to consider
 
 ## Document upload flow
 Documents -> semantic sectioning -> AutoContext -> chunking -> embedding -> chunk and vector database upsert
