@@ -3,19 +3,19 @@
 
 dsRAG is a retrieval engine for unstructured data. It is especially good at handling challenging queries over dense text, like financial reports, legal documents, and academic papers. dsRAG achieves substantially higher accuracy than vanilla RAG baselines on complex open-book question answering tasks. On one especially challenging benchmark, [FinanceBench](https://arxiv.org/abs/2311.11944), dsRAG gets accurate answers 83% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
 
-There are two key methods used to improve performance over vanilla RAG systems:
-1. AutoContext
-2. Relevant Segment Extraction (RSE)
+There are three key methods used to improve performance over vanilla RAG systems:
+1. Semantic sectioning
+2. AutoContext
+3. Relevant Segment Extraction (RSE)
+
+#### Semantic sectioning
+Semantic sectioning uses an LLM to break a document into sections. It works by annotating the document with line numbers and then prompting an LLM to identify the starting and ending lines for each “semantically cohesive section.” These sections should be anywhere from a few paragraphs to a few pages long. The sections then get broken into smaller chunks if needed. The LLM is also prompted to generate descriptive titles for each section. These section titles get used in the contextual chunk headers created by AutoContext, which provides additional context to the ranking models (embeddings and reranker), enabling better retrieval.
 
 #### AutoContext
-AutoContext automatically injects document-level context into individual chunks prior to embedding them. This gives the embeddings a much more accurate and complete representation of the content and meaning of the text. In our testing, this feature leads to a dramatic improvement in retrieval quality. In addition to increasing the rate at which the correct information is retrieved, AutoContext also substantially reduces the rate at which irrelevant results show up in the search results. This reduces the rate at which the LLM misinterprets a piece of text in downstream chat and generation applications.
-
-The current implementation of AutoContext is fairly straightforward. All we do is generate a 1-2 sentence summary of the document, add the file name to it, and then prepend that to each chunk prior to embedding it.
-
-There is also a new feature called semantic sectioning. This works by annotating the document with line numbers and then prompting an LLM to identify the starting and ending lines for each “semantically cohesive section.” These sections should be anywhere from a few paragraphs to a few pages long. The sections then get broken into smaller chunks if needed. The LLM is also prompted to generate descriptive titles for each section. These titles then get used to provide additional context to the ranking models (embeddings and reranker), enabling better retrieval.
+AutoContext creates contextual chunk headers that contain document-level and section-level context, and prepends those chunk headers to the chunks prior to embedding them. This gives the embeddings a much more accurate and complete representation of the content and meaning of the text. In our testing, this feature leads to a dramatic improvement in retrieval quality. In addition to increasing the rate at which the correct information is retrieved, AutoContext also substantially reduces the rate at which irrelevant results show up in the search results. This reduces the rate at which the LLM misinterprets a piece of text in downstream chat and generation applications.
 
 #### Relevant Segment Extraction
-Relevant Segment Extraction (RSE) is a post-processing step that takes clusters of relevant chunks and intelligently combines them into longer sections of text that we call segments. These segments provide better context to the LLM than any individual chunk can. For simple factual questions, the answer is usually contained in a single chunk; but for more complex questions, the answer usually spans a longer section of text. The goal of RSE is to intelligently identify the section(s) of text that provide the most relevant information, without being constrained to fixed length chunks.
+Relevant Segment Extraction (RSE) is a query-time post-processing step that takes clusters of relevant chunks and intelligently combines them into longer sections of text that we call segments. These segments provide better context to the LLM than any individual chunk can. For simple factual questions, the answer is usually contained in a single chunk; but for more complex questions, the answer usually spans a longer section of text. The goal of RSE is to intelligently identify the section(s) of text that provide the most relevant information, without being constrained to fixed length chunks.
 
 For example, suppose you have a bunch of SEC filings in a knowledge base and you ask “What were Apple’s key financial results in the most recent fiscal year?” RSE will identify the most relevant segment as the entire “Consolidated Statement of Operations” section, which will be 5-10 chunks long. Whereas if you ask “Who is Apple’s CEO?” the most relevant segment will be identified as a single chunk that mentions “Tim Cook, CEO.”
 
@@ -28,9 +28,9 @@ pip install dsrag
 ```
 
 #### Quickstart
-By default, dsRAG uses OpenAI for embeddings, Claude 3 Haiku for AutoContext, and Cohere for reranking, so to run the code below you'll need to make sure you have API keys for those providers set as environmental variables with the following names: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `CO_API_KEY`. **If you want to run dsRAG with different models, take a look at the "Basic customization" section below.**
+By default, dsRAG uses OpenAI for embeddings and AutoContext, and Cohere for reranking, so to run the code below you'll need to make sure you have API keys for those providers set as environmental variables with the following names: `OPENAI_API_KEY` and `CO_API_KEY`. **If you want to run dsRAG with different models, take a look at the "Basic customization" section below.**
 
-You can create a new KnowledgeBase directly from a file using the `create_kb_from_file` function:
+You can create a new KnowledgeBase directly from a file using the `create_kb_from_file` helper function:
 ```python
 from dsrag.create_kb import create_kb_from_file
 
@@ -52,12 +52,12 @@ for segment in results:
 ```
 
 #### Basic customization
-Now let's look at an example of how we can customize the configuration of a KnowledgeBase. In this case, we'll customize it so that it only uses OpenAI (useful if you don't have API keys for Anthropic and Cohere). To do so, we need to pass in a subclass of `LLM` and a subclass of `Reranker`. We'll use `gpt-3.5-turbo` for the LLM (this is what gets used for document summarization in AutoContext) and since OpenAI doesn't offer a reranker, we'll use the `NoReranker` class for that.
+Now let's look at an example of how we can customize the configuration of a KnowledgeBase. In this case, we'll customize it so that it only uses OpenAI (useful if you don't have API keys for Anthropic and Cohere). To do so, we need to pass in a subclass of `LLM` and a subclass of `Reranker`. We'll use `gpt-4o-mini` for the LLM (this is what gets used for document and section summarization in AutoContext) and since OpenAI doesn't offer a reranker, we'll use the `NoReranker` class for that.
 ```python
 from dsrag.llm import OpenAIChatAPI
 from dsrag.reranker import NoReranker
 
-llm = OpenAIChatAPI(model='gpt-3.5-turbo')
+llm = OpenAIChatAPI(model='gpt-4o-mini')
 reranker = NoReranker()
 
 kb = KnowledgeBase(kb_id="levels_of_agi", reranker=reranker, auto_context_model=llm)
@@ -118,15 +118,42 @@ The currently available options are:
 - `CohereReranker`
 
 #### LLM
-This defines the LLM to be used for document summarization, which is only used in AutoContext.
+This defines the LLM to be used for document summarization in AutoContext.
 
 The currently available options are:
 - `OpenAIChatAPI`
 - `AnthropicChatAPI`
 - `OllamaChatAPI`
 
+## Config dictionaries
+There are two config dictionaries that can be passed in to `add_document` (`auto_context_config` and `semantic_sectioning_config`) and one that can be passed in to `query` (`rse_params`).
+
+Default values will be used for any parameters not provided in these dictionaries, so if you just want to alter one or two parameters there's no need to send in the full dictionary.
+
+auto_context_config
+    - use_generated_title: bool - whether to use an LLM-generated title if no title is provided (default is True)
+    - document_title_guidance: str - guidance for generating the document title
+    - get_document_summary: bool - whether to get a document summary (default is True)
+    - document_summarization_guidance: str
+    - get_section_summaries: bool - whether to get section summaries (default is False)
+    - section_summarization_guidance: str
+
+semantic_sectioning_config
+    - llm_provider: the LLM provider to use for semantic sectioning - only "openai" and "anthropic" are supported at the moment
+    - model: the LLM model to use for semantic sectioning
+    - use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
+
+rse_params
+    - max_length: maximum length of a segment, measured in number of chunks
+    - overall_max_length: maximum length of all segments combined, measured in number of chunks
+    - minimum_value: minimum value of a segment, measured in relevance value
+    - irrelevant_chunk_penalty: float between 0 and 1
+    - overall_max_length_extension: the maximum length of all segments combined will be increased by this amount for each additional query beyond the first
+    - decay_rate
+    - top_k_for_document_selection: the number of documents to consider
+
 ## Document upload flow
-Documents -> AutoContext -> chunking -> embedding -> chunk and vector database upsert
+Documents -> semantic sectioning -> AutoContext -> chunking -> embedding -> chunk and vector database upsert
 
 ## Query flow
 Queries -> vector database search -> reranking -> RSE -> results
