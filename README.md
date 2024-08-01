@@ -1,6 +1,9 @@
 # dsRAG
 [![Discord](https://img.shields.io/discord/1234629280755875881.svg?label=Discord&logo=discord&color=7289DA)](https://discord.gg/NTUVX9DmQ3)
 
+**Note:** If you’re using (or planning to use) dsRAG in production, please fill out this short [form](https://forms.gle/RQ5qFVReonSHDcCu5) telling us about your use case. This helps us prioritize new features. In return I’ll give you my personal email address, which you can use for priority email support.
+
+## What is dsRAG?
 dsRAG is a retrieval engine for unstructured data. It is especially good at handling challenging queries over dense text, like financial reports, legal documents, and academic papers. dsRAG achieves substantially higher accuracy than vanilla RAG baselines on complex open-book question answering tasks. On one especially challenging benchmark, [FinanceBench](https://arxiv.org/abs/2311.11944), dsRAG gets accurate answers 83% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
 
 There are three key methods used to improve performance over vanilla RAG systems:
@@ -162,4 +165,4 @@ Queries -> vector database search -> reranking -> RSE -> results
 # Community and support
 You can join our [Discord](https://discord.gg/NTUVX9DmQ3) to ask questions, make suggestions, and discuss contributions.
 
-If you need additional support, we also offer consulting and custom development services. Reach out to zach@d-star.ai for more information.
+If you’re using (or planning to use) dsRAG in production, please fill out this short [form](https://forms.gle/RQ5qFVReonSHDcCu5) telling us about your use case. This helps us prioritize new features. In return I’ll give you my personal email address, which you can use for priority email support.
