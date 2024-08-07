@@ -42,6 +42,12 @@ class TestCreateKB(unittest.TestCase):
 
         # delete the KnowledgeBase object
         kb.delete()
+    
+    def test__003_query_empty_kb(self):
+        kb = KnowledgeBase(kb_id="levels_of_agi", exists_ok=True)
+        results = kb.query(["What are the levels of AGI?"])
+        self.assertEqual(len(results), 0)
+        kb.delete()
 
     def cleanup(self):
         kb = KnowledgeBase(kb_id="levels_of_agi", exists_ok=True)
