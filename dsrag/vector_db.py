@@ -370,9 +370,8 @@ class ChromaDB(VectorDB):
             else:
                 raise Exception(f"Error creating ChromaDB collection: {e}")
     
-    def get_info(self):
+    def get_num_vectors(self):
         return self.collection.count()
-        
     
     def add_vectors(self, vectors, metadata):
         try:
@@ -390,6 +389,10 @@ class ChromaDB(VectorDB):
         )
     
     def search(self, query_vector, top_k=10):
+
+        num_vectors = self.get_num_vectors()
+        if num_vectors == 0:
+            raise ValueError('No vectors stored in the database.')
         
         query_results = self.collection.query(
             query_embeddings=query_vector,
