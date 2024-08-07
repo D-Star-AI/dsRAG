@@ -42,6 +42,8 @@ cffi==1.16.0
     # via cryptography
 charset-normalizer==3.3.2
     # via requests
+chromadb==0.5.5
+    # via dsrag (pyproject.toml)
 click==8.1.7
     # via typer
 cohere==5.5.8
