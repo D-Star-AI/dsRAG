@@ -89,7 +89,7 @@ class BasicVectorDB(VectorDB):
 
     def search(self, query_vector, top_k=10):
         if not self.vectors:
-            raise ValueError('No vectors stored in the database.')
+            return []
         
         if self.use_faiss:
             return self.search_faiss(query_vector, top_k)
@@ -392,7 +392,8 @@ class ChromaDB(VectorDB):
 
         num_vectors = self.get_num_vectors()
         if num_vectors == 0:
-            raise ValueError('No vectors stored in the database.')
+            return []
+            #raise ValueError('No vectors stored in the database.')
         
         query_results = self.collection.query(
             query_embeddings=query_vector,
