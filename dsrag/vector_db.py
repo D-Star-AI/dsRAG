@@ -359,16 +359,9 @@ class ChromaDB(VectorDB):
     def __init__(self, kb_id: str, storage_directory: str = '~/dsRAG'):
         self.kb_id = kb_id
         self.storage_directory = storage_directory
-        #self.vector_storage_path = os.path.join(self.storage_directory, 'vector_storage', f'{kb_id}.pkl')
-        self.client = chromadb.PersistentClient(path=storage_directory)
-        try:
-            self.collection = self.client.get_collection(kb_id)
-        except Exception as e:
-            if "does not exist" in str(e):
-                # Create the collection if it doesn't exists
-                self.collection = self.client.create_collection(kb_id, metadata={"hnsw:space": "cosine"})
-            else:
-                raise Exception(f"Error creating ChromaDB collection: {e}")
+        self.vector_storage_path = os.path.join(self.storage_directory, 'vector_storage')
+        self.client = chromadb.PersistentClient(path=self.vector_storage_path)
+        self.collection = self.client.get_or_create_collection(kb_id, metadata={"hnsw:space": "cosine"})
     
     def get_num_vectors(self):
         return self.collection.count()
