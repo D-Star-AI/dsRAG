@@ -245,6 +245,8 @@ class KnowledgeBase:
         """
         query_vector = self.get_embeddings(query, input_type="query") # embed the query
         search_results = self.vector_db.search(query_vector, top_k) # do a vector database search
+        if len(search_results) == 0:
+            return []
         search_results = self.reranker.rerank_search_results(query, search_results) # rerank search results using a reranker
         return search_results
     
