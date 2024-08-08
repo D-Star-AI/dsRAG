@@ -157,7 +157,7 @@ pandas==2.2.2
     # via dsrag (pyproject.toml)
 parameterized==0.9.0
     # via cohere
-protobuf==3.20.0
+protobuf
     # via
     #   grpcio-health-checking
     #   grpcio-tools
