@@ -118,8 +118,12 @@ jsonpatch==1.33
     # via langchain-core
 jsonpointer==3.0.0
     # via jsonpatch
+langchain-core==0.2.12
+    # via langchain-text-splitters
 langchain-text-splitters==0.2.2
     # via dsrag (pyproject.toml)
+langsmith==0.1.84
+    # via langchain-core
 markdown-it-py==3.0.0
     # via rich
 mdurl==0.1.2
