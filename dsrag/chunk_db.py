@@ -253,6 +253,10 @@ class SQLiteDB(ChunkDB):
         results = c.fetchall()
         conn.close()
 
+        # If there are no results, return an empty dictionary
+        if not results:
+            return None
+
         formatted_results = {}
         # Turn the results into an object where the columns are keys
         if include_content:
