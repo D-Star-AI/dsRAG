@@ -46,6 +46,13 @@ class ChunkDB(ABC):
         pass
 
     @abstractmethod
+    def get_document(self, doc_id: str) -> dict:
+        """
+        Retrieve all chunks from a given document ID.
+        """
+        pass
+
+    @abstractmethod
     def get_document_title(self, doc_id: str, chunk_index: int) -> str:
         """
         Retrieve the document title of a specific chunk from a given document ID.
@@ -109,6 +116,28 @@ class BasicChunkDB(ChunkDB):
         if doc_id in self.data and chunk_index in self.data[doc_id]:
             return self.data[doc_id][chunk_index]['chunk_text']
         return None
+    
+    def get_document(self, doc_id: str, include_content: bool = False) -> dict:
+        if doc_id in self.data:
+            document = self.data[doc_id]
+            formatted_document = {
+                'doc_id': doc_id,
+                'document_title': document[0].get('document_title', "")
+            }
+            
+            if include_content:
+                # Concatenate the chunks into a single string
+                full_document_string = ""
+                for chunk_index, chunk in document.items():
+                    # Join each chunk text with a new line character
+                    full_document_string += chunk['chunk_text'] + "\n"
+                formatted_document["content"] = full_document_string
+            
+            return formatted_document
+        
+        else:
+            return None
+
 
     def get_document_title(self, doc_id: str, chunk_index: int) -> str:
         if doc_id in self.data and chunk_index in self.data[doc_id]:
@@ -170,36 +199,26 @@ class BasicChunkDB(ChunkDB):
 
 class SQLiteDB(ChunkDB):
 
-    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", db_path: str = '~/dsRAG'):
+    def __init__(self, kb_id: str, storage_directory: str = '~/dsRAG'):
         self.kb_id = kb_id
-        self.storage_directory = os.path.expanduser(db_path)
+        self.storage_directory = os.path.expanduser(storage_directory)
         os.makedirs(os.path.join(self.storage_directory, 'chunk_storage'), exist_ok=True)
         self.db_path = os.path.join(self.storage_directory, 'chunk_storage')
 
-        # Make sure main knowledge bases table exists
-        conn = sqlite3.connect(os.path.join(self.db_path, 'dsRAG.db'))
-        c = conn.cursor()
-        result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='knowledge_bases'")
-        if not result.fetchone():
-            c.execute("CREATE TABLE knowledge_bases (kb_id VARCHAR(256) PRIMARY KEY, title VARCHAR(256), description TEXT, language VARCHAR(16))")
-            conn.commit()
-        conn.close()
-
         # Create a table for this kb_id if it doesn't exist
-        conn = sqlite3.connect(os.path.join(self.db_path, 'dsRAG.db'))
+        conn = sqlite3.connect(os.path.join(self.db_path, f'{kb_id}.db'))
         c = conn.cursor()
-        result = c.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{kb_id}'")
+        result = c.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='documents'")
         if not result.fetchone():
-            # Insert this kb into the table
-            c.execute("INSERT INTO knowledge_bases (kb_id, title, description, language) VALUES (?, ?, ?, ?)", (kb_id, title, description, language))
-            c.execute(f"CREATE TABLE {kb_id} (doc_id VARCHAR(256), document_title VARCHAR(256), document_summary TEXT, section_title VARCHAR(256), section_summary TEXT, chunk_text TEXT, chunk_index INT)")
+            # Create a table for this kb_id
+            c.execute(f"CREATE TABLE documents (doc_id VARCHAR(256), document_title VARCHAR(256), document_summary TEXT, section_title VARCHAR(256), section_summary TEXT, chunk_text TEXT, chunk_index INT)")
             conn.commit()
         conn.close()
         
 
     def add_document(self, doc_id: str, chunks: dict[dict]):
         # Add the docs to the sqlite table
-        conn = sqlite3.connect(os.path.join(self.db_path, 'dsRAG.db'))
+        conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
         # Get the data from the dictionary
         for chunk_index, chunk in chunks.items():
@@ -208,24 +227,52 @@ class SQLiteDB(ChunkDB):
             section_title = chunk.get('section_title', "")
             section_summary = chunk.get('section_summary', "")
             chunk_text = chunk.get('chunk_text', "")
-            c.execute(f"INSERT INTO {self.kb_id} (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_index) VALUES (?, ?, ?, ?, ?, ?, ?)", (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_index))
+            c.execute(f"INSERT INTO documents (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_index) VALUES (?, ?, ?, ?, ?, ?, ?)", (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_index))
 
         conn.commit()
         conn.close()
 
     def remove_document(self, doc_id: str):
         # Remove the docs from the sqlite table
-        conn = sqlite3.connect(os.path.join(self.db_path, 'dsRAG.db'))
+        conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"DELETE FROM {self.kb_id} WHERE doc_id='{doc_id}'")
+        c.execute(f"DELETE FROM documents WHERE doc_id='{doc_id}'")
         conn.commit()
         conn.close()
+    
+    def get_document(self, doc_id: str, include_content: bool = False) -> dict:
+        # Retrieve the document from the sqlite table
+        conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
+        c = conn.cursor()
+        columns = ["doc_id", "document_title", "document_summary"]
+        if include_content:
+            columns += ["section_title", "section_summary", "chunk_text", "chunk_index"]
+
+        query_statement = f"SELECT {', '.join(columns)} FROM documents WHERE doc_id='{doc_id}'"
+        c.execute(query_statement)
+        results = c.fetchall()
+        conn.close()
+
+        formatted_results = {}
+        # Turn the results into an object where the columns are keys
+        if include_content:
+            # Concatenate the chunks into a single string
+            full_document_string = ""
+            for result in results:
+                # Join each chunk text with a new line character
+                full_document_string += result[5] + "\n"
+            formatted_results["content"] = full_document_string
+
+        formatted_results["doc_id"] = doc_id
+        formatted_results["document_title"] = results[0][1]
+
+        return formatted_results
 
     def get_chunk_text(self, doc_id: str, chunk_index: int) -> str:
         # Retrieve the chunk text from the sqlite table
-        conn = sqlite3.connect(os.path.join(self.db_path, 'dsRAG.db'))
+        conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"SELECT chunk_text FROM {self.kb_id} WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
+        c.execute(f"SELECT chunk_text FROM documents WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
         result = c.fetchone()
         conn.close()
         if result:
@@ -234,9 +281,9 @@ class SQLiteDB(ChunkDB):
 
     def get_document_title(self, doc_id: str, chunk_index: int) -> str:
         # Retrieve the document title from the sqlite table
-        conn = sqlite3.connect(os.path.join(self.db_path, 'dsRAG.db'))
+        conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"SELECT document_title FROM {self.kb_id} WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
+        c.execute(f"SELECT document_title FROM documents WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
         result = c.fetchone()
         conn.close()
         if result:
@@ -245,9 +292,9 @@ class SQLiteDB(ChunkDB):
 
     def get_document_summary(self, doc_id: str, chunk_index: int) -> str:
         # Retrieve the document summary from the sqlite table
-        conn = sqlite3.connect(os.path.join(self.db_path, 'dsRAG.db'))
+        conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"SELECT document_summary FROM {self.kb_id} WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
+        c.execute(f"SELECT document_summary FROM documents WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
         result = c.fetchone()
         conn.close()
         if result:
@@ -256,9 +303,9 @@ class SQLiteDB(ChunkDB):
 
     def get_section_title(self, doc_id: str, chunk_index: int) -> str:
         # Retrieve the section title from the sqlite table
-        conn = sqlite3.connect(os.path.join(self.db_path, 'dsRAG.db'))
+        conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"SELECT section_title FROM {self.kb_id} WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
+        c.execute(f"SELECT section_title FROM documents WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
         result = c.fetchone()
         conn.close()
         if result:
@@ -267,9 +314,9 @@ class SQLiteDB(ChunkDB):
 
     def get_section_summary(self, doc_id: str, chunk_index: int) -> str:
         # Retrieve the section summary from the sqlite table
-        conn = sqlite3.connect(os.path.join(self.db_path, 'dsRAG.db'))
+        conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"SELECT section_summary FROM {self.kb_id} WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
+        c.execute(f"SELECT section_summary FROM documents WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
         result = c.fetchone()
         conn.close()
         if result:
@@ -278,19 +325,21 @@ class SQLiteDB(ChunkDB):
 
     def get_all_doc_ids(self) -> list:
         # Retrieve all document IDs from the sqlite table
-        conn = sqlite3.connect(os.path.join(self.db_path, 'dsRAG.db'))
+        conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"SELECT DISTINCT doc_id FROM {self.kb_id}")
+        c.execute(f"SELECT DISTINCT doc_id FROM documents")
         results = c.fetchall()
         conn.close()
         return [result[0] for result in results]
+
+    def delete(self):
+        # Delete the sqlite database
+        if os.path.exists(os.path.join(self.db_path, f'{self.kb_id}.db')):
+            os.remove(os.path.join(self.db_path, f'{self.kb_id}.db'))
 
     def to_dict(self):
         return {
             **super().to_dict(),
             'kb_id': self.kb_id,
-            'db_path': self.db_path,
-            'title': self.title,
-            'description': self.description,
-            'language': self.language,
+            'storage_directory': self.storage_directory
         }
