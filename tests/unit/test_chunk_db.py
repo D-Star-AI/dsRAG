@@ -200,16 +200,6 @@ class TestSQLiteDB(unittest.TestCase):
         # Make sure the document does not exist, it should just be None
         self.assertIsNone(results)
 
-    """def test__persistence(self):
-        db = SQLiteDB(self.kb_id, self.storage_directory)
-        doc_id = 'doc1'
-        chunks = {
-            0: {'chunk_text': 'Content of chunk 1', 'document_title': 'Title of document 1', 'document_summary': 'Summary of document 1', 'section_title': 'Section title 1', 'section_summary': 'Section summary 1'},
-        }
-        db.add_document(doc_id, chunks)
-        db2 = SQLiteDB(self.kb_id, self.storage_directory)
-        self.assertIn(doc_id, db2.data)"""
-
     def test__save_and_load_from_dict(self):
         db = SQLiteDB(self.kb_id, self.storage_directory)
         config = db.to_dict()
