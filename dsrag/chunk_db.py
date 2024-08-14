@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import os
+import time
 import pickle
 import sqlite3
 
@@ -121,8 +122,8 @@ class BasicChunkDB(ChunkDB):
         if doc_id in self.data:
             document = self.data[doc_id]
             formatted_document = {
-                'doc_id': doc_id,
-                'document_title': document[0].get('document_title', "")
+                'id': doc_id,
+                'title': document[0].get('document_title', "")
             }
             
             if include_content:
@@ -211,7 +212,7 @@ class SQLiteDB(ChunkDB):
         result = c.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='documents'")
         if not result.fetchone():
             # Create a table for this kb_id
-            c.execute(f"CREATE TABLE documents (doc_id VARCHAR(256), document_title VARCHAR(256), document_summary TEXT, section_title VARCHAR(256), section_summary TEXT, chunk_text TEXT, chunk_index INT)")
+            c.execute(f"CREATE TABLE documents (id VARCHAR(256), document_title VARCHAR(256), document_summary TEXT, section_title VARCHAR(256), section_summary TEXT, chunk_text TEXT, chunk_index INT, created_on TEXT, supp_id TEXT)")
             conn.commit()
         conn.close()
         
@@ -220,6 +221,9 @@ class SQLiteDB(ChunkDB):
         # Add the docs to the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
+        # Create a created on timestamp
+        created_on = str(int(time.time()))
+
         # Get the data from the dictionary
         for chunk_index, chunk in chunks.items():
             document_title = chunk.get('document_title', "")
@@ -227,7 +231,8 @@ class SQLiteDB(ChunkDB):
             section_title = chunk.get('section_title', "")
             section_summary = chunk.get('section_summary', "")
             chunk_text = chunk.get('chunk_text', "")
-            c.execute(f"INSERT INTO documents (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_index) VALUES (?, ?, ?, ?, ?, ?, ?)", (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_index))
+            supp_id = chunk.get('supp_id', "")
+            c.execute(f"INSERT INTO documents (id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_index, created_on, supp_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_index, created_on, supp_id))
 
         conn.commit()
         conn.close()
@@ -236,7 +241,7 @@ class SQLiteDB(ChunkDB):
         # Remove the docs from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"DELETE FROM documents WHERE doc_id='{doc_id}'")
+        c.execute(f"DELETE FROM documents WHERE id='{doc_id}'")
         conn.commit()
         conn.close()
     
@@ -244,11 +249,11 @@ class SQLiteDB(ChunkDB):
         # Retrieve the document from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        columns = ["doc_id", "document_title", "document_summary"]
+        columns = ["id", "document_title", "document_summary", "created_on"]
         if include_content:
-            columns += ["section_title", "section_summary", "chunk_text", "chunk_index"]
+            columns += ["chunk_text", "chunk_index"]
 
-        query_statement = f"SELECT {', '.join(columns)} FROM documents WHERE doc_id='{doc_id}'"
+        query_statement = f"SELECT {', '.join(columns)} FROM documents WHERE id='{doc_id}'"
         c.execute(query_statement)
         results = c.fetchall()
         conn.close()
@@ -264,11 +269,13 @@ class SQLiteDB(ChunkDB):
             full_document_string = ""
             for result in results:
                 # Join each chunk text with a new line character
-                full_document_string += result[5] + "\n"
+                full_document_string += result[4] + "\n"
             formatted_results["content"] = full_document_string
 
-        formatted_results["doc_id"] = doc_id
+        formatted_results["id"] = doc_id
+        formatted_results["created_on"] = results[0][3]
         formatted_results["document_title"] = results[0][1]
+        formatted_results["document_summary"] = results[0][2]
 
         return formatted_results
 
@@ -276,7 +283,7 @@ class SQLiteDB(ChunkDB):
         # Retrieve the chunk text from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"SELECT chunk_text FROM documents WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
+        c.execute(f"SELECT chunk_text FROM documents WHERE id='{doc_id}' AND chunk_index={chunk_index}")
         result = c.fetchone()
         conn.close()
         if result:
@@ -287,7 +294,7 @@ class SQLiteDB(ChunkDB):
         # Retrieve the document title from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"SELECT document_title FROM documents WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
+        c.execute(f"SELECT document_title FROM documents WHERE id='{doc_id}' AND chunk_index={chunk_index}")
         result = c.fetchone()
         conn.close()
         if result:
@@ -298,7 +305,7 @@ class SQLiteDB(ChunkDB):
         # Retrieve the document summary from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"SELECT document_summary FROM documents WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
+        c.execute(f"SELECT document_summary FROM documents WHERE id='{doc_id}' AND chunk_index={chunk_index}")
         result = c.fetchone()
         conn.close()
         if result:
@@ -309,7 +316,7 @@ class SQLiteDB(ChunkDB):
         # Retrieve the section title from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"SELECT section_title FROM documents WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
+        c.execute(f"SELECT section_title FROM documents WHERE id='{doc_id}' AND chunk_index={chunk_index}")
         result = c.fetchone()
         conn.close()
         if result:
@@ -320,7 +327,7 @@ class SQLiteDB(ChunkDB):
         # Retrieve the section summary from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"SELECT section_summary FROM documents WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}")
+        c.execute(f"SELECT section_summary FROM documents WHERE id='{doc_id}' AND chunk_index={chunk_index}")
         result = c.fetchone()
         conn.close()
         if result:
@@ -331,7 +338,7 @@ class SQLiteDB(ChunkDB):
         # Retrieve all document IDs from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"SELECT DISTINCT doc_id FROM documents")
+        c.execute(f"SELECT DISTINCT id FROM documents")
         results = c.fetchall()
         conn.close()
         return [result[0] for result in results]

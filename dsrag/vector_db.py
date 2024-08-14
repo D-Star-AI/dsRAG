@@ -358,7 +358,7 @@ class ChromaDB(VectorDB):
 
     def __init__(self, kb_id: str, storage_directory: str = '~/dsRAG'):
         self.kb_id = kb_id
-        self.storage_directory = storage_directory
+        self.storage_directory = os.path.expanduser(storage_directory)
         self.vector_storage_path = os.path.join(self.storage_directory, 'vector_storage')
         self.client = chromadb.PersistentClient(path=self.vector_storage_path)
         self.collection = self.client.get_or_create_collection(kb_id, metadata={"hnsw:space": "cosine"})
