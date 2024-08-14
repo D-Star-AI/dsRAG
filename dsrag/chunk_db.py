@@ -176,6 +176,7 @@ class BasicChunkDB(ChunkDB):
         doc_ids = list(self.data.keys())
         if supp_id:
             doc_ids = [doc_id for doc_id in doc_ids if self.data[doc_id][0].get('supp_id', '') == supp_id]
+        return doc_ids
 
     def load(self):
         try:
