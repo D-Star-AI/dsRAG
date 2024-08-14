@@ -79,7 +79,7 @@ class ChunkDB(ABC):
         pass
 
     @abstractmethod
-    def get_all_doc_ids(self) -> list:
+    def get_all_doc_ids(self, supp_id: str = None) -> list:
         """
         Retrieve all document IDs.
         """
@@ -172,8 +172,10 @@ class BasicChunkDB(ChunkDB):
                 return ""
         return None
     
-    def get_all_doc_ids(self) -> list:
-        return list(self.data.keys())
+    def get_all_doc_ids(self, supp_id: str = None) -> list:
+        doc_ids = list(self.data.keys())
+        if supp_id:
+            doc_ids = [doc_id for doc_id in doc_ids if self.data[doc_id][0].get('supp_id', '') == supp_id]
 
     def load(self):
         try:
@@ -334,11 +336,14 @@ class SQLiteDB(ChunkDB):
             return result[0]
         return ""
 
-    def get_all_doc_ids(self) -> list:
+    def get_all_doc_ids(self, supp_id: str = None) -> list:
         # Retrieve all document IDs from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
         c = conn.cursor()
-        c.execute(f"SELECT DISTINCT id FROM documents")
+        query_statement = f"SELECT DISTINCT id FROM documents"
+        if supp_id:
+            query_statement += f" WHERE supp_id='{supp_id}'"
+        c.execute(query_statement)
         results = c.fetchall()
         conn.close()
         return [result[0] for result in results]
