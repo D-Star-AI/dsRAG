@@ -15,7 +15,7 @@ from dsrag.semantic_sectioning import get_sections
 
 
 class KnowledgeBase:
-    def __init__(self, kb_id: str, title: str = "", description: str = "", language: str = "en", storage_directory: str = '~/dsRAG', embedding_model: Embedding = None, reranker: Reranker = None, auto_context_model: LLM = None, vector_db: VectorDB = None, chunk_db: ChunkDB = None, exists_ok: bool = True):
+    def __init__(self, kb_id: str, title: str = "", supp_id: str = "", description: str = "", language: str = "en", storage_directory: str = '~/dsRAG', embedding_model: Embedding = None, reranker: Reranker = None, auto_context_model: LLM = None, vector_db: VectorDB = None, chunk_db: ChunkDB = None, exists_ok: bool = True):
         self.kb_id = kb_id
         self.storage_directory = os.path.expanduser(storage_directory)
 
@@ -26,10 +26,15 @@ class KnowledgeBase:
         elif os.path.exists(metadata_path) and not exists_ok:
             raise ValueError(f"Knowledge Base with ID {kb_id} already exists. Use exists_ok=True to load it.")
         else:
+            created_time = time.time()
+            # We don't care about the milliseconds
+            created_time = int(created_time)
             self.kb_metadata = {
                 'title': title,
                 'description': description,
                 'language': language,
+                'supp_id': supp_id,
+                'created_on': created_time,
             }
             self.initialize_components(embedding_model, reranker, auto_context_model, vector_db, chunk_db)
             self.save() # save the config for the KB to disk

@@ -76,6 +76,22 @@ class TestChunkDB(unittest.TestCase):
         db.add_document(doc_id, chunks)
         summary = db.get_section_summary(doc_id, 0)
         self.assertEqual(summary, 'Summary 1')
+    
+    def test__get_by_supp_id(self):
+        db = SQLiteDB(self.kb_id, self.storage_directory)
+        doc_id = 'doc1'
+        chunks = {
+            0: {'supp_id': 'Supp ID 1', 'chunk_text': 'Content of chunk 1'},
+        }
+        db.add_document(doc_id, chunks)
+        doc_id = 'doc2'
+        chunks = {
+            0: {'chunk_text': 'Content of chunk 2'},
+        }
+        db.add_document(doc_id, chunks)
+        docs = db.get_all_doc_ids("Supp ID 1")
+        # There should only be one document with the supp_id 'Supp ID 1'
+        self.assertEqual(len(docs), 1)
 
     def test__remove_document(self):
         db = BasicChunkDB(self.kb_id, self.storage_directory)
@@ -186,6 +202,22 @@ class TestSQLiteDB(unittest.TestCase):
         db.add_document(doc_id, chunks)
         summary = db.get_section_summary(doc_id, 0)
         self.assertEqual(summary, 'Summary 1')
+    
+    def test__get_by_supp_id(self):
+        db = SQLiteDB(self.kb_id, self.storage_directory)
+        doc_id = 'doc1'
+        chunks = {
+            0: {'supp_id': 'Supp ID 1', 'chunk_text': 'Content of chunk 1'},
+        }
+        db.add_document(doc_id, chunks)
+        doc_id = 'doc2'
+        chunks = {
+            0: {'chunk_text': 'Content of chunk 2'},
+        }
+        db.add_document(doc_id, chunks)
+        docs = db.get_all_doc_ids("Supp ID 1")
+        # There should only be one document with the supp_id 'Supp ID 1'
+        self.assertEqual(len(docs), 1)
 
     def test__remove_document(self):
         db = SQLiteDB(self.kb_id, self.storage_directory)
@@ -196,7 +228,6 @@ class TestSQLiteDB(unittest.TestCase):
         db.add_document(doc_id, chunks)
         db.remove_document(doc_id)
         results = db.get_document(doc_id)
-        print ("results", results)
         # Make sure the document does not exist, it should just be None
         self.assertIsNone(results)
 
@@ -215,7 +246,6 @@ class TestSQLiteDB(unittest.TestCase):
         }
         db.add_document(doc_id, chunks)
         # Make sure the storage directory exists before deleting it
-        print ("db.db_path", os.path.join(db.db_path, f'{self.kb_id}.db'))
         self.assertTrue(os.path.exists(os.path.join(db.db_path, f'{self.kb_id}.db')))
         db.delete()
         # Make sure the storage directory does not exist
