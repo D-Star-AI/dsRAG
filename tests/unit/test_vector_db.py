@@ -4,7 +4,7 @@ import sys
 import unittest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-from dsrag.vector_db import BasicVectorDB, VectorDB, WeaviateVectorDB
+from dsrag.vector_db import BasicVectorDB, VectorDB, WeaviateVectorDB, MilvusDB
 
 
 class TestVectorDB(unittest.TestCase):
@@ -216,6 +216,85 @@ class TestWeaviateVectorDB(unittest.TestCase):
         self.assertIsInstance(self.db, WeaviateVectorDB)
         self.assertEqual(self.db.kb_id, self.kb_id)
 
+
+class TestMilvusDB(unittest.TestCase):
+    def setUp(self):
+        self.storage_directory = './'
+        self.kb_id = 'test_milvus_db'
+        self.dimension = 768
+        self.db = MilvusDB(self.kb_id, self.storage_directory, self.dimension)
+
+    def tearDown(self):
+        self.db.delete()
+        return super().tearDown()
+
+    def test__add_vectors_and_search(self):
+        vectors = [np.random.rand(self.dimension), np.random.rand(self.dimension)]
+        metadata = [{'doc_id': '1', 'chunk_index': 0, 'chunk_header': 'Header1', 'chunk_text': 'Text1'},
+                    {'doc_id': '2', 'chunk_index': 1, 'chunk_header': 'Header2', 'chunk_text': 'Text2'}]
+
+        self.db.add_vectors(vectors, metadata)
+        query_vector = vectors[0]
+        results = self.db.search(query_vector, top_k=1)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['metadata']['doc_id'], '1')
+        self.assertEqual(results[0]['metadata']['chunk_index'], 0)
+        self.assertGreaterEqual(results[0]['similarity'], 0.99)
+
+    def test__remove_document(self):
+        vectors = [np.random.rand(self.dimension), np.random.rand(self.dimension)]
+        metadata = [{'doc_id': '1', 'chunk_index': 0, 'chunk_header': 'Header1', 'chunk_text': 'Text1'},
+                    {'doc_id': '2', 'chunk_index': 1, 'chunk_header': 'Header2', 'chunk_text': 'Text2'}]
+
+        self.db.add_vectors(vectors, metadata)
+        self.db.remove_document('1')
+
+        query_vector = vectors[0]
+        results = self.db.search(query_vector, top_k=2)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['metadata']['doc_id'], '2')
+
+    def test__empty_search(self):
+        query_vector = np.random.rand(self.dimension)
+        results = self.db.search(query_vector)
+
+        self.assertEqual(len(results), 0)
+
+    def test__assertion_error_on_mismatched_input_lengths(self):
+        vectors = [np.random.rand(self.dimension)]
+        metadata = [{'doc_id': '1', 'chunk_index': 0, 'chunk_header': 'Header1', 'chunk_text': 'Text1'},
+                    {'doc_id': '2', 'chunk_index': 1, 'chunk_header': 'Header2', 'chunk_text': 'Text2'}]
+
+        with self.assertRaises(ValueError) as context:
+            self.db.add_vectors(vectors, metadata)
+        self.assertTrue('Error in add_vectors: the number of vectors and metadata items must be the same.' in str(
+            context.exception))
+
+    def test__delete(self):
+        vectors = [np.random.rand(self.dimension), np.random.rand(self.dimension)]
+        metadata = [{'doc_id': '1', 'chunk_index': 0, 'chunk_header': 'Header1', 'chunk_text': 'Text1'},
+                    {'doc_id': '2', 'chunk_index': 1, 'chunk_header': 'Header2', 'chunk_text': 'Text2'}]
+
+        self.db.add_vectors(vectors, metadata)
+
+        # Ensure collection exists before deleting
+        self.assertTrue(self.db.client.has_collection(self.kb_id))
+        self.db.delete()
+        # Ensure collection no longer exists after deletion
+        self.assertFalse(self.db.client.has_collection(self.kb_id))
+
+    def test__top_k_greater_than_num_vectors(self):
+        vectors = [np.random.rand(self.dimension), np.random.rand(self.dimension)]
+        metadata = [{'doc_id': '1', 'chunk_index': 0, 'chunk_header': 'Header1', 'chunk_text': 'Text1'},
+                    {'doc_id': '2', 'chunk_index': 1, 'chunk_header': 'Header2', 'chunk_text': 'Text2'}]
+
+        self.db.add_vectors(vectors, metadata)
+        query_vector = vectors[0]
+
+        results = self.db.search(query_vector, top_k=3)
+        self.assertEqual(len(results), 2)
 
 if __name__ == '__main__':
     unittest.main()
