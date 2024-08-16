@@ -148,6 +148,8 @@ openai>=1.35.12
     #   instructor
 opentelemetry-proto==1.26.0
 orjson==3.10.6
+    # via dsrag (pyproject.toml)
+pumilvus==2.4.5
     # via langsmith
 packaging==24.1
     # via
