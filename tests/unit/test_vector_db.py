@@ -4,7 +4,7 @@ import sys
 import unittest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-from dsrag.database.vector_db import BasicVectorDB, VectorDB, WeaviateVectorDB
+from dsrag.database.vector.db import BasicVectorDB, VectorDB, WeaviateVectorDB
 
 
 class TestVectorDB(unittest.TestCase):

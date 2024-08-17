@@ -17,8 +17,8 @@ from dsrag.rse import (
     get_meta_document,
     RSE_PARAMS_PRESETS,
 )
-from dsrag.vector_db import Vector, VectorDB, BasicVectorDB
-from dsrag.chunk_db import ChunkDB, BasicChunkDB
+from dsrag.database.vector import Vector, VectorDB, BasicVectorDB
+from dsrag.database.chunk import ChunkDB, BasicChunkDB
 from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
 from dsrag.llm import LLM, OpenAIChatAPI

@@ -1,6 +1,6 @@
 import os
 from abc import ABC, abstractmethod
-from dsrag.vector_db import Vector
+from dsrag.database.vector.types import Vector
 from openai import OpenAI
 import cohere
 import voyageai

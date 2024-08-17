@@ -7,7 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 
 from dsrag.knowledge_base import KnowledgeBase
 from dsrag.document_parsing import extract_text_from_pdf
-from dsrag.database.vector_db import ChromaDB
+from dsrag.database.vector.db import ChromaDB
 
 
 class TestCreateKB(unittest.TestCase):

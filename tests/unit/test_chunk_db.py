@@ -1,10 +1,12 @@
 import os
 import sys
 import unittest
+from dsrag.database.chunk.basic_db import BasicChunkDB
+from dsrag.database.chunk.sqlite_db import SQLiteDB
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from dsrag.database.chunk_db import BasicChunkDB, ChunkDB, SQLiteDB
+from dsrag.database.chunk.db import ChunkDB
 import shutil
 
 

@@ -1,4 +1,3 @@
-import datetime
 from typing import Sequence
 from typing_extensions import TypedDict
 
@@ -22,11 +21,3 @@ class VectorSearchResult(TypedDict):
     vector: Vector | None
     metadata: ChunkMetadata
     similarity: float
-
-
-class FormattedDocument(TypedDict):
-    id: str
-    title: str
-    content: str | None
-    summary: str | None
-    created_on: datetime.datetime | None
