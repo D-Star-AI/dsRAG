@@ -1,5 +1,6 @@
 import os
 from abc import ABC, abstractmethod
+from dsrag.vector_db import Vector
 from openai import OpenAI
 import cohere
 import voyageai
@@ -20,10 +21,11 @@ dimensionality = {
     "nomic-embed-text": 768,
 }
 
+
 class Embedding(ABC):
     subclasses = {}
 
-    def __init__(self, dimension=None):
+    def __init__(self, dimension: int | None = None):
         self.dimension = dimension
 
     def __init_subclass__(cls, **kwargs):
@@ -31,23 +33,23 @@ class Embedding(ABC):
         cls.subclasses[cls.__name__] = cls
 
     def to_dict(self):
-        return {
-            'subclass_name': self.__class__.__name__,
-            'dimension': self.dimension
-        }
+        return {"subclass_name": self.__class__.__name__, "dimension": self.dimension}
 
     @classmethod
-    def from_dict(cls, config):
-        subclass_name = config.pop('subclass_name', None)  # Remove subclass_name from config
+    def from_dict(cls, config) -> "Embedding":
+        subclass_name = config.pop(
+            "subclass_name", None
+        )  # Remove subclass_name from config
         subclass = cls.subclasses.get(subclass_name)
         if subclass:
             return subclass(**config)  # Pass the modified config without subclass_name
         else:
             raise ValueError(f"Unknown subclass: {subclass_name}")
-        
+
     @abstractmethod
-    def get_embeddings(self, text, input_type=None):
+    def get_embeddings(self, text, input_type=None) -> list[Vector]:
         pass
+
 
 class OpenAIEmbedding(Embedding):
     def __init__(self, model: str = "text-embedding-3-small", dimension: int = 768):
@@ -58,50 +60,56 @@ class OpenAIEmbedding(Embedding):
         self.model = model
         self.client = OpenAI()
 
-    def get_embeddings(self, text, input_type=None):
-        response = self.client.embeddings.create(input=text, model=self.model, dimensions=int(self.dimension))
+    def get_embeddings(self, text, input_type: str | None) -> list[Vector]:
+        response = self.client.embeddings.create(
+            input=text, model=self.model, dimensions=self.dimension
+        )
         embeddings = [embedding_item.embedding for embedding_item in response.data]
         return embeddings[0] if isinstance(text, str) else embeddings
-    
+
     def to_dict(self):
         base_dict = super().to_dict()
-        base_dict.update({
-            'model': self.model
-        })
+        base_dict.update({"model": self.model})
         return base_dict
 
+
 class CohereEmbedding(Embedding):
-    def __init__(self, model: str = "embed-english-v3.0", dimension: int = None):
+    def __init__(self, model: str = "embed-english-v3.0", dimension: int | None = None):
         super().__init__()
         self.model = model
-        self.client = cohere.Client(os.environ['CO_API_KEY'])
-        
+        self.client = cohere.Client(os.environ["CO_API_KEY"])
+
         # Set dimension if not provided
         if dimension is None:
             try:
                 self.dimension = dimensionality[model]
             except KeyError:
-                raise ValueError(f"Dimension for model {model} is unknown. Please provide the dimension manually.")
+                raise ValueError(
+                    f"Dimension for model {model} is unknown. Please provide the dimension manually."
+                )
         else:
             self.dimension = dimension
 
-    def get_embeddings(self, text, input_type=None):
+    def get_embeddings(self, text, input_type: str | None = None):
         if input_type == "query":
             input_type = "search_query"
         elif input_type == "document":
             input_type = "search_document"
-        response = self.client.embed(texts=[text] if isinstance(text, str) else text, input_type=input_type, model=self.model)
+        response = self.client.embed(
+            texts=[text] if isinstance(text, str) else text,
+            input_type=input_type,
+            model=self.model,
+        )
         return response.embeddings[0] if isinstance(text, str) else response.embeddings
-    
+
     def to_dict(self):
         base_dict = super().to_dict()
-        base_dict.update({
-            'model': self.model
-        })
+        base_dict.update({"model": self.model})
         return base_dict
 
+
 class VoyageAIEmbedding(Embedding):
-    def __init__(self, model: str = "voyage-large-2", dimension: int = None):
+    def __init__(self, model: str = "voyage-large-2", dimension: int | None = None):
         super().__init__()
         self.model = model
         self.client = voyageai.Client()
@@ -111,19 +119,23 @@ class VoyageAIEmbedding(Embedding):
             try:
                 self.dimension = dimensionality[model]
             except KeyError:
-                raise ValueError(f"Dimension for model {model} is unknown. Please provide the dimension manually.")
+                raise ValueError(
+                    f"Dimension for model {model} is unknown. Please provide the dimension manually."
+                )
         else:
             self.dimension = dimension
 
     def get_embeddings(self, text, input_type=None):
-        response = self.client.embed(texts=[text] if isinstance(text, str) else text, model=self.model, input_type=input_type)
+        response = self.client.embed(
+            texts=[text] if isinstance(text, str) else text,
+            model=self.model,
+            input_type=input_type,
+        )
         return response.embeddings[0] if isinstance(text, str) else response.embeddings
-        
+
     def to_dict(self):
         base_dict = super().to_dict()
-        base_dict.update({
-            'model': self.model
-        })
+        base_dict.update({"model": self.model})
         base_dict.update({"model": self.model})
         return base_dict
 
@@ -131,7 +143,10 @@ class VoyageAIEmbedding(Embedding):
 class OllamaEmbedding(Embedding):
 
     def __init__(
-        self, model: str = "llama3", dimension: int = None, client: ollama.Client = None
+        self,
+        model: str = "llama3",
+        dimension: int | None = None,
+        client: ollama.Client = None,
     ):
         super().__init__(dimension)
         self.model = model

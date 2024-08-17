@@ -17,8 +17,8 @@ from dsrag.rse import (
     get_meta_document,
     RSE_PARAMS_PRESETS,
 )
-from dsrag.database.vector_db import VectorDB, BasicVectorDB
-from dsrag.database.chunk_db import ChunkDB, BasicChunkDB
+from dsrag.vector_db import Vector, VectorDB, BasicVectorDB
+from dsrag.chunk_db import ChunkDB, BasicChunkDB
 from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
 from dsrag.llm import LLM, OpenAIChatAPI
@@ -34,47 +34,64 @@ class KnowledgeBase:
         description: str = "",
         language: str = "en",
         storage_directory: str = "~/dsRAG",
-        embedding_model: Embedding = None,
-        reranker: Reranker = None,
-        auto_context_model: LLM = None,
-        vector_db: VectorDB = None,
-        chunk_db: ChunkDB = None,
+        embedding_model: Embedding | None = None,
+        reranker: Reranker | None = None,
+        auto_context_model: LLM | None = None,
+        vector_db: VectorDB | None = None,
+        chunk_db: ChunkDB | None = None,
         exists_ok: bool = True,
+        save_metadata_to_disk: bool = True,
     ):
         self.kb_id = kb_id
         self.storage_directory = os.path.expanduser(storage_directory)
 
-        # load the KB if it exists; otherwise, initialize it and save it to disk
-        metadata_path = self.get_metadata_path()
-        if os.path.exists(metadata_path) and exists_ok:
-            self.load(
-                auto_context_model, reranker
-            )  # allow the user to override the auto_context_model and reranker
-        elif os.path.exists(metadata_path) and not exists_ok:
-            raise ValueError(
-                f"Knowledge Base with ID {kb_id} already exists. Use exists_ok=True to load it."
-            )
+        if save_metadata_to_disk:
+            # load the KB if it exists; otherwise, initialize it and save it to disk
+            metadata_path = self.get_metadata_path()
+            if os.path.exists(metadata_path) and exists_ok:
+                self.load(
+                    auto_context_model, reranker
+                )  # allow the user to override the auto_context_model and reranker
+            elif os.path.exists(metadata_path) and not exists_ok:
+                raise ValueError(
+                    f"Knowledge Base with ID {kb_id} already exists. Use exists_ok=True to load it."
+                )
+            else:
+                created_time = time.time()
+                # We don't care about the milliseconds
+                created_time = int(created_time)
+                self.kb_metadata = {
+                    "title": title,
+                    "description": description,
+                    "language": language,
+                    "supp_id": supp_id,
+                    "created_on": created_time,
+                }
+                self.initialize_components(
+                    embedding_model, reranker, auto_context_model, vector_db, chunk_db
+                )
+                self.save()  # save the config for the KB to disk
         else:
-            created_time = time.time()
-            # We don't care about the milliseconds
-            created_time = int(created_time)
             self.kb_metadata = {
                 "title": title,
                 "description": description,
                 "language": language,
                 "supp_id": supp_id,
-                "created_on": created_time,
             }
             self.initialize_components(
                 embedding_model, reranker, auto_context_model, vector_db, chunk_db
             )
-            self.save()  # save the config for the KB to disk
 
     def get_metadata_path(self):
         return os.path.join(self.storage_directory, "metadata", f"{self.kb_id}.json")
 
     def initialize_components(
-        self, embedding_model, reranker, auto_context_model, vector_db, chunk_db
+        self,
+        embedding_model: Embedding | None,
+        reranker: Reranker | None,
+        auto_context_model: LLM | None,
+        vector_db: VectorDB | None,
+        chunk_db: ChunkDB | None,
     ):
         self.embedding_model = embedding_model if embedding_model else OpenAIEmbedding()
         self.reranker = reranker if reranker else CohereReranker()
@@ -346,17 +363,17 @@ class KnowledgeBase:
         self.chunk_db.remove_document(doc_id)
         self.vector_db.remove_document(doc_id)
 
-    def get_chunk_text(self, doc_id: str, chunk_index: int) -> str:
+    def get_chunk_text(self, doc_id: str, chunk_index: int) -> str | None:
         return self.chunk_db.get_chunk_text(doc_id, chunk_index)
 
     def get_segment_header(self, doc_id: str, chunk_index: int) -> str:
-        document_title = self.chunk_db.get_document_title(doc_id, chunk_index)
-        document_summary = self.chunk_db.get_document_summary(doc_id, chunk_index)
+        document_title = self.chunk_db.get_document_title(doc_id, chunk_index) or ""
+        document_summary = self.chunk_db.get_document_summary(doc_id, chunk_index) or ""
         return get_segment_header(
             document_title=document_title, document_summary=document_summary
         )
 
-    def get_embeddings(self, text: str or list[str], input_type: str = ""):
+    def get_embeddings(self, text: list[str], input_type: str = "") -> list[Vector]:
         return self.embedding_model.get_embeddings(text, input_type)
 
     def split_into_chunks(self, text: str, chunk_size: int):
@@ -378,7 +395,9 @@ class KnowledgeBase:
         Get top k most relevant chunks for a given query. This is where we interface with the vector database.
         - returns a list of dictionaries, where each dictionary has the following keys: `metadata` (which contains 'doc_id', 'chunk_index', 'chunk_text', and 'chunk_header') and `similarity`
         """
-        query_vector = self.get_embeddings(query, input_type="query")  # embed the query
+        query_vector = self.get_embeddings(
+            [query], input_type="query"
+        )  # embed the query
         search_results = self.vector_db.search(
             query_vector, top_k
         )  # do a vector database search
@@ -406,7 +425,7 @@ class KnowledgeBase:
         for chunk_index in range(
             chunk_start, chunk_end
         ):  # NOTE: end index is non-inclusive
-            chunk_text = self.get_chunk_text(doc_id, chunk_index)
+            chunk_text = self.get_chunk_text(doc_id, chunk_index) or ""
             segment += chunk_text
         return segment.strip()
 
