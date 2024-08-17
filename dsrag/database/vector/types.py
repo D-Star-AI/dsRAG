@@ -7,10 +7,10 @@ class ChunkMetadata(TypedDict):
     chunk_text: str
     chunk_index: int
     chunk_header: str
-    document_title: str
-    document_summary: str
-    section_title: str
-    section_summary: str
+    document_title: str | None
+    document_summary: str | None
+    section_title: str | None
+    section_summary: str | None
 
 
 Vector = Sequence[float] | Sequence[int]
