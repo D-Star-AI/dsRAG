@@ -215,7 +215,7 @@ class SQLiteDB(ChunkDB):
         result = c.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='documents'")
         if not result.fetchone():
             # Create a table for this kb_id
-            c.execute(f"CREATE TABLE documents (doc_id TEXT, document_title TEXT, document_summary TEXT, section_title TEXT, section_summary TEXT, chunk_text TEXT, chunk_index INT, created_on TEXT, supp_id TEXT)")
+            c.execute(f"CREATE TABLE documents (doc_id TEXT, document_title TEXT, document_summary TEXT, section_title TEXT, section_summary TEXT, chunk_text TEXT, chunk_index INT, chunk_length INT, created_on TEXT, supp_id TEXT)")
             conn.commit()
         else:
             # Check if we need to add the columns to the table for the supp_id and created_on fields
@@ -226,6 +226,8 @@ class SQLiteDB(ChunkDB):
                 c.execute("ALTER TABLE documents ADD COLUMN supp_id TEXT")
             if 'created_on' not in column_names:
                 c.execute("ALTER TABLE documents ADD COLUMN created_on TEXT")
+            if 'chunk_length' not in column_names:
+                c.execute("ALTER TABLE documents ADD COLUMN chunk_length INT")
         conn.close()
         
 
@@ -244,7 +246,8 @@ class SQLiteDB(ChunkDB):
             section_summary = chunk.get('section_summary', "")
             chunk_text = chunk.get('chunk_text', "")
             supp_id = chunk.get('supp_id', "")
-            c.execute(f"INSERT INTO documents (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_index, created_on, supp_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_index, created_on, supp_id))
+            chunk_length = len(chunk_text)
+            c.execute(f"INSERT INTO documents (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_length, chunk_index, created_on, supp_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_length, chunk_index, created_on, supp_id))
 
         conn.commit()
         conn.close()
@@ -288,6 +291,7 @@ class SQLiteDB(ChunkDB):
         formatted_results["created_on"] = results[0][3]
         formatted_results["document_title"] = results[0][1]
         formatted_results["document_summary"] = results[0][2]
+        formatted_results["vectorization_status"] = "COMPLETE"
 
         return formatted_results
 
@@ -357,6 +361,28 @@ class SQLiteDB(ChunkDB):
         results = c.fetchall()
         conn.close()
         return [result[0] for result in results]
+
+    def get_document_count(self) -> int:
+        # Retrieve the number of documents in the sqlite table
+        conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
+        c = conn.cursor()
+        c.execute(f"SELECT COUNT(DISTINCT doc_id) FROM documents")
+        result = c.fetchone()
+        conn.close()
+        if result is None:
+            return 0
+        return result[0]
+
+    def get_total_num_characters(self) -> int:
+        # Retrieve the total number of characters in the sqlite table
+        conn = sqlite3.connect(os.path.join(self.db_path, f'{self.kb_id}.db'))
+        c = conn.cursor()
+        c.execute(f"SELECT SUM(chunk_length) FROM documents")
+        result = c.fetchone()
+        conn.close()
+        if result is None or result[0] is None:
+            return 0
+        return result
 
     def delete(self):
         # Delete the sqlite database
