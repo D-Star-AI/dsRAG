@@ -3,7 +3,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
 import time
 import json
-from typing import Union, Dict
+from typing import Optional, Union, Dict
 from dsrag.auto_context import (
     get_document_title,
     get_document_summary,
@@ -363,7 +363,7 @@ class KnowledgeBase:
         self.chunk_db.remove_document(doc_id)
         self.vector_db.remove_document(doc_id)
 
-    def get_chunk_text(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_chunk_text(self, doc_id: str, chunk_index: int) -> Optional[str]:
         return self.chunk_db.get_chunk_text(doc_id, chunk_index)
 
     def get_segment_header(self, doc_id: str, chunk_index: int) -> str:

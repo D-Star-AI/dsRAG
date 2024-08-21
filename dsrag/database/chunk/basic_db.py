@@ -1,6 +1,6 @@
 import os
 import pickle
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 from dsrag.database.chunk.db import ChunkDB
 from dsrag.database.chunk.types import FormattedDocument
@@ -33,7 +33,7 @@ class BasicChunkDB(ChunkDB):
         self.data.pop(doc_id, None)
         self.save()
 
-    def get_chunk_text(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_chunk_text(self, doc_id: str, chunk_index: int) -> Optional[str]:
         if doc_id in self.data and chunk_index in self.data[doc_id]:
             return self.data[doc_id][chunk_index]["chunk_text"]
         return None
@@ -63,7 +63,7 @@ class BasicChunkDB(ChunkDB):
         else:
             return None
 
-    def get_document_title(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_document_title(self, doc_id: str, chunk_index: int) -> Optional[str]:
         if doc_id in self.data and chunk_index in self.data[doc_id]:
             if "document_title" in self.data[doc_id][chunk_index]:
                 return self.data[doc_id][chunk_index]["document_title"]
@@ -71,7 +71,7 @@ class BasicChunkDB(ChunkDB):
                 return None
         return None
 
-    def get_document_summary(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_document_summary(self, doc_id: str, chunk_index: int) -> Optional[str]:
         if doc_id in self.data and chunk_index in self.data[doc_id]:
             if "document_summary" in self.data[doc_id][chunk_index]:
                 return self.data[doc_id][chunk_index]["document_summary"]
@@ -79,7 +79,7 @@ class BasicChunkDB(ChunkDB):
                 return None
         return None
 
-    def get_section_title(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_section_title(self, doc_id: str, chunk_index: int) -> Optional[str]:
         if doc_id in self.data and chunk_index in self.data[doc_id]:
             if "section_title" in self.data[doc_id][chunk_index]:
                 return self.data[doc_id][chunk_index]["section_title"]
@@ -87,7 +87,7 @@ class BasicChunkDB(ChunkDB):
                 return None
         return None
 
-    def get_section_summary(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_section_summary(self, doc_id: str, chunk_index: int) -> Optional[str]:
         if doc_id in self.data and chunk_index in self.data[doc_id]:
             if "section_summary" in self.data[doc_id][chunk_index]:
                 return self.data[doc_id][chunk_index]["section_summary"]
@@ -95,7 +95,7 @@ class BasicChunkDB(ChunkDB):
                 return None
         return None
 
-    def get_all_doc_ids(self, supp_id: str | None = None) -> list[str]:
+    def get_all_doc_ids(self, supp_id: Optional[str] = None) -> list[str]:
         doc_ids = list(self.data.keys())
         if supp_id:
             doc_ids = [
