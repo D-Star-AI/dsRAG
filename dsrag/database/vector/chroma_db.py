@@ -48,7 +48,6 @@ class ChromaDB(VectorDB):
         )
 
         metadata = query_results["metadatas"][0]
-        metadata = query_results["metadatas"][0]
         distances = query_results["distances"][0]
 
         results: list[VectorSearchResult] = []
