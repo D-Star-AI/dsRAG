@@ -23,7 +23,7 @@ class VectorSearchResult(TypedDict):
     similarity: float
 
 
-# declarative_base, Column, String, Integer, func, deferred, Vector need to be imported from SQLAlchemy
+# declarative_base, Column, String, Integer, func, deferred need to be imported from SQLAlchemy
 Base = declarative_base()
 
 
@@ -44,6 +44,8 @@ class ChunkEmbedding(Base):
     id = Column(UUID, primary_key=True, server_default=func.uuid_generate_v1mc())
     kb_id = Column(String, nullable=False)
     transcript_id = Column(String, nullable=False)
+    # The vector column we use is from pgvector. Not sure how well this transfers to non-Postgres databases.
+    # https://github.com/pgvector/pgvector-python/blob/master/pgvector/sqlalchemy/vector.py
     vector = deferred(Column(Vector(768), nullable=False))
     chunk_metadata: ChunkMetadata = Column(MUTABLE_JSONB, nullable=False)  # type: ignore
 
