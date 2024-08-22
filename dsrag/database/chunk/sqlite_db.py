@@ -1,7 +1,7 @@
 import os
 import time
 import sqlite3
-from typing import Any
+from typing import Any, Optional
 
 from dsrag.database.chunk.db import ChunkDB
 from dsrag.database.chunk.types import FormattedDocument
@@ -123,7 +123,7 @@ class SQLiteDB(ChunkDB):
             created_on=created_on,
         )
 
-    def get_chunk_text(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_chunk_text(self, doc_id: str, chunk_index: int) -> Optional[str]:
         # Retrieve the chunk text from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
         c = conn.cursor()
@@ -136,7 +136,7 @@ class SQLiteDB(ChunkDB):
             return result[0]
         return None
 
-    def get_document_title(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_document_title(self, doc_id: str, chunk_index: int) -> Optional[str]:
         # Retrieve the document title from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
         c = conn.cursor()
@@ -149,7 +149,7 @@ class SQLiteDB(ChunkDB):
             return result[0]
         return None
 
-    def get_document_summary(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_document_summary(self, doc_id: str, chunk_index: int) -> Optional[str]:
         # Retrieve the document summary from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
         c = conn.cursor()
@@ -162,7 +162,7 @@ class SQLiteDB(ChunkDB):
             return result[0]
         return None
 
-    def get_section_title(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_section_title(self, doc_id: str, chunk_index: int) -> Optional[str]:
         # Retrieve the section title from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
         c = conn.cursor()
@@ -175,7 +175,7 @@ class SQLiteDB(ChunkDB):
             return result[0]
         return None
 
-    def get_section_summary(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_section_summary(self, doc_id: str, chunk_index: int) -> Optional[str]:
         # Retrieve the section summary from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
         c = conn.cursor()
@@ -188,7 +188,7 @@ class SQLiteDB(ChunkDB):
             return result[0]
         return None
 
-    def get_all_doc_ids(self, supp_id: str | None = None) -> list[str]:
+    def get_all_doc_ids(self, supp_id: Optional[str] = None) -> list[str]:
         # Retrieve all document IDs from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
         c = conn.cursor()

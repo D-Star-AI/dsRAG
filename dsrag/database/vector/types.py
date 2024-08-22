@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Optional, Sequence
 from typing_extensions import TypedDict
 
 
@@ -7,17 +7,17 @@ class ChunkMetadata(TypedDict):
     chunk_text: str
     chunk_index: int
     chunk_header: str
-    document_title: str | None
-    document_summary: str | None
-    section_title: str | None
-    section_summary: str | None
+    document_title: Optional[str]
+    document_summary: Optional[str]
+    section_title: Optional[str]
+    section_summary: Optional[str]
 
 
 Vector = Sequence[float] | Sequence[int]
 
 
 class VectorSearchResult(TypedDict):
-    doc_id: str | None
+    doc_id: Optional[str]
     vector: Vector | None
     metadata: ChunkMetadata
     similarity: float

@@ -1,5 +1,6 @@
 import os
 from abc import ABC, abstractmethod
+from typing import Optional
 from dsrag.database.vector.types import Vector
 from openai import OpenAI
 import cohere
@@ -60,7 +61,7 @@ class OpenAIEmbedding(Embedding):
         self.model = model
         self.client = OpenAI()
 
-    def get_embeddings(self, text, input_type: str | None) -> list[Vector]:
+    def get_embeddings(self, text, input_type: Optional[str]) -> list[Vector]:
         response = self.client.embeddings.create(
             input=text, model=self.model, dimensions=self.dimension
         )
@@ -90,7 +91,7 @@ class CohereEmbedding(Embedding):
         else:
             self.dimension = dimension
 
-    def get_embeddings(self, text, input_type: str | None = None):
+    def get_embeddings(self, text, input_type: Optional[str] = None):
         if input_type == "query":
             input_type = "search_query"
         elif input_type == "document":

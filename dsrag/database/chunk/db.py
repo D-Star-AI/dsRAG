@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional
 
 from dsrag.database.chunk.types import FormattedDocument
 
@@ -42,7 +42,7 @@ class ChunkDB(ABC):
         pass
 
     @abstractmethod
-    def get_chunk_text(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_chunk_text(self, doc_id: str, chunk_index: int) -> Optional[str]:
         """
         Retrieve a specific chunk from a given document ID.
         """
@@ -56,32 +56,32 @@ class ChunkDB(ABC):
         pass
 
     @abstractmethod
-    def get_document_title(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_document_title(self, doc_id: str, chunk_index: int) -> Optional[str]:
         """
         Retrieve the document title of a specific chunk from a given document ID.
         """
         pass
 
-    def get_document_summary(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_document_summary(self, doc_id: str, chunk_index: int) -> Optional[str]:
         """
         Retrieve the document summary of a specific chunk from a given document ID.
         """
         pass
 
-    def get_section_title(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_section_title(self, doc_id: str, chunk_index: int) -> Optional[str]:
         """
         Retrieve the section title of a specific chunk from a given document ID.
         """
         pass
 
-    def get_section_summary(self, doc_id: str, chunk_index: int) -> str | None:
+    def get_section_summary(self, doc_id: str, chunk_index: int) -> Optional[str]:
         """
         Retrieve the section summary of a specific chunk from a given document ID.
         """
         pass
 
     @abstractmethod
-    def get_all_doc_ids(self, supp_id: str | None = None) -> list[str]:
+    def get_all_doc_ids(self, supp_id: Optional[str] = None) -> list[str]:
         """
         Retrieve all document IDs.
         """
