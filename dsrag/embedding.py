@@ -26,7 +26,7 @@ dimensionality = {
 class Embedding(ABC):
     subclasses = {}
 
-    def __init__(self, dimension: int | None = None):
+    def __init__(self, dimension: Optional[int] = None):
         self.dimension = dimension
 
     def __init_subclass__(cls, **kwargs):
@@ -48,7 +48,7 @@ class Embedding(ABC):
             raise ValueError(f"Unknown subclass: {subclass_name}")
 
     @abstractmethod
-    def get_embeddings(self, text, input_type=None) -> list[Vector]:
+    def get_embeddings(self, text: list[str], input_type: Optional[str]) -> list[Vector]:
         pass
 
 
@@ -61,7 +61,7 @@ class OpenAIEmbedding(Embedding):
         self.model = model
         self.client = OpenAI()
 
-    def get_embeddings(self, text, input_type: Optional[str]) -> list[Vector]:
+    def get_embeddings(self, text: list[str], input_type: Optional[str] = None) -> list[Vector]:
         response = self.client.embeddings.create(
             input=text, model=self.model, dimensions=self.dimension
         )
@@ -75,7 +75,7 @@ class OpenAIEmbedding(Embedding):
 
 
 class CohereEmbedding(Embedding):
-    def __init__(self, model: str = "embed-english-v3.0", dimension: int | None = None):
+    def __init__(self, model: str = "embed-english-v3.0", dimension: Optional[int] = None):
         super().__init__()
         self.model = model
         self.client = cohere.Client(os.environ["CO_API_KEY"])
@@ -91,7 +91,7 @@ class CohereEmbedding(Embedding):
         else:
             self.dimension = dimension
 
-    def get_embeddings(self, text, input_type: Optional[str] = None):
+    def get_embeddings(self, text: list[str], input_type: Optional[str]):
         if input_type == "query":
             input_type = "search_query"
         elif input_type == "document":
@@ -110,7 +110,7 @@ class CohereEmbedding(Embedding):
 
 
 class VoyageAIEmbedding(Embedding):
-    def __init__(self, model: str = "voyage-large-2", dimension: int | None = None):
+    def __init__(self, model: str = "voyage-large-2", dimension: Optional[int] = None):
         super().__init__()
         self.model = model
         self.client = voyageai.Client()
@@ -126,7 +126,7 @@ class VoyageAIEmbedding(Embedding):
         else:
             self.dimension = dimension
 
-    def get_embeddings(self, text, input_type=None):
+    def get_embeddings(self, text: list[str], input_type: Optional[str]):
         response = self.client.embed(
             texts=[text] if isinstance(text, str) else text,
             model=self.model,
@@ -146,7 +146,7 @@ class OllamaEmbedding(Embedding):
     def __init__(
         self,
         model: str = "llama3",
-        dimension: int | None = None,
+        dimension: Optional[int] = None,
         client: ollama.Client = None,
     ):
         super().__init__(dimension)
@@ -164,7 +164,7 @@ class OllamaEmbedding(Embedding):
         else:
             self.dimension = dimension
 
-    def get_embeddings(self, text, input_type=None):
+    def get_embeddings(self, text: list[str], input_type: Optional[str]):
         if isinstance(text, list):
             responses = []
             for text in text:
