@@ -34,11 +34,11 @@ class KnowledgeBase:
         description: str = "",
         language: str = "en",
         storage_directory: str = "~/dsRAG",
-        embedding_model: Embedding | None = None,
-        reranker: Reranker | None = None,
-        auto_context_model: LLM | None = None,
-        vector_db: VectorDB | None = None,
-        chunk_db: ChunkDB | None = None,
+        embedding_model: Optional[Embedding] = None,
+        reranker: Optional[Reranker] = None,
+        auto_context_model: Optional[LLM] = None,
+        vector_db: Optional[VectorDB] = None,
+        chunk_db: Optional[ChunkDB] = None,
         exists_ok: bool = True,
         save_metadata_to_disk: bool = True,
     ):
@@ -87,11 +87,11 @@ class KnowledgeBase:
 
     def initialize_components(
         self,
-        embedding_model: Embedding | None,
-        reranker: Reranker | None,
-        auto_context_model: LLM | None,
-        vector_db: VectorDB | None,
-        chunk_db: ChunkDB | None,
+        embedding_model: Optional[Embedding],
+        reranker: Optional[Reranker],
+        auto_context_model: Optional[LLM],
+        vector_db: Optional[VectorDB],
+        chunk_db: Optional[ChunkDB],
     ):
         self.embedding_model = embedding_model if embedding_model else OpenAIEmbedding()
         self.reranker = reranker if reranker else CohereReranker()
@@ -397,7 +397,7 @@ class KnowledgeBase:
         """
         query_vector = self.get_embeddings(
             [query], input_type="query"
-        )  # embed the query
+        )[0]  # embed the query, and access the first element of the list since the query is a single string
         search_results = self.vector_db.search(
             query_vector, top_k
         )  # do a vector database search
