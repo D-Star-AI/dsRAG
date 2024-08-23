@@ -40,7 +40,7 @@ class BasicChunkDB(ChunkDB):
 
     def get_document(
         self, doc_id: str, include_content: bool = False
-    ) -> FormattedDocument | None:
+    ) -> Optional[FormattedDocument]:
         if doc_id in self.data:
             document = self.data[doc_id]
             title = cast(str, document[0].get("document_title", ""))

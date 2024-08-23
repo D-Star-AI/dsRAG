@@ -83,7 +83,7 @@ class SQLiteDB(ChunkDB):
 
     def get_document(
         self, doc_id: str, include_content: bool = False
-    ) -> FormattedDocument | None:
+    ) -> Optional[FormattedDocument]:
         # Retrieve the document from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
         c = conn.cursor()

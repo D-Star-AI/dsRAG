@@ -1,4 +1,4 @@
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 from typing_extensions import TypedDict
 
 
@@ -13,11 +13,11 @@ class ChunkMetadata(TypedDict):
     section_summary: Optional[str]
 
 
-Vector = Sequence[float] | Sequence[int]
+Vector = Union[Sequence[float], Sequence[int]]
 
 
 class VectorSearchResult(TypedDict):
     doc_id: Optional[str]
-    vector: Vector | None
+    vector: Optional[Vector]
     metadata: ChunkMetadata
     similarity: float
