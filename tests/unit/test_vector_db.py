@@ -1,5 +1,4 @@
 from typing import Sequence
-from dsrag.database.vector.types import ChunkMetadata
 import numpy as np
 import os
 import sys
@@ -7,6 +6,7 @@ import unittest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from dsrag.database.vector import BasicVectorDB, VectorDB, WeaviateVectorDB
+from dsrag.database.vector.types import ChunkMetadata
 
 
 class TestVectorDB(unittest.TestCase):
