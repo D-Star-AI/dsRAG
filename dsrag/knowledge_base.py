@@ -4,6 +4,7 @@ import os
 import time
 import json
 from typing import Optional, Union, Dict
+import concurrent.futures
 from dsrag.auto_context import (
     get_document_title,
     get_document_summary,
@@ -412,10 +413,14 @@ class KnowledgeBase:
         """
         - search_queries: list of search queries
         """
-        all_ranked_results = []
-        for query in search_queries:
-            ranked_results = self.search(query, 200)
-            all_ranked_results.append(ranked_results)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(self.search, query, 200) for query in search_queries]
+            
+            all_ranked_results = []
+            for future in futures:
+                ranked_results = future.result()
+                all_ranked_results.append(ranked_results)
+        
         return all_ranked_results
 
     def get_segment_text_from_database(
