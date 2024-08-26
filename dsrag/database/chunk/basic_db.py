@@ -25,7 +25,7 @@ class BasicChunkDB(ChunkDB):
         )
         self.load()
 
-    def add_document(self, doc_id: str, chunks: dict[int, dict[str, Any]]) -> None:
+    def add_document(self, doc_id: str, chunks: dict[int, dict[str, Any]], document_type: str = "", supp_id: str = "", file_name: str = "") -> None:
         self.data[doc_id] = chunks
         self.save()
 

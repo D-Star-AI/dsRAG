@@ -16,6 +16,20 @@ class SQLiteDB(ChunkDB):
             os.path.join(self.storage_directory, "chunk_storage"), exist_ok=True
         )
         self.db_path = os.path.join(self.storage_directory, "chunk_storage")
+        self.columns = [
+            {"name": "doc_id", "type": "TEXT"},
+            {"name": "document_title", "type": "TEXT"},
+            {"name": "document_summary", "type": "TEXT"},
+            {"name": "document_type", "type": "TEXT"},
+            {"name": "file_name", "type": "TEXT"},
+            {"name": "section_title", "type": "TEXT"},
+            {"name": "section_summary", "type": "TEXT"},
+            {"name": "chunk_text", "type": "TEXT"},
+            {"name": "chunk_index", "type": "INT"},
+            {"name": "chunk_length", "type": "INT"},
+            {"name": "created_on", "type": "TEXT"},
+            {"name": "supp_id", "type": "TEXT"},
+        ]
 
         # Create a table for this kb_id if it doesn't exist
         conn = sqlite3.connect(os.path.join(self.db_path, f"{kb_id}.db"))
@@ -25,22 +39,24 @@ class SQLiteDB(ChunkDB):
         )
         if not result.fetchone():
             # Create a table for this kb_id
-            c.execute(
-                "CREATE TABLE documents (doc_id TEXT, document_title TEXT, document_summary TEXT, section_title TEXT, section_summary TEXT, chunk_text TEXT, chunk_index INT, created_on TEXT, supp_id TEXT)"
-            )
+            query_statement = "CREATE TABLE documents ("
+            for column in self.columns:
+                query_statement += f"{column['name']} {column['type']}, "
+            query_statement = query_statement[:-2] + ")"
+            c.execute(query_statement)
             conn.commit()
         else:
-            # Check if we need to add the columns to the table for the supp_id and created_on fields
+            # Check if we need to add any columns to the table. This happens if the columns have been updated
             c.execute("PRAGMA table_info(documents)")
             columns = c.fetchall()
             column_names = [column[1] for column in columns]
-            if "supp_id" not in column_names:
-                c.execute("ALTER TABLE documents ADD COLUMN supp_id TEXT")
-            if "created_on" not in column_names:
-                c.execute("ALTER TABLE documents ADD COLUMN created_on TEXT")
+            for column in self.columns:
+                if column["name"] not in column_names:
+                    # Add the column to the table
+                    c.execute("ALTER TABLE documents ADD COLUMN {} {}".format(column["name"], column["type"]))
         conn.close()
 
-    def add_document(self, doc_id: str, chunks: dict[int, dict[str, Any]]) -> None:
+    def add_document(self, doc_id: str, chunks: dict[int, dict[str, Any]], document_type: str = "", file_name: str = "", supp_id: str = "") -> None:
         # Add the docs to the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
         c = conn.cursor()
@@ -54,17 +70,20 @@ class SQLiteDB(ChunkDB):
             section_title = chunk.get("section_title", "")
             section_summary = chunk.get("section_summary", "")
             chunk_text = chunk.get("chunk_text", "")
-            supp_id = chunk.get("supp_id", "")
+            chunk_length = len(chunk_text)
             c.execute(
-                "INSERT INTO documents (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_index, created_on, supp_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO documents (doc_id, document_title, document_summary, document_type, file_name, section_title, section_summary, chunk_text, chunk_index, chunk_length, created_on, supp_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     doc_id,
                     document_title,
                     document_summary,
+                    document_type,
+                    file_name,
                     section_title,
                     section_summary,
                     chunk_text,
                     chunk_index,
+                    chunk_length,
                     created_on,
                     supp_id,
                 ),
@@ -87,7 +106,7 @@ class SQLiteDB(ChunkDB):
         # Retrieve the document from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
         c = conn.cursor()
-        columns = ["doc_id", "document_title", "document_summary", "created_on"]
+        columns = ["supp_id", "document_title", "document_summary", "document_type", "file_name", "created_on"]
         if include_content:
             columns += ["chunk_text", "chunk_index"]
 
@@ -110,16 +129,21 @@ class SQLiteDB(ChunkDB):
                 # Join each chunk text with a new line character
                 full_document_string += result[4] + "\n"
 
-        title = results[0][1]
-        created_on = results[0][3]
+        supp_id = results[0][0]
         title = results[0][1]
         summary = results[0][2]
+        document_type = results[0][3]
+        file_name = results[0][4]
+        created_on = results[0][5]
 
         return FormattedDocument(
             id=doc_id,
+            supp_id=supp_id,
             title=title,
             content=full_document_string if include_content else None,
             summary=summary,
+            document_type=document_type,
+            file_name=file_name,
             created_on=created_on,
         )
 
@@ -220,7 +244,7 @@ class SQLiteDB(ChunkDB):
         conn.close()
         if result is None or result[0] is None:
             return 0
-        return result
+        return result[0]
 
     def delete(self) -> None:
         # Delete the sqlite database
