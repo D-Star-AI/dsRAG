@@ -176,9 +176,8 @@ class KnowledgeBase:
         semantic_sectioning_config: dict = {},
         chunk_size: int = 800,
         min_length_for_chunking: int = 1600,
-        document_type: str = "",
         supp_id: str = "",
-        file_name: str = ""
+        metadata: dict = {},
     ):
         """
         Inputs:
@@ -341,9 +340,8 @@ class KnowledgeBase:
                 }
                 for i, chunk in enumerate(chunks)
             },
-            document_type,
             supp_id,
-            file_name
+            metadata
         )
 
         # create metadata list to add to the vector database

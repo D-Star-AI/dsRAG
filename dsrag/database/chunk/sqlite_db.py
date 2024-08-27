@@ -20,8 +20,6 @@ class SQLiteDB(ChunkDB):
             {"name": "doc_id", "type": "TEXT"},
             {"name": "document_title", "type": "TEXT"},
             {"name": "document_summary", "type": "TEXT"},
-            {"name": "document_type", "type": "TEXT"},
-            {"name": "file_name", "type": "TEXT"},
             {"name": "section_title", "type": "TEXT"},
             {"name": "section_summary", "type": "TEXT"},
             {"name": "chunk_text", "type": "TEXT"},
@@ -29,6 +27,7 @@ class SQLiteDB(ChunkDB):
             {"name": "chunk_length", "type": "INT"},
             {"name": "created_on", "type": "TEXT"},
             {"name": "supp_id", "type": "TEXT"},
+            {"name": "metadata", "type": "TEXT"},
         ]
 
         # Create a table for this kb_id if it doesn't exist
@@ -56,12 +55,16 @@ class SQLiteDB(ChunkDB):
                     c.execute("ALTER TABLE documents ADD COLUMN {} {}".format(column["name"], column["type"]))
         conn.close()
 
-    def add_document(self, doc_id: str, chunks: dict[int, dict[str, Any]], document_type: str = "", file_name: str = "", supp_id: str = "") -> None:
+    def add_document(self, doc_id: str, chunks: dict[int, dict[str, Any]], supp_id: str = "", metadata: dict = {}) -> None:
         # Add the docs to the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
         c = conn.cursor()
         # Create a created on timestamp
         created_on = str(int(time.time()))
+
+        # Turn the metadata object into a string
+        if metadata:
+            metadata = str(metadata)
 
         # Get the data from the dictionary
         for chunk_index, chunk in chunks.items():
@@ -72,13 +75,11 @@ class SQLiteDB(ChunkDB):
             chunk_text = chunk.get("chunk_text", "")
             chunk_length = len(chunk_text)
             c.execute(
-                "INSERT INTO documents (doc_id, document_title, document_summary, document_type, file_name, section_title, section_summary, chunk_text, chunk_index, chunk_length, created_on, supp_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO documents (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_index, chunk_length, created_on, supp_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     doc_id,
                     document_title,
                     document_summary,
-                    document_type,
-                    file_name,
                     section_title,
                     section_summary,
                     chunk_text,
@@ -86,6 +87,7 @@ class SQLiteDB(ChunkDB):
                     chunk_length,
                     created_on,
                     supp_id,
+                    metadata
                 ),
             )
 
@@ -106,7 +108,7 @@ class SQLiteDB(ChunkDB):
         # Retrieve the document from the sqlite table
         conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
         c = conn.cursor()
-        columns = ["supp_id", "document_title", "document_summary", "document_type", "file_name", "created_on"]
+        columns = ["supp_id", "document_title", "document_summary", "created_on", "metadata"]
         if include_content:
             columns += ["chunk_text", "chunk_index"]
 
@@ -132,9 +134,12 @@ class SQLiteDB(ChunkDB):
         supp_id = results[0][0]
         title = results[0][1]
         summary = results[0][2]
-        document_type = results[0][3]
-        file_name = results[0][4]
-        created_on = results[0][5]
+        created_on = results[0][3]
+        metadata = results[0][4]
+
+        # Convert the metadata string back into a dictionary
+        if metadata:
+            metadata = eval(metadata)
 
         return FormattedDocument(
             id=doc_id,
@@ -142,9 +147,8 @@ class SQLiteDB(ChunkDB):
             title=title,
             content=full_document_string if include_content else None,
             summary=summary,
-            document_type=document_type,
-            file_name=file_name,
             created_on=created_on,
+            metadata=metadata
         )
 
     def get_chunk_text(self, doc_id: str, chunk_index: int) -> Optional[str]:
