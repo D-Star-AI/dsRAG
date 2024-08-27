@@ -25,7 +25,7 @@ class BasicChunkDB(ChunkDB):
         )
         self.load()
 
-    def add_document(self, doc_id: str, chunks: dict[int, dict[str, Any]]) -> None:
+    def add_document(self, doc_id: str, chunks: dict[int, dict[str, Any]], supp_id: str = "", metadata: dict = {}) -> None:
         self.data[doc_id] = chunks
         self.save()
 
@@ -48,7 +48,7 @@ class BasicChunkDB(ChunkDB):
             full_document_string = ""
             if include_content:
                 # Concatenate the chunks into a single string
-                for chunk_index, chunk in document.items():
+                for _, chunk in document.items():
                     # Join each chunk text with a new line character
                     full_document_string += chunk["chunk_text"] + "\n"
 

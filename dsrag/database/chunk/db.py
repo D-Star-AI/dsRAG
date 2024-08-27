@@ -28,7 +28,7 @@ class ChunkDB(ABC):
             raise ValueError(f"Unknown subclass: {subclass_name}")
 
     @abstractmethod
-    def add_document(self, doc_id: str, chunks: dict[int, dict[str, Any]]) -> None:
+    def add_document(self, doc_id: str, chunks: dict[int, dict[str, Any]], supp_id: str = "", metadata: dict = {}) -> None:
         """
         Store all chunks for a given document.
         """

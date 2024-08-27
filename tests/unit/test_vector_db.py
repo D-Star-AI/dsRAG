@@ -32,20 +32,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -66,20 +58,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -106,20 +90,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -159,20 +135,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -192,20 +160,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -229,20 +189,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -263,20 +215,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -304,7 +248,7 @@ class TestWeaviateVectorDB(unittest.TestCase):
         self.db.close()
         return super().tearDown()
 
-    def test_add_vectors_and_search(self):
+    def test__add_vectors_and_search(self):
         vectors = [np.array([1, 0]), np.array([0, 1]), np.array([1, 1])]
         metadata: Sequence[ChunkMetadata] = [
             {
@@ -312,30 +256,18 @@ class TestWeaviateVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "1",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 0,
                 "chunk_header": "Header3",
                 "chunk_text": "Text3",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
         self.db.add_vectors(vectors, metadata)
@@ -350,7 +282,7 @@ class TestWeaviateVectorDB(unittest.TestCase):
         self.assertEqual(results[0]["metadata"]["chunk_text"], "Text1")
         self.assertGreaterEqual(results[0]["similarity"], 0.99)
 
-    def test_remove_document(self):
+    def test__remove_document(self):
         vectors = [np.array([1, 0]), np.array([0, 1]), np.array([1, 1])]
         metadata: Sequence[ChunkMetadata] = [
             {
@@ -358,30 +290,18 @@ class TestWeaviateVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "1",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 0,
                 "chunk_header": "Header3",
                 "chunk_text": "Text3",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
         self.db.add_vectors(vectors, metadata)
@@ -403,20 +323,12 @@ class TestWeaviateVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 

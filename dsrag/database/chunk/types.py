@@ -9,3 +9,5 @@ class FormattedDocument(TypedDict):
     content: Optional[str]
     summary: Optional[str]
     created_on: Optional[datetime]
+    supp_id: Optional[str]
+    metadata: Optional[dict]

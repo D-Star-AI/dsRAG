@@ -176,6 +176,8 @@ class KnowledgeBase:
         semantic_sectioning_config: dict = {},
         chunk_size: int = 800,
         min_length_for_chunking: int = 1600,
+        supp_id: str = "",
+        metadata: dict = {},
     ):
         """
         Inputs:
@@ -195,6 +197,9 @@ class KnowledgeBase:
             - use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
         - chunk_size: the maximum number of characters to include in each chunk
         - min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk. If semantic sectioning is used, this parameter will be applied to each section. Setting this to a higher value than the chunk_size can help avoid unnecessary chunking of short documents or sections.
+        - document_type: the type of document being added (Can be any string you like. Useful for filtering documents later on.)
+        - supp_id: supplementary ID for the document (Can be any string you like. Useful for filtering documents later on.)
+        - file_name: the name of the file that the document came from (if applicable)
         """
 
         # verify that the document does not already exist in the KB - the doc_id should be unique
@@ -335,6 +340,8 @@ class KnowledgeBase:
                 }
                 for i, chunk in enumerate(chunks)
             },
+            supp_id,
+            metadata
         )
 
         # create metadata list to add to the vector database
