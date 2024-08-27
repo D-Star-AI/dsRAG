@@ -63,8 +63,7 @@ class SQLiteDB(ChunkDB):
         created_on = str(int(time.time()))
 
         # Turn the metadata object into a string
-        if metadata:
-            metadata = str(metadata)
+        metadata = str(metadata)
 
         # Get the data from the dictionary
         for chunk_index, chunk in chunks.items():
