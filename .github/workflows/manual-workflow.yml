@@ -2,6 +2,13 @@ name: Manual Test Run
 
 on:
   workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Repository to run tests on (e.g., user/repo)'
+        required: true
+      branch:
+        description: 'Branch to run tests on'
+        required: true
 
 jobs:
   run-tests:
