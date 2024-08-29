@@ -128,7 +128,7 @@ class SQLiteDB(ChunkDB):
             # Concatenate the chunks into a single string
             for result in results:
                 # Join each chunk text with a new line character
-                full_document_string += result[4] + "\n"
+                full_document_string += result[5] + "\n"
 
         supp_id = results[0][0]
         title = results[0][1]
