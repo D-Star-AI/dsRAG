@@ -188,6 +188,17 @@ class TestSQLiteDB(unittest.TestCase):
         summary = db.get_document_summary(doc_id, 0)
         self.assertEqual(summary, "Summary 1")
 
+    def test__get_document_content(self):
+        db = SQLiteDB(self.kb_id, self.storage_directory)
+        doc_id = "doc1"
+        chunks = {
+            0: {"chunk_text": "Content of chunk 1"},
+            1: {"chunk_text": "Content of chunk 2"},
+        }
+        db.add_document(doc_id, chunks)
+        content = db.get_document(doc_id, include_content=True)
+        self.assertEqual(content["content"], "Content of chunk 1\nContent of chunk 2")
+
     def test__get_section_title(self):
         db = SQLiteDB(self.kb_id, self.storage_directory)
         doc_id = "doc1"

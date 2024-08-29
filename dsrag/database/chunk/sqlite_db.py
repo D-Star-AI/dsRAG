@@ -128,13 +128,15 @@ class SQLiteDB(ChunkDB):
             # Concatenate the chunks into a single string
             for result in results:
                 # Join each chunk text with a new line character
-                full_document_string += result[4] + "\n"
+                full_document_string += result[columns.index("chunk_text")] + "\n"
+            # Remove the last new line character
+            full_document_string = full_document_string[:-1]
 
-        supp_id = results[0][0]
-        title = results[0][1]
-        summary = results[0][2]
-        created_on = results[0][3]
-        metadata = results[0][4]
+        supp_id = results[0][columns.index("supp_id")]
+        title = results[0][columns.index("document_title")]
+        summary = results[0][columns.index("document_summary")]
+        created_on = results[0][columns.index("created_on")]
+        metadata = results[0][columns.index("metadata")]
 
         # Convert the metadata string back into a dictionary
         if metadata:
