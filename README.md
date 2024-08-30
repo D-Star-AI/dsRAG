@@ -149,12 +149,14 @@ The VectorDB component stores the embedding vectors, as well as a small amount o
 The currently available options are:
 - `BasicVectorDB`
 - `WeaviateVectorDB`
+- `ChromaDB`
 
 #### ChunkDB
 The ChunkDB stores the content of text chunks in a nested dictionary format, keyed on `doc_id` and `chunk_index`. This is used by RSE to retrieve the full text associated with specific chunks.
 
 The currently available options are:
 - `BasicChunkDB`
+- `SQLiteDB`
 
 #### Embedding
 The Embedding component defines the embedding model.
