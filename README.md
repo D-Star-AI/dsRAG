@@ -219,3 +219,21 @@ Queries -> vector database search -> reranking -> RSE -> results
 You can join our [Discord](https://discord.gg/NTUVX9DmQ3) to ask questions, make suggestions, and discuss contributions.
 
 If you’re using (or planning to use) dsRAG in production, please fill out this short [form](https://forms.gle/RQ5qFVReonSHDcCu5) telling us about your use case. This helps us prioritize new features. In return I’ll give you my personal email address, which you can use for priority email support.
+
+# Private cloud deployment
+If you want to run dsRAG in production with minimal effort, reach out to us about our commercial offering, which is a managed private cloud deployment of dsRAG.
+
+Here are the high-level details of the offering:
+
+**Private cloud deployment (i.e. in your own AWS, Azure, or GCP account) of dsRAG.**
+- Deployed as a production-ready API with endpoints for adding and deleting documents, viewing upload status, querying, etc.
+- Unlimited number of KnowledgeBases. You can just pass in the kb_id with each API call to specify which one it’s for.
+- Document upload queue with configurable concurrency limits so you don’t have to worry about rate limiting document uploads in your application code.
+- VectorDB and ChunkDB are created and managed as part of the API, so you don’t have to set those up separately.
+- Could also be deployed directly into your customers’ cloud environments if needed.
+
+**Support**
+- We’ll help you customize the retrieval configuration and components for your use case and make sure everything runs smoothly and performs well.
+- Ongoing support and regular updates as needed.
+
+If this is something you’d like to learn more about, fill out this short [form](https://forms.gle/Z4n81qdwdpckqsct6) and we’ll reach out ASAP.
