@@ -17,3 +17,8 @@ class VectorSearchResult(TypedDict):
     vector: Optional[Vector]
     metadata: ChunkMetadata
     similarity: float
+
+class MetadataFilter(TypedDict):
+    field: str
+    operator: str # Can be one of the following: 'equals', 'not_equals', 'in', 'not_in', 'greater_than', 'less_than', 'greater_than_equals', 'less_than_equals'
+    value: Union[str, int, float]
