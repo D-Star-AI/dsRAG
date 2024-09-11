@@ -8,7 +8,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from dsrag.knowledge_base import KnowledgeBase
 from dsrag.document_parsing import extract_text_from_pdf
 from dsrag.database.vector import ChromaDB
-from dsrag.embedding import OllamaEmbedding
 
 class TestCreateKB(unittest.TestCase):
     def test__001_create_kb_and_query(self):
@@ -24,8 +23,7 @@ class TestCreateKB(unittest.TestCase):
         document_text = extract_text_from_pdf(file_path)
 
         vector_db = ChromaDB(kb_id=kb_id)
-        embedding_model = OllamaEmbedding(model="snowflake-arctic-embed:33m", dimension=384)
-        kb = KnowledgeBase(kb_id=kb_id, vector_db=vector_db, embedding_model=embedding_model, exists_ok=False)
+        kb = KnowledgeBase(kb_id=kb_id, vector_db=vector_db, exists_ok=False)
         kb.add_document(
             doc_id="levels_of_agi.pdf",
             document_title="Levels of AGI",
