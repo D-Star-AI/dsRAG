@@ -1,6 +1,6 @@
 import pickle
 from dsrag.database.vector.db import VectorDB
-from typing import Sequence
+from typing import Sequence, Optional
 from dsrag.database.vector.types import ChunkMetadata, Vector, VectorSearchResult
 from sklearn.metrics.pairwise import cosine_similarity
 import os
@@ -32,7 +32,7 @@ class BasicVectorDB(VectorDB):
         self.metadata.extend(metadata)
         self.save()
 
-    def search(self, query_vector, top_k=10) -> list[VectorSearchResult]:
+    def search(self, query_vector, top_k=10, metadata_filter: Optional[dict] = None) -> list[VectorSearchResult]:
         if not self.vectors:
             return []
 

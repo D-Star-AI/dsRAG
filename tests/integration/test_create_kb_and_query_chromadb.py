@@ -42,6 +42,23 @@ class TestCreateKB(unittest.TestCase):
         segment_info = kb.query(search_queries)
         self.assertGreater(len(segment_info[0]), 0)
 
+    """def test__002_test_query_with_metadata_filter(self):
+
+        kb = KnowledgeBase(kb_id="levels_of_agi", exists_ok=True)
+        document_text = "This is a test document about AGI. AGI is a very interesting topic. AGI has many levels. The highest level of AGI is level 5."
+        kb.add_document(
+            doc_id="test_doc",
+            text=document_text,
+            semantic_sectioning_config={"use_semantic_sectioning": False},
+        )
+
+        search_queries = [
+            "What is the highest level of AGI?",
+        ]
+        segment_info = kb.query(search_queries, metadata_filter={"doc_id": "test_doc"})
+        print ("segment_info", segment_info)"""
+        
+
     def test__002_remove_document(self):
         kb = KnowledgeBase(kb_id="levels_of_agi", exists_ok=True)
         kb.delete_document(doc_id="levels_of_agi.pdf")

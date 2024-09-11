@@ -19,6 +19,7 @@ from dsrag.rse import (
     RSE_PARAMS_PRESETS,
 )
 from dsrag.database.vector import Vector, VectorDB, BasicVectorDB
+from dsrag.database.vector.types import MetadataFilter
 from dsrag.database.chunk import ChunkDB, BasicChunkDB
 from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
@@ -346,9 +347,9 @@ class KnowledgeBase:
         )
 
         # create metadata list to add to the vector database
-        metadata = []
+        vector_metadata = []
         for i, chunk in enumerate(chunks):
-            metadata.append(
+            vector_metadata.append(
                 {
                     "doc_id": doc_id,
                     "chunk_index": i,
@@ -359,11 +360,13 @@ class KnowledgeBase:
                         section_title=chunk["section_title"],
                         section_summary=chunk["section_summary"],
                     ),
+                    # Add the rest of the metadata to the vector metadata (if any)
+                    **metadata
                 }
             )
 
         # add the vectors and metadata to the vector database
-        self.vector_db.add_vectors(vectors=chunk_embeddings, metadata=metadata)
+        self.vector_db.add_vectors(vectors=chunk_embeddings, metadata=vector_metadata)
 
         self.save()  # save to disk after adding a document
 
@@ -398,7 +401,7 @@ class KnowledgeBase:
     def cosine_similarity(self, v1, v2):
         return np.dot(v1, v2)  # since the embeddings are normalized
 
-    def search(self, query: str, top_k: int) -> list:
+    def search(self, query: str, top_k: int, metadata_filter: Optional[MetadataFilter] = None) -> list:
         """
         Get top k most relevant chunks for a given query. This is where we interface with the vector database.
         - returns a list of dictionaries, where each dictionary has the following keys: `metadata` (which contains 'doc_id', 'chunk_index', 'chunk_text', and 'chunk_header') and `similarity`
@@ -407,7 +410,7 @@ class KnowledgeBase:
             [query], input_type="query"
         )[0]  # embed the query, and access the first element of the list since the query is a single string
         search_results = self.vector_db.search(
-            query_vector, top_k
+            query_vector, top_k, metadata_filter
         )  # do a vector database search
         if len(search_results) == 0:
             return []
@@ -416,12 +419,12 @@ class KnowledgeBase:
         )  # rerank search results using a reranker
         return search_results
 
-    def get_all_ranked_results(self, search_queries: list[str]):
+    def get_all_ranked_results(self, search_queries: list[str], metadata_filter: Optional[MetadataFilter] = None):
         """
         - search_queries: list of search queries
         """
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = [executor.submit(self.search, query, 200) for query in search_queries]
+            futures = [executor.submit(self.search, query, 200, metadata_filter) for query in search_queries]
             
             all_ranked_results = []
             for future in futures:
@@ -446,6 +449,7 @@ class KnowledgeBase:
         search_queries: list[str],
         rse_params: Union[Dict, str] = "balanced",
         latency_profiling: bool = False,
+        metadata_filter: Optional[MetadataFilter] = None,
     ) -> list[dict]:
         """
         Inputs:
@@ -500,7 +504,7 @@ class KnowledgeBase:
         ) * overall_max_length_extension  # increase the overall max length for each additional query
 
         start_time = time.time()
-        all_ranked_results = self.get_all_ranked_results(search_queries=search_queries)
+        all_ranked_results = self.get_all_ranked_results(search_queries=search_queries, metadata_filter=metadata_filter)
         if latency_profiling:
             print(
                 f"get_all_ranked_results took {time.time() - start_time} seconds to run for {len(search_queries)} queries"

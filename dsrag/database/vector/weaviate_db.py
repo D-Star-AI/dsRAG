@@ -2,6 +2,7 @@ from typing import Sequence, cast
 from dsrag.database.vector.types import ChunkMetadata, Vector, VectorSearchResult
 from dsrag.database.vector.db import VectorDB
 import numpy as np
+from typing import Optional
 import weaviate
 import weaviate.classes as wvc
 from weaviate.util import generate_uuid5
@@ -149,7 +150,7 @@ class WeaviateVectorDB(VectorDB):
             where=wvc.query.Filter.by_property("doc_id").contains_any([doc_id])
         )
 
-    def search(self, query_vector, top_k=10) -> list[VectorSearchResult]:
+    def search(self, query_vector: list, top_k: int=10, metadata_filter: Optional[dict] = None) -> list[VectorSearchResult]:
         """
         Searches for the top-k closest vectors to the given query vector.
 
