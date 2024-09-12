@@ -1,13 +1,13 @@
 import os
 import sys
 import unittest
-from dsrag.database.chunk.basic_db import BasicChunkDB
-from dsrag.database.chunk.sqlite_db import SQLiteDB
+import shutil
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+from dsrag.database.chunk.basic_db import BasicChunkDB
+from dsrag.database.chunk.sqlite_db import SQLiteDB
 from dsrag.database.chunk.db import ChunkDB
-import shutil
 
 
 class TestChunkDB(unittest.TestCase):
@@ -85,22 +85,6 @@ class TestChunkDB(unittest.TestCase):
         db.add_document(doc_id, chunks)
         summary = db.get_section_summary(doc_id, 0)
         self.assertEqual(summary, "Summary 1")
-
-    def test__get_by_supp_id(self):
-        db = SQLiteDB(self.kb_id, self.storage_directory)
-        doc_id = "doc1"
-        chunks = {
-            0: {"supp_id": "Supp ID 1", "chunk_text": "Content of chunk 1"},
-        }
-        db.add_document(doc_id, chunks)
-        doc_id = "doc2"
-        chunks = {
-            0: {"chunk_text": "Content of chunk 2"},
-        }
-        db.add_document(doc_id, chunks)
-        docs = db.get_all_doc_ids("Supp ID 1")
-        # There should only be one document with the supp_id 'Supp ID 1'
-        self.assertEqual(len(docs), 1)
 
     def test__remove_document(self):
         db = BasicChunkDB(self.kb_id, self.storage_directory)
@@ -204,6 +188,17 @@ class TestSQLiteDB(unittest.TestCase):
         summary = db.get_document_summary(doc_id, 0)
         self.assertEqual(summary, "Summary 1")
 
+    def test__get_document_content(self):
+        db = SQLiteDB(self.kb_id, self.storage_directory)
+        doc_id = "doc1"
+        chunks = {
+            0: {"chunk_text": "Content of chunk 1"},
+            1: {"chunk_text": "Content of chunk 2"},
+        }
+        db.add_document(doc_id, chunks)
+        content = db.get_document(doc_id, include_content=True)
+        self.assertEqual(content["content"], "Content of chunk 1\nContent of chunk 2")
+
     def test__get_section_title(self):
         db = SQLiteDB(self.kb_id, self.storage_directory)
         doc_id = "doc1"
@@ -225,15 +220,16 @@ class TestSQLiteDB(unittest.TestCase):
     def test__get_by_supp_id(self):
         db = SQLiteDB(self.kb_id, self.storage_directory)
         doc_id = "doc1"
+        supp_id = "Supp ID 1"
         chunks = {
-            0: {"supp_id": "Supp ID 1", "chunk_text": "Content of chunk 1"},
+            0: {"chunk_text": "Content of chunk 1"},
         }
-        db.add_document(doc_id, chunks)
+        db.add_document(doc_id=doc_id, chunks=chunks, supp_id=supp_id)
         doc_id = "doc2"
         chunks = {
             0: {"chunk_text": "Content of chunk 2"},
         }
-        db.add_document(doc_id, chunks)
+        db.add_document(doc_id=doc_id, chunks=chunks)
         docs = db.get_all_doc_ids("Supp ID 1")
         # There should only be one document with the supp_id 'Supp ID 1'
         self.assertEqual(len(docs), 1)

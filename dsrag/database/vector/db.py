@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Sequence
+from typing import Sequence, Optional
 from dsrag.database.vector.types import ChunkMetadata, Vector, VectorSearchResult
 
 
@@ -43,7 +43,7 @@ class VectorDB(ABC):
         pass
 
     @abstractmethod
-    def search(self, query_vector, top_k=10) -> list[VectorSearchResult]:
+    def search(self, query_vector, top_k: int=10, metadata_filter: Optional[dict] = None) -> list[VectorSearchResult]:
         """
         Retrieve the top-k closest vectors to a given query vector.
         - needs to return results as list of dictionaries in this format:

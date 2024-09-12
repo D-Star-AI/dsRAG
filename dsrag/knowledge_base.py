@@ -4,6 +4,7 @@ import os
 import time
 import json
 from typing import Optional, Union, Dict
+import concurrent.futures
 from dsrag.auto_context import (
     get_document_title,
     get_document_summary,
@@ -18,6 +19,7 @@ from dsrag.rse import (
     RSE_PARAMS_PRESETS,
 )
 from dsrag.database.vector import Vector, VectorDB, BasicVectorDB
+from dsrag.database.vector.types import MetadataFilter
 from dsrag.database.chunk import ChunkDB, BasicChunkDB
 from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
@@ -34,11 +36,11 @@ class KnowledgeBase:
         description: str = "",
         language: str = "en",
         storage_directory: str = "~/dsRAG",
-        embedding_model: Embedding | None = None,
-        reranker: Reranker | None = None,
-        auto_context_model: LLM | None = None,
-        vector_db: VectorDB | None = None,
-        chunk_db: ChunkDB | None = None,
+        embedding_model: Optional[Embedding] = None,
+        reranker: Optional[Reranker] = None,
+        auto_context_model: Optional[LLM] = None,
+        vector_db: Optional[VectorDB] = None,
+        chunk_db: Optional[ChunkDB] = None,
         exists_ok: bool = True,
         save_metadata_to_disk: bool = True,
     ):
@@ -87,11 +89,11 @@ class KnowledgeBase:
 
     def initialize_components(
         self,
-        embedding_model: Embedding | None,
-        reranker: Reranker | None,
-        auto_context_model: LLM | None,
-        vector_db: VectorDB | None,
-        chunk_db: ChunkDB | None,
+        embedding_model: Optional[Embedding],
+        reranker: Optional[Reranker],
+        auto_context_model: Optional[LLM],
+        vector_db: Optional[VectorDB],
+        chunk_db: Optional[ChunkDB],
     ):
         self.embedding_model = embedding_model if embedding_model else OpenAIEmbedding()
         self.reranker = reranker if reranker else CohereReranker()
@@ -176,6 +178,8 @@ class KnowledgeBase:
         semantic_sectioning_config: dict = {},
         chunk_size: int = 800,
         min_length_for_chunking: int = 1600,
+        supp_id: str = "",
+        metadata: dict = {},
     ):
         """
         Inputs:
@@ -195,6 +199,9 @@ class KnowledgeBase:
             - use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
         - chunk_size: the maximum number of characters to include in each chunk
         - min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk. If semantic sectioning is used, this parameter will be applied to each section. Setting this to a higher value than the chunk_size can help avoid unnecessary chunking of short documents or sections.
+        - document_type: the type of document being added (Can be any string you like. Useful for filtering documents later on.)
+        - supp_id: supplementary ID for the document (Can be any string you like. Useful for filtering documents later on.)
+        - file_name: the name of the file that the document came from (if applicable)
         """
 
         # verify that the document does not already exist in the KB - the doc_id should be unique
@@ -335,12 +342,14 @@ class KnowledgeBase:
                 }
                 for i, chunk in enumerate(chunks)
             },
+            supp_id,
+            metadata
         )
 
         # create metadata list to add to the vector database
-        metadata = []
+        vector_metadata = []
         for i, chunk in enumerate(chunks):
-            metadata.append(
+            vector_metadata.append(
                 {
                     "doc_id": doc_id,
                     "chunk_index": i,
@@ -351,11 +360,13 @@ class KnowledgeBase:
                         section_title=chunk["section_title"],
                         section_summary=chunk["section_summary"],
                     ),
+                    # Add the rest of the metadata to the vector metadata (if any)
+                    **metadata
                 }
             )
 
         # add the vectors and metadata to the vector database
-        self.vector_db.add_vectors(vectors=chunk_embeddings, metadata=metadata)
+        self.vector_db.add_vectors(vectors=chunk_embeddings, metadata=vector_metadata)
 
         self.save()  # save to disk after adding a document
 
@@ -390,16 +401,16 @@ class KnowledgeBase:
     def cosine_similarity(self, v1, v2):
         return np.dot(v1, v2)  # since the embeddings are normalized
 
-    def search(self, query: str, top_k: int) -> list:
+    def search(self, query: str, top_k: int, metadata_filter: Optional[MetadataFilter] = None) -> list:
         """
         Get top k most relevant chunks for a given query. This is where we interface with the vector database.
         - returns a list of dictionaries, where each dictionary has the following keys: `metadata` (which contains 'doc_id', 'chunk_index', 'chunk_text', and 'chunk_header') and `similarity`
         """
         query_vector = self.get_embeddings(
             [query], input_type="query"
-        )  # embed the query
+        )[0]  # embed the query, and access the first element of the list since the query is a single string
         search_results = self.vector_db.search(
-            query_vector, top_k
+            query_vector, top_k, metadata_filter
         )  # do a vector database search
         if len(search_results) == 0:
             return []
@@ -408,14 +419,18 @@ class KnowledgeBase:
         )  # rerank search results using a reranker
         return search_results
 
-    def get_all_ranked_results(self, search_queries: list[str]):
+    def get_all_ranked_results(self, search_queries: list[str], metadata_filter: Optional[MetadataFilter] = None):
         """
         - search_queries: list of search queries
         """
-        all_ranked_results = []
-        for query in search_queries:
-            ranked_results = self.search(query, 200)
-            all_ranked_results.append(ranked_results)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(self.search, query, 200, metadata_filter) for query in search_queries]
+            
+            all_ranked_results = []
+            for future in futures:
+                ranked_results = future.result()
+                all_ranked_results.append(ranked_results)
+        
         return all_ranked_results
 
     def get_segment_text_from_database(
@@ -434,6 +449,7 @@ class KnowledgeBase:
         search_queries: list[str],
         rse_params: Union[Dict, str] = "balanced",
         latency_profiling: bool = False,
+        metadata_filter: Optional[MetadataFilter] = None,
     ) -> list[dict]:
         """
         Inputs:
@@ -488,7 +504,7 @@ class KnowledgeBase:
         ) * overall_max_length_extension  # increase the overall max length for each additional query
 
         start_time = time.time()
-        all_ranked_results = self.get_all_ranked_results(search_queries=search_queries)
+        all_ranked_results = self.get_all_ranked_results(search_queries=search_queries, metadata_filter=metadata_filter)
         if latency_profiling:
             print(
                 f"get_all_ranked_results took {time.time() - start_time} seconds to run for {len(search_queries)} queries"

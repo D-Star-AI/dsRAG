@@ -1,12 +1,12 @@
 from typing import Sequence
-from dsrag.database.vector.types import ChunkMetadata
 import numpy as np
 import os
 import sys
 import unittest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-from dsrag.database.vector import BasicVectorDB, VectorDB, WeaviateVectorDB
+from dsrag.database.vector import BasicVectorDB, VectorDB, WeaviateVectorDB, ChromaDB
+from dsrag.database.vector.types import ChunkMetadata
 
 
 class TestVectorDB(unittest.TestCase):
@@ -32,20 +32,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -66,20 +58,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -106,20 +90,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -159,20 +135,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -192,20 +160,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -229,20 +189,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -263,20 +215,12 @@ class TestVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 
@@ -292,6 +236,147 @@ class TestVectorDB(unittest.TestCase):
         self.assertEqual(len(results), 2)
 
 
+class TestChromaDB(unittest.TestCase):
+    def setUp(self):
+        self.kb_id = "test_chroma_kb"
+        self.db = ChromaDB(kb_id=self.kb_id)
+        return super().setUp()
+
+    def tearDown(self):
+        # delete test data from ChromaDB
+        self.db.delete()
+        return super().tearDown()
+    
+    def test__add_vectors_and_search(self):
+        db = ChromaDB(kb_id=self.kb_id)
+        vectors = [np.array([1, 0]), np.array([0, 1])]
+        metadata: Sequence[ChunkMetadata] = [
+            {
+                "doc_id": "1",
+                "chunk_index": 0,
+                "chunk_header": "Header1",
+                "chunk_text": "Text1",
+            },
+            {
+                "doc_id": "2",
+                "chunk_index": 1,
+                "chunk_header": "Header2",
+                "chunk_text": "Text2",
+            },
+        ]
+
+        db.add_vectors(vectors, metadata)
+        query_vector = np.array([[1, 0]])
+        results = db.search(query_vector, top_k=1)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["metadata"]["doc_id"], "1")
+        self.assertGreaterEqual(results[0]["similarity"], 0.99)
+
+    def test__search_with_metadata_filter(self):
+        db = ChromaDB(kb_id=self.kb_id)
+        vectors = [np.array([1, 0]), np.array([1, 0]), np.array([0, 1]), np.array([1, 0])]
+        metadata: Sequence[ChunkMetadata] = [
+            {
+                "doc_id": "1",
+                "chunk_index": 0,
+                "chunk_header": "Header1",
+                "chunk_text": "Text1",
+            },
+            {
+                "doc_id": "2",
+                "chunk_index": 0,
+                "chunk_header": "Header1",
+                "chunk_text": "Text1",
+            },
+            {
+                "doc_id": "3",
+                "chunk_index": 1,
+                "chunk_header": "Header2",
+                "chunk_text": "Text2",
+            },
+            {
+                "doc_id": "4",
+                "chunk_index": 1,
+                "chunk_header": "Header2",
+                "chunk_text": "Text2",
+            },
+        ]
+
+        db.add_vectors(vectors, metadata)
+
+        query_vector = np.array([[1, 0]])
+        metadata_filter = {"field": "doc_id", "operator": "equals", "value": "1"}
+        results = db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["metadata"]["doc_id"], "1")
+
+        # Test with the 'in' operator
+        metadata_filter = {"field": "doc_id", "operator": "in", "value": ["1", "4"]}
+        results = db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]["metadata"]["doc_id"], "1")
+        self.assertEqual(results[1]["metadata"]["doc_id"], "4")
+
+    def test__remove_document(self):
+        db = ChromaDB(kb_id=self.kb_id)
+        vectors = [np.array([1, 0]), np.array([0, 1])]
+        metadata: Sequence[ChunkMetadata] = [
+            {
+                "doc_id": "1",
+                "chunk_index": 0,
+                "chunk_header": "Header1",
+                "chunk_text": "Text1",
+            },
+            {
+                "doc_id": "2",
+                "chunk_index": 1,
+                "chunk_header": "Header2",
+                "chunk_text": "Text2",
+            },
+        ]
+
+        db.add_vectors(vectors, metadata)
+        db.remove_document("1")
+
+        num_vectors = db.get_num_vectors()
+        self.assertEqual(num_vectors, 1)
+
+    def test__empty_search(self):
+        db = ChromaDB(kb_id="test_chroma_db_2")
+        query_vector = np.array([1, 0])
+        results = db.search(query_vector)
+
+        self.assertEqual(len(results), 0)
+        db.delete()
+
+    def test__assertion_error_on_mismatched_input_lengths(self):
+        db = ChromaDB(kb_id=self.kb_id)
+        vectors = [np.array([1, 0])]
+        metadata: Sequence[ChunkMetadata] = [
+            {
+                "doc_id": "1",
+                "chunk_index": 0,
+                "chunk_header": "Header1",
+                "chunk_text": "Text1",
+            },
+            {
+                "doc_id": "2",
+                "chunk_index": 1,
+                "chunk_header": "Header2",
+                "chunk_text": "Text2",
+            },
+        ]
+
+        with self.assertRaises(ValueError) as context:
+            db.add_vectors(vectors, metadata)
+        self.assertTrue(
+            "Error in add_vectors: the number of vectors and metadata items must be the same."
+            in str(context.exception)
+        )
+
+
 class TestWeaviateVectorDB(unittest.TestCase):
     def setUp(self):
         self.kb_id = "test_kb"
@@ -304,7 +389,7 @@ class TestWeaviateVectorDB(unittest.TestCase):
         self.db.close()
         return super().tearDown()
 
-    def test_add_vectors_and_search(self):
+    def test__add_vectors_and_search(self):
         vectors = [np.array([1, 0]), np.array([0, 1]), np.array([1, 1])]
         metadata: Sequence[ChunkMetadata] = [
             {
@@ -312,30 +397,18 @@ class TestWeaviateVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "1",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 0,
                 "chunk_header": "Header3",
                 "chunk_text": "Text3",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
         self.db.add_vectors(vectors, metadata)
@@ -350,7 +423,7 @@ class TestWeaviateVectorDB(unittest.TestCase):
         self.assertEqual(results[0]["metadata"]["chunk_text"], "Text1")
         self.assertGreaterEqual(results[0]["similarity"], 0.99)
 
-    def test_remove_document(self):
+    def test__remove_document(self):
         vectors = [np.array([1, 0]), np.array([0, 1]), np.array([1, 1])]
         metadata: Sequence[ChunkMetadata] = [
             {
@@ -358,30 +431,18 @@ class TestWeaviateVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "1",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 0,
                 "chunk_header": "Header3",
                 "chunk_text": "Text3",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
         self.db.add_vectors(vectors, metadata)
@@ -403,20 +464,12 @@ class TestWeaviateVectorDB(unittest.TestCase):
                 "chunk_index": 0,
                 "chunk_header": "Header1",
                 "chunk_text": "Text1",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
             {
                 "doc_id": "2",
                 "chunk_index": 1,
                 "chunk_header": "Header2",
                 "chunk_text": "Text2",
-                "document_title": None,
-                "document_summary": None,
-                "section_title": None,
-                "section_summary": None,
             },
         ]
 

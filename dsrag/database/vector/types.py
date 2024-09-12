@@ -1,4 +1,4 @@
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 from typing_extensions import TypedDict
 
 
@@ -7,36 +7,25 @@ class ChunkMetadata(TypedDict):
     chunk_text: str
     chunk_index: int
     chunk_header: str
-    document_title: Optional[str]
-    document_summary: Optional[str]
-    section_title: Optional[str]
-    section_summary: Optional[str]
 
 
-Vector = Sequence[float] | Sequence[int]
+Vector = Union[Sequence[float], Sequence[int]]
 
 
 class VectorSearchResult(TypedDict):
     doc_id: Optional[str]
-    vector: Vector | None
+    vector: Optional[Vector]
     metadata: ChunkMetadata
     similarity: float
+      
+class MetadataFilter(TypedDict):
+    field: str
+    operator: str # Can be one of the following: 'equals', 'not_equals', 'in', 'not_in', 'greater_than', 'less_than', 'greater_than_equals', 'less_than_equals'
+    value: Union[str, int, float]
 
 
 # declarative_base, Column, String, Integer, func, deferred need to be imported from SQLAlchemy
 Base = declarative_base()
-
-
-class ChunkMetadata(TypedDict):
-    doc_id: str
-    chunk_text: str
-    chunk_index: int
-    chunk_header: str
-    document_title: str
-    document_summary: str
-    section_title: str
-    section_summary: str
-
 
 class ChunkEmbedding(Base):
     __tablename__ = "chunk_embedding"
@@ -48,7 +37,6 @@ class ChunkEmbedding(Base):
     # https://github.com/pgvector/pgvector-python/blob/master/pgvector/sqlalchemy/vector.py
     vector = deferred(Column(Vector(768), nullable=False))
     chunk_metadata: ChunkMetadata = Column(MUTABLE_JSONB, nullable=False)  # type: ignore
-
 
 class TranscriptChunk(Base):
     __tablename__ = "transcript_chunk"
