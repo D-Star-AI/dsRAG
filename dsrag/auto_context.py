@@ -23,7 +23,7 @@ What is the following document, and what is it about?
 
 Your response should be a single sentence, and it shouldn't be an excessively long sentence. DO NOT respond with anything else.
 
-Your response should take the form of "This document is about: X". For example, if the document is a book about the history of the United States called A People's History of the United States, your response might be "This document is about: the history of the United States, covering the period from 1776 to the present day." If the document is the 2023 Form 10-K for Apple Inc., your response might be "This document is about: the financial performance and operations of Apple Inc. during the fiscal year 2023."
+Your response should take the form of "This document is about: X" (This part should be translated into the language of the document if it's not in English). For example, if the document is a book about the history of the United States called A People's History of the United States, your response might be "This document is about: the history of the United States, covering the period from 1776 to the present day." If the document is the 2023 Form 10-K for Apple Inc., your response might be "This document is about: the financial performance and operations of Apple Inc. during the fiscal year 2023." If the document is the novel Les Miserables by Victor Hugo, your response might be "Ce document concerne : le roman "Les Misérables" de Victor Hugo, qui explore les thèmes de l'injustice sociale, de la rédemption et des luttes de divers personnages dans la France du XIXe siècle."
 
 {document_summarization_guidance}
 
@@ -60,7 +60,7 @@ Section name: {section_title}
 {section_text}
 """.strip()
 
-LANGUAGE_ADDENDUM = "Be sure to use the same language as the document. If the document is in English, your response should be in English. If the document is in another language, your response should be in that language."
+LANGUAGE_ADDENDUM = "YOU MUST use the same language as the document for your entire response. If the document is in English, your response MUST BE entirely in English. If the document is in another language, your response MUST BE entirely in that language."
 
 def truncate_content(content: str, max_tokens: int):
     TOKEN_ENCODER = tiktoken.encoding_for_model('gpt-3.5-turbo')

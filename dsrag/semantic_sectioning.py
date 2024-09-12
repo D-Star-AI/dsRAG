@@ -25,7 +25,7 @@ Section titles should be descriptive enough such that a person who is just skimm
 Note: the document provided to you may just be an excerpt from a larger document, rather than a complete document. Therefore, you can't always assume, for example, that the first line of the document is the beginning of the Introduction section and the last line is the end of the Conclusion section (if those section are even present).
 """
 
-LANGUAGE_ADDENDUM = "For your section titles, be sure to use the same language as the document. If the document is in English, your section titles should be in English. If the document is in another language, your section titles should be in that language."
+LANGUAGE_ADDENDUM = "For your section titles, YOU MUST use the same language as the document. If the document is in English, your section titles should be in English. If the document is in another language, your section titles should be in that language."
 
 
 def get_document_lines(document: str) -> List[str]:
