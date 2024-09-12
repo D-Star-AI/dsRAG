@@ -21,4 +21,4 @@ class VectorSearchResult(TypedDict):
 class MetadataFilter(TypedDict):
     field: str
     operator: str # Can be one of the following: 'equals', 'not_equals', 'in', 'not_in', 'greater_than', 'less_than', 'greater_than_equals', 'less_than_equals'
-    value: Union[str, int, float]
+    value: Union[str, int, float, list[str], list[int], list[float]]
