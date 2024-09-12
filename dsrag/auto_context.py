@@ -47,7 +47,7 @@ What is the following section about?
 
 Your response should be a single sentence, and it shouldn't be an excessively long sentence. DO NOT respond with anything else.
 
-Your response should take the form of "This section is about: X". For example, if the section is a balance sheet from a financial report about Apple, your response might be "This section is about: the financial position of Apple as of the end of the fiscal year." If the section is a chapter from a book on the history of the United States, and this chapter covers the Civil War, your response might be "This section is about: the causes and consequences of the American Civil War."
+Your response should take the form of "This section is about: X". (This part should be translated into the language of the document if it's not in English). For example, if the section is a balance sheet from a financial report about Apple, your response might be "This section is about: the financial position of Apple as of the end of the fiscal year." If the section is a chapter from a book on the history of the United States, and this chapter covers the Civil War, your response might be "This section is about: the causes and consequences of the American Civil War."
 
 {section_summarization_guidance}
 
