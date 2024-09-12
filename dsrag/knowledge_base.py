@@ -24,7 +24,7 @@ from dsrag.database.chunk import ChunkDB, BasicChunkDB
 from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
 from dsrag.llm import LLM, OpenAIChatAPI
-from dsrag.semantic_sectioning import get_sections
+from dsrag.sectioning_and_chunking.semantic_sectioning import get_sections
 
 
 class KnowledgeBase:
@@ -212,7 +212,7 @@ class KnowledgeBase:
         if semantic_sectioning_config.get("use_semantic_sectioning", True):
             llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
             model = semantic_sectioning_config.get("model", "gpt-4o-mini")
-            sections = get_sections(text, llm_provider=llm_provider, model=model, language=self.kb_metadata["language"])
+            sections, _ = get_sections(text, llm_provider=llm_provider, model=model, language=self.kb_metadata["language"])
         else:
             sections = [
                 {
