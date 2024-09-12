@@ -25,6 +25,8 @@ Section titles should be descriptive enough such that a person who is just skimm
 Note: the document provided to you may just be an excerpt from a larger document, rather than a complete document. Therefore, you can't always assume, for example, that the first line of the document is the beginning of the Introduction section and the last line is the end of the Conclusion section (if those section are even present).
 """
 
+LANGUAGE_ADDENDUM = "For your section titles, be sure to use the same language as the document. If the document is in English, your section titles should be in English. If the document is in another language, your section titles should be in that language."
+
 
 def get_document_lines(document: str) -> List[str]:
     document_lines = document.split("\n")
@@ -42,10 +44,15 @@ def get_document_with_lines(document_lines: List[str], start_line: int, max_char
             break
     return document_with_line_numbers, end_line
 
-def get_structured_document(document_with_line_numbers: str, start_line: int, end_line: int, llm_provider: str, model: str) -> StructuredDocument:
+def get_structured_document(document_with_line_numbers: str, start_line: int, end_line: int, llm_provider: str, model: str, language: str) -> StructuredDocument:
     """
     Note: This function relies on Instructor, which only supports certain model providers. That's why this function doesn't use the LLM abstract base class that is used elsewhere in the project.
     """
+
+    formatted_system_prompt = system_prompt.format(start_line=start_line, end_line=end_line)
+    if language != "en":
+        formatted_system_prompt += "\n" + LANGUAGE_ADDENDUM
+
     if llm_provider == "anthropic":
         client = instructor.from_anthropic(Anthropic())
         return client.chat.completions.create(
@@ -53,7 +60,7 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, en
             response_model=StructuredDocument,
             max_tokens=4000,
             temperature=0.0,
-            system=system_prompt.format(start_line=start_line, end_line=end_line),
+            system=formatted_system_prompt,
             messages=[
                 {
                     "role": "user",
@@ -71,7 +78,7 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, en
             messages=[
                 {
                     "role": "system",
-                    "content": system_prompt.format(start_line=start_line, end_line=end_line),
+                    "content": formatted_system_prompt,
                 },
                 {
                     "role": "user",
@@ -187,7 +194,7 @@ def is_valid_partition(sections, a, b):
     return True
 
 
-def get_sections(document: str, max_characters: int = 20000, llm_provider: str = "openai", model: str = "gpt-4o-mini") -> List[Dict[str, Any]]:
+def get_sections(document: str, max_characters: int = 20000, llm_provider: str = "openai", model: str = "gpt-4o-mini", language: str = "en") -> List[Dict[str, Any]]:
     """
     Inputs
     - document: str - the text of the document
@@ -208,7 +215,7 @@ def get_sections(document: str, max_characters: int = 20000, llm_provider: str =
     all_sections = []
     for _ in range(max_iterations):
         document_with_line_numbers, end_line = get_document_with_lines(document_lines, start_line, max_characters)
-        structured_doc = get_structured_document(document_with_line_numbers, start_line, end_line, llm_provider=llm_provider, model=model)
+        structured_doc = get_structured_document(document_with_line_numbers, start_line, end_line, llm_provider=llm_provider, model=model, language=language)
         new_sections = structured_doc.sections
         all_sections.extend(new_sections)
         
