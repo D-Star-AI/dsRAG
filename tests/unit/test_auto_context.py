@@ -85,7 +85,7 @@ class TestAutoContextNonEnglish(unittest.TestCase):
             document_text = f.read()
         document_title_guidance = ""
         document_title = get_document_title(auto_context_model, document_text, document_title_guidance=document_title_guidance, language="fr")
-        print (document_title)
+        assert "rables" in document_title.lower() # (part of Les Misérables)
 
     def test__get_document_summary(self):
         document_title = "Les Miserables"
@@ -96,7 +96,7 @@ class TestAutoContextNonEnglish(unittest.TestCase):
             document_text = f.read()
         document_summarization_guidance = ""
         document_summary = get_document_summary(auto_context_model, document_text, document_title, document_summarization_guidance=document_summarization_guidance, language="fr")
-        print (document_summary)
+        assert "concerne" in document_summary.lower()
 
 if __name__ == "__main__":
     unittest.main()
