@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dsrag"
-version = "0.2.2"
+version = "0.3.3"
 description = "State-of-the-art RAG pipeline from D-Star AI"
 readme = "README.md"
 authors = [{ name = "Zach McCormick", email = "zach@d-star.ai" }, { name = "Nick McCormick", email = "nick@d-star.ai" }]
