@@ -199,9 +199,8 @@ class KnowledgeBase:
             - use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
         - chunk_size: the maximum number of characters to include in each chunk
         - min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk. If semantic sectioning is used, this parameter will be applied to each section. Setting this to a higher value than the chunk_size can help avoid unnecessary chunking of short documents or sections.
-        - document_type: the type of document being added (Can be any string you like. Useful for filtering documents later on.)
         - supp_id: supplementary ID for the document (Can be any string you like. Useful for filtering documents later on.)
-        - file_name: the name of the file that the document came from (if applicable)
+        - metadata: a dictionary of metadata to associate with the document - can use whatever keys you like
         """
 
         # verify that the document does not already exist in the KB - the doc_id should be unique
@@ -213,7 +212,7 @@ class KnowledgeBase:
         if semantic_sectioning_config.get("use_semantic_sectioning", True):
             llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
             model = semantic_sectioning_config.get("model", "gpt-4o-mini")
-            sections = get_sections(text, llm_provider=llm_provider, model=model)
+            sections = get_sections(text, llm_provider=llm_provider, model=model, language=self.kb_metadata["language"])
         else:
             sections = [
                 {
@@ -231,6 +230,7 @@ class KnowledgeBase:
                 self.auto_context_model,
                 text,
                 document_title_guidance=document_title_guidance,
+                language=self.kb_metadata["language"]
             )
         elif not document_title:
             document_title = doc_id
@@ -244,6 +244,7 @@ class KnowledgeBase:
                 text,
                 document_title=document_title,
                 document_summarization_guidance=document_summarization_guidance,
+                language=self.kb_metadata["language"]
             )
         else:
             document_summary = ""
@@ -270,6 +271,7 @@ class KnowledgeBase:
                     document_title=document_title,
                     section_title=section_title,
                     section_summarization_guidance=section_summarization_guidance,
+                    language=self.kb_metadata["language"]
                 )
             else:
                 section_summary = ""
