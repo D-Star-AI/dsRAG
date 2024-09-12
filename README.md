@@ -209,6 +209,33 @@ rse_params
 - decay_rate
 - top_k_for_document_selection: the number of documents to consider
 
+## Metadata query filters
+Certain vector DBs support metadata filtering when running a query (currently only ChromaDB). This allows you to have more control over what document(s) get searched. A common use case for this would be asking questions over a single document in a knowledge base, in which case you would supply the `doc_id` as a metadata filter.
+
+The format of the metadata filtering is an object with the following keys:
+
+ - field: str, # The metadata field to filter by
+ - operator: str, # The operator for filtering. Must be one of: 'equals', 'not_equals', 'in', 'not_in', 'greater_than', 'less_than', 'greater_than_equals', 'less_than_equals'
+ - value: str | int | float | list # If the value is a list, every item in the list must be of the same type
+
+#### Example
+
+```python
+# Filter with the "equals" operator
+metadata_filter = {
+    "field": "doc_id",
+    "operator": "equals",
+    "value": "test_id_1"
+}
+
+# Filter with the "in" operator
+metadata_filter = {
+    "field": "doc_id",
+    "operator": "in",
+    "value": ["test_id_1", "test_id_2"]
+}
+```
+
 ## Document upload flow
 Documents -> semantic sectioning -> chunking -> AutoContext -> embedding -> chunk and vector database upsert
 
