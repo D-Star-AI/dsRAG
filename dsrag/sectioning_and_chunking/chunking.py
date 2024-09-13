@@ -118,8 +118,17 @@ def get_sections_and_chunks_naive(document_text: str, chunk_size: int) -> List[s
 
 
 def get_chunks_from_sections(sections: List[Dict[str, Any]], document_lines: List[str], llm_provider: str, model: str, chunk_size: int = 800, min_length_for_chunking: int = 2000, chunking_method: str = "semantic") -> List[Dict[str, Any]]:
+    """
+    Returns
+    - sections_with_chunks: list of dictionaries containing:
+        - "section_title": str
+        - "section_text": str
+        - "chunks": list of dictionaries containing:
+            - "chunk_text": str
+            - "chunk_index": int
+    """
 
-    formatted_sections = []
+    sections_with_chunks = []
     chunk_index = 0
     for i, section in enumerate(sections):
 
@@ -133,8 +142,8 @@ def get_chunks_from_sections(sections: List[Dict[str, Any]], document_lines: Lis
         for i in range(start_index, end_index+1):
             document_with_line_numbers += f"[{i}] {document_lines[i]}\n"
         
-        # If the length of the content is less than 2000 characters, then we will use the entire section as one chunk
-        if (len(document_with_line_numbers) < min_length_for_chunking):
+        # If the length of the content is less than a certain number of characters, then we will use the entire section as one chunk
+        if len(document_with_line_numbers) < min_length_for_chunking:
             # The entire section will be one chunk
             chunk_text = get_chunk_text(start_index, end_index, document_lines)
             chunk_dicts.append({
@@ -143,7 +152,7 @@ def get_chunks_from_sections(sections: List[Dict[str, Any]], document_lines: Lis
             })
             chunk_index += 1
 
-            formatted_sections.append({
+            sections_with_chunks.append({
                 "section_title": section["title"],
                 "section_text": section["content"],
                 "chunks": chunk_dicts
@@ -156,11 +165,11 @@ def get_chunks_from_sections(sections: List[Dict[str, Any]], document_lines: Lis
 
         if use_fallback or chunking_method == "naive":
             # Use basic character chunking
-            document_text = ""
+            section_text = ""
             for i in range(start_index, end_index+1):
-                document_text += f"{document_lines[i]}\n"
+                section_text += f"{document_lines[i]}\n"
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=0, length_function=len)
-            texts = text_splitter.create_documents([document_text])
+            texts = text_splitter.create_documents([section_text])
             new_chunks = [text.page_content for text in texts]
             chunk_dicts = []
             for chunk in new_chunks:
@@ -172,7 +181,6 @@ def get_chunks_from_sections(sections: List[Dict[str, Any]], document_lines: Lis
             chunk_dicts.extend(chunk_dicts)
         
         else:
-
             structured_chunks = get_structured_chunks(document_with_line_numbers, start_index, min_num_chunks, max_num_chunks, llm_provider, model)
             new_chunks = structured_chunks.chunks
 
@@ -190,10 +198,10 @@ def get_chunks_from_sections(sections: List[Dict[str, Any]], document_lines: Lis
                 chunk_index += 1
         
 
-        formatted_sections.append({
+        sections_with_chunks.append({
             "section_title": section["title"],
             "section_text": section["content"],
             "chunks": chunk_dicts
         })
     
-    return formatted_sections
+    return sections_with_chunks
