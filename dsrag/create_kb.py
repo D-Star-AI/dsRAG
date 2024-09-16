@@ -28,7 +28,7 @@ def create_kb_from_directory(kb_id: str, directory: str, title: str = None, desc
                     if file_name.endswith('.docx'):
                         text = extract_text_from_docx(file_path)
                     elif file_name.endswith('.pdf'):
-                        text = extract_text_from_pdf(file_path)
+                        text, _ = extract_text_from_pdf(file_path)
                     elif file_name.endswith('.md') or file_name.endswith('.txt'):
                         with open(file_path, 'r') as f:
                             text = f.read()
@@ -69,7 +69,7 @@ def create_kb_from_file(kb_id: str, file_path: str, title: str = None, descripti
         if file_path.endswith('.docx'):
             text = extract_text_from_docx(file_path)
         elif file_name.endswith('.pdf'):
-            text = extract_text_from_pdf(file_path)
+            text, _ = extract_text_from_pdf(file_path)
         elif file_path.endswith('.md') or file_path.endswith('.txt'):
             with open(file_path, 'r') as f:
                 text = f.read()

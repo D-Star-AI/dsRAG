@@ -50,6 +50,36 @@ class TestChunkDB(unittest.TestCase):
         retrieved_chunk = db.get_chunk_text(doc_id, 0)
         self.assertEqual(retrieved_chunk, chunks[0]["chunk_text"])
 
+    def test__get_chunk_page_numbers(self):
+
+        db = BasicChunkDB(self.kb_id, self.storage_directory)
+        doc_id = "doc1"
+
+        chunks = {
+            0: {
+                "chunk_text": "Content of chunk 1",
+                "document_title": "Title of document 1",
+                "document_summary": "Summary of document 1",
+                "section_title": "Section title 1",
+                "section_summary": "Section summary 1",
+                "chunk_page_start": 1,
+                "chunk_page_end": 2,
+            },
+            1: {
+                "chunk_text": "Content of chunk 2",
+                "document_title": "Title of document 2",
+                "document_summary": "Summary of document 2",
+                "section_title": "Section title 2",
+                "section_summary": "Section summary 2",
+            },
+        }
+        db.add_document(doc_id, chunks)
+        page_numbers = db.get_chunk_page_numbers(doc_id, 0)
+        self.assertEqual(page_numbers, (1, 2))
+
+        page_numbers = db.get_chunk_page_numbers(doc_id, 1)
+        self.assertEqual(page_numbers, (None, None))
+
     def test__get_document_title(self):
         db = BasicChunkDB(self.kb_id, self.storage_directory)
         doc_id = "doc1"
@@ -169,6 +199,36 @@ class TestSQLiteDB(unittest.TestCase):
         db.add_document(doc_id, chunks)
         retrieved_chunk = db.get_chunk_text(doc_id, 0)
         self.assertEqual(retrieved_chunk, chunks[0]["chunk_text"])
+
+    def test__get_chunk_page_numbers(self):
+            
+        db = SQLiteDB(self.kb_id, self.storage_directory)
+        doc_id = "doc1"
+
+        chunks = {
+            0: {
+                "chunk_text": "Content of chunk 1",
+                "document_title": "Title of document 1",
+                "document_summary": "Summary of document 1",
+                "section_title": "Section title 1",
+                "section_summary": "Section summary 1",
+                "chunk_page_start": 1,
+                "chunk_page_end": 2,
+            },
+            1: {
+                "chunk_text": "Content of chunk 2",
+                "document_title": "Title of document 2",
+                "document_summary": "Summary of document 2",
+                "section_title": "Section title 2",
+                "section_summary": "Section summary 2",
+            },
+        }
+        db.add_document(doc_id, chunks)
+        page_numbers = db.get_chunk_page_numbers(doc_id, 0)
+        self.assertEqual(page_numbers, (1, 2))
+
+        page_numbers = db.get_chunk_page_numbers(doc_id, 1)
+        self.assertEqual(page_numbers, (None, None))
 
     def test__get_document_title(self):
         db = SQLiteDB(self.kb_id, self.storage_directory)
