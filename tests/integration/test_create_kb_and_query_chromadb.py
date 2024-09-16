@@ -69,8 +69,8 @@ class TestCreateKB(unittest.TestCase):
         segment_info = kb.query(search_queries, metadata_filter=metadata_filter, rse_params={"minimum_value": 0})
         self.assertEqual(len(segment_info), 1)
         self.assertEqual(segment_info[0]["doc_id"], "test_doc")
-        self.assertEqual(segment_info[0]["chunk_page_start"], "")
-        self.assertEqual(segment_info[0]["chunk_page_end"], "")
+        self.assertEqual(segment_info[0]["chunk_page_start"], None)
+        self.assertEqual(segment_info[0]["chunk_page_end"], None)
         
 
     def test__003_remove_document(self):

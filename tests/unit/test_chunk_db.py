@@ -78,7 +78,7 @@ class TestChunkDB(unittest.TestCase):
         self.assertEqual(page_numbers, (1, 2))
 
         page_numbers = db.get_chunk_page_numbers(doc_id, 1)
-        self.assertEqual(page_numbers, ("", ""))
+        self.assertEqual(page_numbers, (None, None))
 
     def test__get_document_title(self):
         db = BasicChunkDB(self.kb_id, self.storage_directory)
@@ -228,7 +228,7 @@ class TestSQLiteDB(unittest.TestCase):
         self.assertEqual(page_numbers, (1, 2))
 
         page_numbers = db.get_chunk_page_numbers(doc_id, 1)
-        self.assertEqual(page_numbers, ("", ""))
+        self.assertEqual(page_numbers, (None, None))
 
     def test__get_document_title(self):
         db = SQLiteDB(self.kb_id, self.storage_directory)

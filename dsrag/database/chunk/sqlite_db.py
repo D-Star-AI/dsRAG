@@ -74,8 +74,8 @@ class SQLiteDB(ChunkDB):
             section_title = chunk.get("section_title", "")
             section_summary = chunk.get("section_summary", "")
             chunk_text = chunk.get("chunk_text", "")
-            chunk_page_start = chunk.get("chunk_page_start", "")
-            chunk_page_end = chunk.get("chunk_page_end", "")
+            chunk_page_start = chunk.get("chunk_page_start", None)
+            chunk_page_end = chunk.get("chunk_page_end", None)
             chunk_length = len(chunk_text)
             c.execute(
                 "INSERT INTO documents (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_page_start, chunk_page_end, chunk_index, chunk_length, created_on, supp_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",

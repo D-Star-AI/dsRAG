@@ -187,7 +187,7 @@ class KnowledgeBase:
         Inputs:
         - doc_id: unique identifier for the document; a file name or path is a good choice
         - text: the full text of the document
-        - file_path: the path to the file containing the document text (if text is not provided)
+        - file_path: the path to the file to be uploaded. Supported file types are .txt, .md, .pdf, and .docx
         - document_title: the title of the document (if not provided, either the doc_id or an LLM-generated title will be used, depending on the auto_context_config)
         - auto_context_config: a dictionary with configuration parameters for AutoContext
             - use_generated_title: bool - whether to use an LLM-generated title if no title is provided (default is True)
@@ -355,8 +355,8 @@ class KnowledgeBase:
                     "document_summary": chunk["document_summary"],
                     "section_title": chunk["section_title"],
                     "section_summary": chunk["section_summary"],
-                    "chunk_page_start": chunk.get("chunk_page_start", ""),
-                    "chunk_page_end": chunk.get("chunk_page_end", ""),
+                    "chunk_page_start": chunk.get("chunk_page_start", None),
+                    "chunk_page_end": chunk.get("chunk_page_end", None),
                 }
                 for i, chunk in enumerate(chunks)
             },
