@@ -33,12 +33,12 @@ def parse_file(file_path: str) -> str:
         text, pdf_pages = extract_text_from_pdf(file_path)
     elif file_path.endswith(".docx"):
         text = extract_text_from_docx(file_path)
-    elif file_path.endswith(".txt"):
+    elif file_path.endswith(".txt") or file_path.endswith(".md"):
         with open(file_path, "r") as file:
             text = file.read()
     else:
         raise ValueError(
-            "Unsupported file format. Only PDF and DOCX files are supported."
+            "Unsupported file format. Only .txt, .md, .pdf and .docx files are supported."
         )
     
     return text, pdf_pages
