@@ -49,6 +49,13 @@ class ChunkDB(ABC):
         pass
 
     @abstractmethod
+    def get_chunk_page_numbers(self, doc_id: str, chunk_index: int) -> Optional[tuple[int, int]]:
+        """
+        Retrieve the page numbers of a specific chunk from a given document ID.
+        """
+        pass
+
+    @abstractmethod
     def get_document(self, doc_id: str) -> Optional[FormattedDocument]:
         """
         Retrieve all chunks from a given document ID.
@@ -62,18 +69,21 @@ class ChunkDB(ABC):
         """
         pass
 
+    @abstractmethod
     def get_document_summary(self, doc_id: str, chunk_index: int) -> Optional[str]:
         """
         Retrieve the document summary of a specific chunk from a given document ID.
         """
         pass
 
+    @abstractmethod
     def get_section_title(self, doc_id: str, chunk_index: int) -> Optional[str]:
         """
         Retrieve the section title of a specific chunk from a given document ID.
         """
         pass
 
+    @abstractmethod
     def get_section_summary(self, doc_id: str, chunk_index: int) -> Optional[str]:
         """
         Retrieve the section summary of a specific chunk from a given document ID.

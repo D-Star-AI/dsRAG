@@ -25,6 +25,7 @@ from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
 from dsrag.llm import LLM, OpenAIChatAPI
 from dsrag.sectioning_and_chunking.semantic_sectioning import get_sections
+from dsrag.document_parsing import parse_file, get_pages_from_chunks
 
 
 class KnowledgeBase:
@@ -172,7 +173,8 @@ class KnowledgeBase:
     def add_document(
         self,
         doc_id: str,
-        text: str,
+        text: str = "",
+        file_path: str = "",
         document_title: str = "",
         auto_context_config: dict = {},
         semantic_sectioning_config: dict = {},
@@ -185,6 +187,7 @@ class KnowledgeBase:
         Inputs:
         - doc_id: unique identifier for the document; a file name or path is a good choice
         - text: the full text of the document
+        - file_path: the path to the file containing the document text (if text is not provided)
         - document_title: the title of the document (if not provided, either the doc_id or an LLM-generated title will be used, depending on the auto_context_config)
         - auto_context_config: a dictionary with configuration parameters for AutoContext
             - use_generated_title: bool - whether to use an LLM-generated title if no title is provided (default is True)
@@ -202,6 +205,14 @@ class KnowledgeBase:
         - supp_id: supplementary ID for the document (Can be any string you like. Useful for filtering documents later on.)
         - metadata: a dictionary of metadata to associate with the document - can use whatever keys you like
         """
+
+        if text == "" and file_path == "":
+            raise ValueError("Either text or file_path must be provided")
+
+        if text == "":
+            text, pdf_pages = parse_file(file_path)
+        else:
+            pdf_pages = None
 
         # verify that the document does not already exist in the KB - the doc_id should be unique
         if doc_id in self.chunk_db.get_all_doc_ids():
@@ -304,6 +315,9 @@ class KnowledgeBase:
 
         print(f"Adding {len(chunks)} chunks to the database")
 
+        if pdf_pages is not None:
+            chunks = get_pages_from_chunks(text, pdf_pages, chunks)
+
         # prepare the chunks for embedding by prepending the chunk headers
         chunks_to_embed = []
         for i, chunk in enumerate(chunks):
@@ -317,7 +331,7 @@ class KnowledgeBase:
             chunks_to_embed.append(chunk_to_embed)
 
         # embed the chunks
-        if len(chunks) <= 50:
+        if len(chunks_to_embed) <= 50:
             # if the document is short, we can get all the embeddings at once
             chunk_embeddings = self.get_embeddings(
                 chunks_to_embed, input_type="document"
@@ -341,6 +355,8 @@ class KnowledgeBase:
                     "document_summary": chunk["document_summary"],
                     "section_title": chunk["section_title"],
                     "section_summary": chunk["section_summary"],
+                    "chunk_page_start": chunk.get("chunk_page_start", ""),
+                    "chunk_page_end": chunk.get("chunk_page_end", ""),
                 }
                 for i, chunk in enumerate(chunks)
             },
@@ -362,7 +378,9 @@ class KnowledgeBase:
                         section_title=chunk["section_title"],
                         section_summary=chunk["section_summary"],
                     ),
-                    # Add the rest of the metadata to the vector metadata (if any)
+                    "chunk_page_start": chunk.get("chunk_page_start", ""),
+                    "chunk_page_end": chunk.get("chunk_page_end", ""),
+                    # Add the rest of the metadata to the vector metadata
                     **metadata
                 }
             )
@@ -434,6 +452,11 @@ class KnowledgeBase:
                 all_ranked_results.append(ranked_results)
         
         return all_ranked_results
+    
+    def get_segment_page_numbers(self, doc_id: str, chunk_start: int, chunk_end: int) -> tuple:
+        start_page_number, _ = self.chunk_db.get_chunk_page_numbers(doc_id, chunk_start)
+        _, end_page_number = self.chunk_db.get_chunk_page_numbers(doc_id, chunk_end - 1)
+        return start_page_number, end_page_number
 
     def get_segment_text_from_database(
         self, doc_id: str, chunk_start: int, chunk_end: int
@@ -567,5 +590,12 @@ class KnowledgeBase:
                 segment_info["chunk_start"],
                 segment_info["chunk_end"],
             )
+            start_page_number, end_page_number = self.get_segment_page_numbers(
+                segment_info["doc_id"],
+                segment_info["chunk_start"],
+                segment_info["chunk_end"]
+            )
+            segment_info["chunk_page_start"] = start_page_number
+            segment_info["chunk_page_end"] = end_page_number
 
         return relevant_segment_info

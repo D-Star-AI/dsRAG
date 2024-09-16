@@ -6,7 +6,6 @@ import unittest
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from dsrag.knowledge_base import KnowledgeBase
-from dsrag.document_parsing import extract_text_from_pdf
 from dsrag.database.vector import ChromaDB
 
 class TestCreateKB(unittest.TestCase):
@@ -20,14 +19,13 @@ class TestCreateKB(unittest.TestCase):
         file_path = os.path.join(script_dir, "../data/levels_of_agi.pdf")
 
         kb_id = "levels_of_agi"
-        document_text = extract_text_from_pdf(file_path)
 
         vector_db = ChromaDB(kb_id=kb_id)
         kb = KnowledgeBase(kb_id=kb_id, vector_db=vector_db, exists_ok=False)
         kb.add_document(
             doc_id="levels_of_agi.pdf",
             document_title="Levels of AGI",
-            text=document_text,
+            file_path=file_path,
             semantic_sectioning_config={"use_semantic_sectioning": False},
             auto_context_config={
                 "use_generated_title": False,
@@ -45,6 +43,9 @@ class TestCreateKB(unittest.TestCase):
         ]
         segment_info = kb.query(search_queries)
         self.assertGreater(len(segment_info[0]), 0)
+        # Assert that the chunk page start and end are correct
+        self.assertEqual(segment_info[0]["chunk_page_start"], 5)
+        self.assertEqual(segment_info[0]["chunk_page_end"], 8)
 
     def test__002_test_query_with_metadata_filter(self):
 
@@ -68,6 +69,8 @@ class TestCreateKB(unittest.TestCase):
         segment_info = kb.query(search_queries, metadata_filter=metadata_filter, rse_params={"minimum_value": 0})
         self.assertEqual(len(segment_info), 1)
         self.assertEqual(segment_info[0]["doc_id"], "test_doc")
+        self.assertEqual(segment_info[0]["chunk_page_start"], "")
+        self.assertEqual(segment_info[0]["chunk_page_end"], "")
         
 
     def test__003_remove_document(self):
