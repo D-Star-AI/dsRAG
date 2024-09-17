@@ -33,14 +33,14 @@ class LLM(ABC):
 
 class OpenAIChatAPI(LLM):
     def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.2, max_tokens: int = 1000):
-        from openai import OpenAI
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
 
     def make_llm_call(self, chat_messages: list[dict]) -> str:
-        response = self.client.chat.completions.create(
+        from openai import OpenAI
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        response = client.chat.completions.create(
             model=self.model,
             messages=chat_messages,
             max_tokens=self.max_tokens,
@@ -60,13 +60,13 @@ class OpenAIChatAPI(LLM):
 
 class AnthropicChatAPI(LLM):
     def __init__(self, model: str = "claude-3-haiku-20240307", temperature: float = 0.2, max_tokens: int = 1000):
-        from anthropic import Anthropic
-        self.client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
 
     def make_llm_call(self, chat_messages: list[dict]) -> str:
+        from anthropic import Anthropic
+        client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         system_message = ""
         num_system_messages = 0
         normal_chat_messages = []
@@ -79,7 +79,7 @@ class AnthropicChatAPI(LLM):
             else:
                 normal_chat_messages.append(message)
 
-        message = self.client.messages.create(
+        message = client.messages.create(
             system=system_message,
             messages=normal_chat_messages,
             model=self.model,
