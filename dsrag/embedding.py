@@ -75,10 +75,14 @@ class OpenAIEmbedding(Embedding):
 
 
 class CohereEmbedding(Embedding):
-    def __init__(self, model: str = "embed-english-v3.0", dimension: Optional[int] = None):
+    def __init__(self, model: str = "embed-english-v3.0", dimension: Optional[int] = None, base_url: Optional[str] = None):
         super().__init__()
+
         self.model = model
-        self.client = cohere.Client(os.environ["CO_API_KEY"])
+        if base_url:
+            self.client = cohere.Client(api_key=os.environ["CO_API_KEY"], base_url=base_url)
+        else:
+            self.client = cohere.Client(api_key=os.environ["CO_API_KEY"])
 
         # Set dimension if not provided
         if dimension is None:
