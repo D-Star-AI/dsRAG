@@ -3,6 +3,7 @@ import cohere
 import voyageai
 import os
 from scipy.stats import beta
+from typing import Optional
 
 
 class Reranker(ABC):
@@ -31,10 +32,14 @@ class Reranker(ABC):
         pass
 
 class CohereReranker(Reranker):
-    def __init__(self, model: str = "rerank-english-v3.0"):
+    def __init__(self, model: str = "rerank-english-v3.0", base_url: Optional[str] = None):
         self.model = model
+        self.base_url = base_url
         cohere_api_key = os.environ['CO_API_KEY']
-        self.client = cohere.Client(api_key=cohere_api_key)
+        if base_url:
+            self.client = cohere.Client(api_key=cohere_api_key, base_url=base_url)
+        else:
+            self.client = cohere.Client(api_key=cohere_api_key)
 
     def transform(self, x):
         """
@@ -65,6 +70,7 @@ class CohereReranker(Reranker):
         base_dict = super().to_dict()
         base_dict.update({
             'model': self.model,
+            "base_url": self.base_url
         })
         return base_dict
     

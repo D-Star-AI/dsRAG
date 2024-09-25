@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 import os
 import ollama
 
@@ -32,12 +33,16 @@ class LLM(ABC):
         pass
 
 class OpenAIChatAPI(LLM):
-    def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.2, max_tokens: int = 1000):
+    def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.2, max_tokens: int = 1000, base_url: Optional[str] = None):
         from openai import OpenAI
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        if base_url is not None:
+            self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
+        else:
+            self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.base_url = base_url
 
     def make_llm_call(self, chat_messages: list[dict]) -> str:
         response = self.client.chat.completions.create(
@@ -54,17 +59,22 @@ class OpenAIChatAPI(LLM):
         base_dict.update({
             'model': self.model,
             'temperature': self.temperature,
-            'max_tokens': self.max_tokens
+            'max_tokens': self.max_tokens,
+            'base_url': self.base_url
         })
         return base_dict
 
 class AnthropicChatAPI(LLM):
-    def __init__(self, model: str = "claude-3-haiku-20240307", temperature: float = 0.2, max_tokens: int = 1000):
+    def __init__(self, model: str = "claude-3-haiku-20240307", temperature: float = 0.2, max_tokens: int = 1000, base_url: Optional[str] = None):
         from anthropic import Anthropic
-        self.client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        if base_url is not None:
+            self.client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url)
+        else:
+            self.client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.base_url = base_url
 
     def make_llm_call(self, chat_messages: list[dict]) -> str:
         system_message = ""
@@ -93,7 +103,8 @@ class AnthropicChatAPI(LLM):
         base_dict.update({
             'model': self.model,
             'temperature': self.temperature,
-            'max_tokens': self.max_tokens
+            'max_tokens': self.max_tokens,
+            'base_url': self.base_url
         })
         return base_dict
 

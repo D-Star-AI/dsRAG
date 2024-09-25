@@ -40,12 +40,13 @@ class TestLLM(unittest.TestCase):
         self.assertGreater(len(response), 0)
 
     def test__save_and_load_from_dict(self):
-        chat_api = OpenAIChatAPI(temperature=0.5, max_tokens=2000)
+        chat_api = OpenAIChatAPI(temperature=0.5, max_tokens=2000, base_url="test_base_url")
         config = chat_api.to_dict()
         chat_api_loaded = LLM.from_dict(config)
         self.assertEqual(chat_api_loaded.model, chat_api.model)
         self.assertEqual(chat_api_loaded.temperature, chat_api.temperature)
         self.assertEqual(chat_api_loaded.max_tokens, chat_api.max_tokens)
+        self.assertEqual(chat_api_loaded.base_url, "test_base_url")
 
 if __name__ == "__main__":
     unittest.main()

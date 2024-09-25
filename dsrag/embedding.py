@@ -26,15 +26,16 @@ dimensionality = {
 class Embedding(ABC):
     subclasses = {}
 
-    def __init__(self, dimension: Optional[int] = None):
+    def __init__(self, dimension: Optional[int] = None, base_url: Optional[str] = None):
         self.dimension = dimension
+        self.base_url = base_url
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         cls.subclasses[cls.__name__] = cls
 
     def to_dict(self):
-        return {"subclass_name": self.__class__.__name__, "dimension": self.dimension}
+        return {"subclass_name": self.__class__.__name__, "dimension": self.dimension, "base_url": self.base_url}
 
     @classmethod
     def from_dict(cls, config) -> "Embedding":
@@ -53,13 +54,16 @@ class Embedding(ABC):
 
 
 class OpenAIEmbedding(Embedding):
-    def __init__(self, model: str = "text-embedding-3-small", dimension: int = 768):
+    def __init__(self, model: str = "text-embedding-3-small", dimension: int = 768, base_url: Optional[str] = None):
         """
         Only v3 models are supported.
         """
-        super().__init__(dimension)
+        super().__init__(dimension, base_url)
         self.model = model
-        self.client = OpenAI()
+        if base_url:
+            self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
+        else:
+            self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
     def get_embeddings(self, text: list[str], input_type: Optional[str] = None) -> list[Vector]:
         response = self.client.embeddings.create(
@@ -70,7 +74,9 @@ class OpenAIEmbedding(Embedding):
 
     def to_dict(self):
         base_dict = super().to_dict()
-        base_dict.update({"model": self.model})
+        base_dict.update({
+            "model": self.model
+        })
         return base_dict
 
 
@@ -79,6 +85,7 @@ class CohereEmbedding(Embedding):
         super().__init__()
 
         self.model = model
+        self.base_url = base_url
         if base_url:
             self.client = cohere.Client(api_key=os.environ["CO_API_KEY"], base_url=base_url)
         else:
@@ -109,7 +116,9 @@ class CohereEmbedding(Embedding):
 
     def to_dict(self):
         base_dict = super().to_dict()
-        base_dict.update({"model": self.model})
+        base_dict.update({
+            "model": self.model
+        })
         return base_dict
 
 
@@ -140,7 +149,6 @@ class VoyageAIEmbedding(Embedding):
 
     def to_dict(self):
         base_dict = super().to_dict()
-        base_dict.update({"model": self.model})
         base_dict.update({"model": self.model})
         return base_dict
 
