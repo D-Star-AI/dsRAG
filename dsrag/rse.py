@@ -138,12 +138,13 @@ def get_relevance_values(all_ranked_results: list[list], meta_document_length: i
 def adjust_relevance_values_for_chunk_length(relevance_values: list[float], chunk_lengths: list[int], reference_length: int = 700):
     """
     Scale the chunk values by chunk length relative to the reference length
-    - reference_length is the length of a standard chunk, measured in number of characters
+    - reference_length is the length of a standard chunk, measured in number of characters (default is 700 characters, because this is the average length of a chunk when you set the max to 800, which is the default.)
     """
     assert len(relevance_values) == len(chunk_lengths), "The length of relevance_values and chunk_lengths must be the same"
     adjusted_relevance_values = []
     for relevance_value, chunk_length in zip(relevance_values, chunk_lengths):
-        adjusted_relevance_values.append(relevance_value * (chunk_length / reference_length))
+        bounded_chunk_length = max(chunk_length, 350) # don't adjust relevance values down too much for very short chunks
+        adjusted_relevance_values.append(relevance_value * (bounded_chunk_length / reference_length))
     return adjusted_relevance_values
 
 RSE_PARAMS_PRESETS = {
