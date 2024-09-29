@@ -106,7 +106,7 @@ def get_chunk_value(chunk_info: dict, irrelevant_chunk_penalty: float, decay_rat
     v = np.exp(-rank / decay_rate)*absolute_relevance_value - irrelevant_chunk_penalty
     return v
 
-def get_relevance_values(all_ranked_results: list[list], meta_document_length: int, document_start_points: dict[str, int], unique_document_ids: list[str], irrelevant_chunk_penalty: float, decay_rate: int = 20):
+def get_relevance_values(all_ranked_results: list[list], meta_document_length: int, document_start_points: dict[str, int], unique_document_ids: list[str], irrelevant_chunk_penalty: float, decay_rate: int = 20, chunk_length_adjustment = True):
     # get the relevance values for each chunk in the meta-document, separately for each query
     all_relevance_values = []
     for ranked_results in all_ranked_results:
@@ -127,9 +127,10 @@ def get_relevance_values(all_ranked_results: list[list], meta_document_length: i
         # convert the relevance ranks and other info to chunk values
         relevance_values = [get_chunk_value(chunk_info, irrelevant_chunk_penalty, decay_rate) for chunk_info in all_chunk_info]
 
-        # adjust the relevance values for the length of the chunks
-        chunk_lengths = [chunk_info.get('chunk_length', 0.0) for chunk_info in all_chunk_info]
-        relevance_values = adjust_relevance_values_for_chunk_length(relevance_values, chunk_lengths)
+        if chunk_length_adjustment:
+            # adjust the relevance values for the length of the chunks
+            chunk_lengths = [chunk_info.get('chunk_length', 0.0) for chunk_info in all_chunk_info]
+            relevance_values = adjust_relevance_values_for_chunk_length(relevance_values, chunk_lengths)
 
         all_relevance_values.append(relevance_values)
     
@@ -155,6 +156,7 @@ RSE_PARAMS_PRESETS = {
         'overall_max_length_extension': 5,
         'decay_rate': 30,
         'top_k_for_document_selection': 10,
+        'chunk_length_adjustment': True,
     },
     "precision": {
         'max_length': 15,
@@ -164,6 +166,7 @@ RSE_PARAMS_PRESETS = {
         'overall_max_length_extension': 5,
         'decay_rate': 30,
         'top_k_for_document_selection': 10,
+        'chunk_length_adjustment': True,
     },
     "find_all": {
         'max_length': 40,
@@ -173,5 +176,6 @@ RSE_PARAMS_PRESETS = {
         'overall_max_length_extension': 0,
         'decay_rate': 200,
         'top_k_for_document_selection': 200,
+        'chunk_length_adjustment': True,
     },
 }
