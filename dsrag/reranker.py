@@ -36,7 +36,7 @@ class CohereReranker(Reranker):
         self.model = model
         cohere_api_key = os.environ['CO_API_KEY']
         base_url = os.environ.get("DSRAG_COHERE_BASE_URL", None)
-        if base_url:
+        if base_url is not None:
             self.client = cohere.Client(api_key=cohere_api_key)
         else:
             self.client = cohere.Client(api_key=cohere_api_key)
@@ -107,7 +107,7 @@ class VoyageReranker(Reranker):
     def to_dict(self):
         base_dict = super().to_dict()
         base_dict.update({
-            'model': self.model,
+            'model': self.model
         })
         return base_dict
     

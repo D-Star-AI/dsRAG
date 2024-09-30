@@ -126,7 +126,7 @@ class TestEmbedding(unittest.TestCase):
         config = {
             'subclass_name': 'OpenAIEmbedding',
             'model': 'text-embedding-3-small',
-            'dimension': 1024,
+            'dimension': 1024
         }
         embedding_instance = Embedding.from_dict(config)
         self.assertIsInstance(embedding_instance, OpenAIEmbedding)
