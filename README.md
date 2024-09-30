@@ -208,6 +208,7 @@ rse_params
 - overall_max_length_extension: the maximum length of all segments combined will be increased by this amount for each additional query beyond the first
 - decay_rate
 - top_k_for_document_selection: the number of documents to consider
+- chunk_length_adjustment: bool, if True (default) then scale the chunk relevance values by their length before calculating segment relevance values
 
 ## Metadata query filters
 Certain vector DBs support metadata filtering when running a query (currently only ChromaDB). This allows you to have more control over what document(s) get searched. A common use case for this would be asking questions over a single document in a knowledge base, in which case you would supply the `doc_id` as a metadata filter.

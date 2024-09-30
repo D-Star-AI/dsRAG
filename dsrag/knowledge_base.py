@@ -523,6 +523,9 @@ class KnowledgeBase:
             "top_k_for_document_selection",
             default_rse_params["top_k_for_document_selection"],
         )
+        chunk_length_adjustment = rse_params.get(
+            "chunk_length_adjustment", default_rse_params["chunk_length_adjustment"]
+        )
 
         overall_max_length += (
             len(search_queries) - 1
@@ -555,6 +558,7 @@ class KnowledgeBase:
             unique_document_ids=unique_document_ids,
             irrelevant_chunk_penalty=irrelevant_chunk_penalty,
             decay_rate=decay_rate,
+            chunk_length_adjustment=chunk_length_adjustment,
         )
         best_segments, scores = get_best_segments(
             all_relevance_values=all_relevance_values,
