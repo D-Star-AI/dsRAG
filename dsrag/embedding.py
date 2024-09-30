@@ -60,7 +60,7 @@ class OpenAIEmbedding(Embedding):
         super().__init__(dimension)
         self.model = model
         base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
-        if base_url:
+        if base_url is not None:
             self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
         else:
             self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
@@ -74,9 +74,7 @@ class OpenAIEmbedding(Embedding):
 
     def to_dict(self):
         base_dict = super().to_dict()
-        base_dict.update({
-            "model": self.model
-        })
+        base_dict.update({"model": self.model})
         return base_dict
 
 
@@ -86,7 +84,7 @@ class CohereEmbedding(Embedding):
 
         self.model = model
         base_url = os.environ.get("DSRAG_COHERE_BASE_URL", None)
-        if base_url:
+        if base_url is not None:
             self.client = cohere.Client(api_key=os.environ["CO_API_KEY"], base_url=base_url)
         else:
             self.client = cohere.Client(api_key=os.environ["CO_API_KEY"])
@@ -116,9 +114,7 @@ class CohereEmbedding(Embedding):
 
     def to_dict(self):
         base_dict = super().to_dict()
-        base_dict.update({
-            "model": self.model
-        })
+        base_dict.update({"model": self.model})
         return base_dict
 
 

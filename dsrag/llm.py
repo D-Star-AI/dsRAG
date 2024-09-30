@@ -34,19 +34,17 @@ class LLM(ABC):
 
 class OpenAIChatAPI(LLM):
     def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.2, max_tokens: int = 1000):
-        from openai import OpenAI
-        base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
-        if base_url is not None:
-            self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
-        else:
-            self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
 
     def make_llm_call(self, chat_messages: list[dict]) -> str:
         from openai import OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
+        if base_url is not None:
+            client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
+        else:
+            client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
         response = client.chat.completions.create(
             model=self.model,
             messages=chat_messages,
@@ -67,19 +65,17 @@ class OpenAIChatAPI(LLM):
 
 class AnthropicChatAPI(LLM):
     def __init__(self, model: str = "claude-3-haiku-20240307", temperature: float = 0.2, max_tokens: int = 1000):
-        from anthropic import Anthropic
-        base_url = os.environ.get("DSRAG_ANTHROPIC_BASE_URL", None)
-        if base_url is not None:
-            self.client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url)
-        else:
-            self.client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
 
     def make_llm_call(self, chat_messages: list[dict]) -> str:
         from anthropic import Anthropic
-        client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        base_url = os.environ.get("DSRAG_ANTHROPIC_BASE_URL", None)
+        if base_url is not None:
+            client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url)
+        else:
+            client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         system_message = ""
         num_system_messages = 0
         normal_chat_messages = []
