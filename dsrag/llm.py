@@ -33,8 +33,9 @@ class LLM(ABC):
         pass
 
 class OpenAIChatAPI(LLM):
-    def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.2, max_tokens: int = 1000, base_url: Optional[str] = None):
+    def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.2, max_tokens: int = 1000):
         from openai import OpenAI
+        base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
         if base_url is not None:
             self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
         else:
@@ -42,7 +43,6 @@ class OpenAIChatAPI(LLM):
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.base_url = base_url
 
     def make_llm_call(self, chat_messages: list[dict]) -> str:
         response = self.client.chat.completions.create(
@@ -60,13 +60,13 @@ class OpenAIChatAPI(LLM):
             'model': self.model,
             'temperature': self.temperature,
             'max_tokens': self.max_tokens,
-            'base_url': self.base_url
         })
         return base_dict
 
 class AnthropicChatAPI(LLM):
-    def __init__(self, model: str = "claude-3-haiku-20240307", temperature: float = 0.2, max_tokens: int = 1000, base_url: Optional[str] = None):
+    def __init__(self, model: str = "claude-3-haiku-20240307", temperature: float = 0.2, max_tokens: int = 1000):
         from anthropic import Anthropic
+        base_url = os.environ.get("DSRAG_ANTHROPIC_BASE_URL", None)
         if base_url is not None:
             self.client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url)
         else:
@@ -74,7 +74,6 @@ class AnthropicChatAPI(LLM):
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.base_url = base_url
 
     def make_llm_call(self, chat_messages: list[dict]) -> str:
         system_message = ""
@@ -104,7 +103,6 @@ class AnthropicChatAPI(LLM):
             'model': self.model,
             'temperature': self.temperature,
             'max_tokens': self.max_tokens,
-            'base_url': self.base_url
         })
         return base_dict
 

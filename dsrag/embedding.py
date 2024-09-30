@@ -26,16 +26,15 @@ dimensionality = {
 class Embedding(ABC):
     subclasses = {}
 
-    def __init__(self, dimension: Optional[int] = None, base_url: Optional[str] = None):
+    def __init__(self, dimension: Optional[int] = None):
         self.dimension = dimension
-        self.base_url = base_url
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         cls.subclasses[cls.__name__] = cls
 
     def to_dict(self):
-        return {"subclass_name": self.__class__.__name__, "dimension": self.dimension, "base_url": self.base_url}
+        return {"subclass_name": self.__class__.__name__, "dimension": self.dimension}
 
     @classmethod
     def from_dict(cls, config) -> "Embedding":
@@ -54,12 +53,13 @@ class Embedding(ABC):
 
 
 class OpenAIEmbedding(Embedding):
-    def __init__(self, model: str = "text-embedding-3-small", dimension: int = 768, base_url: Optional[str] = None):
+    def __init__(self, model: str = "text-embedding-3-small", dimension: int = 768):
         """
         Only v3 models are supported.
         """
-        super().__init__(dimension, base_url)
+        super().__init__(dimension)
         self.model = model
+        base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
         if base_url:
             self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
         else:
@@ -81,11 +81,11 @@ class OpenAIEmbedding(Embedding):
 
 
 class CohereEmbedding(Embedding):
-    def __init__(self, model: str = "embed-english-v3.0", dimension: Optional[int] = None, base_url: Optional[str] = None):
+    def __init__(self, model: str = "embed-english-v3.0", dimension: Optional[int] = None):
         super().__init__()
 
         self.model = model
-        self.base_url = base_url
+        base_url = os.environ.get("DSRAG_COHERE_BASE_URL", None)
         if base_url:
             self.client = cohere.Client(api_key=os.environ["CO_API_KEY"], base_url=base_url)
         else:

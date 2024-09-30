@@ -62,13 +62,12 @@ class TestEmbedding(unittest.TestCase):
     def test__get_embeddings_cohere_with_list(self):
         input_texts = ["Hello, world!", "Goodbye, world!"]
         model = "embed-english-v3.0"
-        embedding_provider = CohereEmbedding(model, base_url="https://api.cohere.ai")
+        embedding_provider = CohereEmbedding(model)
         embeddings = embedding_provider.get_embeddings(input_texts, input_type="query")
         assert len(embeddings) == 2
         assert all(len(embed) == 1024 for embed in embeddings)
         self.assertEqual(len(embeddings), 2)
         self.assertTrue(all(len(embed) == 1024 for embed in embeddings))
-        self.assertEqual(embedding_provider.base_url, "https://api.cohere.ai")
 
     def test__get_embeddings_voyage_with_list(self):
         input_texts = ["Hello, world!", "Goodbye, world!"]
@@ -128,13 +127,11 @@ class TestEmbedding(unittest.TestCase):
             'subclass_name': 'OpenAIEmbedding',
             'model': 'text-embedding-3-small',
             'dimension': 1024,
-            'base_url': 'test_base_url'
         }
         embedding_instance = Embedding.from_dict(config)
         self.assertIsInstance(embedding_instance, OpenAIEmbedding)
         self.assertEqual(embedding_instance.model, 'text-embedding-3-small')
         self.assertEqual(embedding_instance.dimension, 1024)
-        self.assertEqual(embedding_instance.base_url, 'test_base_url')
 
 
 if __name__ == "__main__":
