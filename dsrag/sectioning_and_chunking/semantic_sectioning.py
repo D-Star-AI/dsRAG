@@ -1,3 +1,4 @@
+import os
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 from anthropic import Anthropic
@@ -52,7 +53,11 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, en
         formatted_system_prompt += "\n" + LANGUAGE_ADDENDUM
 
     if llm_provider == "anthropic":
-        client = instructor.from_anthropic(Anthropic())
+        base_url = os.environ.get("DSRAG_ANTHROPIC_BASE_URL", None)
+        if base_url is not None:
+            client = instructor.from_anthropic(Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url))
+        else:
+            client = instructor.from_anthropic(Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]))
         return client.chat.completions.create(
             model=model,
             response_model=StructuredDocument,
@@ -67,7 +72,11 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, en
             ],
         )
     elif llm_provider == "openai":
-        client = instructor.from_openai(OpenAI())
+        base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
+        if base_url is not None:
+            client = instructor.from_openai(OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url))
+        else:
+            client = instructor.from_openai(OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
         return client.chat.completions.create(
             model=model,
             response_model=StructuredDocument,
