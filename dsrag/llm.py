@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 import os
 import ollama
 
@@ -39,7 +40,11 @@ class OpenAIChatAPI(LLM):
 
     def make_llm_call(self, chat_messages: list[dict]) -> str:
         from openai import OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
+        if base_url is not None:
+            client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
+        else:
+            client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
         response = client.chat.completions.create(
             model=self.model,
             messages=chat_messages,
@@ -54,7 +59,7 @@ class OpenAIChatAPI(LLM):
         base_dict.update({
             'model': self.model,
             'temperature': self.temperature,
-            'max_tokens': self.max_tokens
+            'max_tokens': self.max_tokens,
         })
         return base_dict
 
@@ -66,7 +71,11 @@ class AnthropicChatAPI(LLM):
 
     def make_llm_call(self, chat_messages: list[dict]) -> str:
         from anthropic import Anthropic
-        client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        base_url = os.environ.get("DSRAG_ANTHROPIC_BASE_URL", None)
+        if base_url is not None:
+            client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url)
+        else:
+            client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         system_message = ""
         num_system_messages = 0
         normal_chat_messages = []
@@ -93,7 +102,7 @@ class AnthropicChatAPI(LLM):
         base_dict.update({
             'model': self.model,
             'temperature': self.temperature,
-            'max_tokens': self.max_tokens
+            'max_tokens': self.max_tokens,
         })
         return base_dict
 

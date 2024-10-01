@@ -59,7 +59,11 @@ class OpenAIEmbedding(Embedding):
         """
         super().__init__(dimension)
         self.model = model
-        self.client = OpenAI()
+        base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
+        if base_url is not None:
+            self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
+        else:
+            self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
     def get_embeddings(self, text: list[str], input_type: Optional[str] = None) -> list[Vector]:
         response = self.client.embeddings.create(
@@ -77,8 +81,13 @@ class OpenAIEmbedding(Embedding):
 class CohereEmbedding(Embedding):
     def __init__(self, model: str = "embed-english-v3.0", dimension: Optional[int] = None):
         super().__init__()
+
         self.model = model
-        self.client = cohere.Client(os.environ["CO_API_KEY"])
+        base_url = os.environ.get("DSRAG_COHERE_BASE_URL", None)
+        if base_url is not None:
+            self.client = cohere.Client(api_key=os.environ["CO_API_KEY"], base_url=base_url)
+        else:
+            self.client = cohere.Client(api_key=os.environ["CO_API_KEY"])
 
         # Set dimension if not provided
         if dimension is None:
@@ -136,7 +145,6 @@ class VoyageAIEmbedding(Embedding):
 
     def to_dict(self):
         base_dict = super().to_dict()
-        base_dict.update({"model": self.model})
         base_dict.update({"model": self.model})
         return base_dict
 

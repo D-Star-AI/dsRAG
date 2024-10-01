@@ -1,3 +1,4 @@
+import os
 import instructor
 from anthropic import Anthropic
 from pydantic import BaseModel
@@ -13,7 +14,11 @@ Each of the queries you generate will be used to search a knowledge base for inf
 
 
 def get_search_queries(user_input: str, auto_query_guidance: str = "", max_queries: int = 5):
-    client = instructor.from_anthropic(Anthropic())
+    base_url = os.environ.get("DSRAG_ANTHROPIC_BASE_URL", None)
+    if base_url is not None:
+        client = instructor.from_anthropic(Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url))
+    else:
+        client = instructor.from_anthropic(Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]))
 
     class Queries(BaseModel):
         queries: List[str]
