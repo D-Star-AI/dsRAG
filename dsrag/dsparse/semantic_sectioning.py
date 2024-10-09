@@ -92,7 +92,7 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, en
     else:
         raise ValueError("Invalid provider. Must be either 'anthropic' or 'openai'.")
 
-def get_sections_text(sections: List[Section], document_lines: List[str]):
+def get_sections_text(sections: List[Section], document_lines: List[Dict]):
     """
     Takes in a list of Section objects and returns a list of dictionaries containing the attributes of each Section object plus the content of the section.
     """
@@ -102,7 +102,8 @@ def get_sections_text(sections: List[Section], document_lines: List[str]):
             end_index = len(document_lines) - 1
         else:
             end_index = sections[i+1].start_index - 1
-        contents = document_lines[s.start_index:end_index+1] # +1 because end_index is inclusive
+        #contents = document_lines[s.start_index:end_index+1] # +1 because end_index is inclusive
+        contents = [document_lines[j]["content"] for j in range(s.start_index, end_index+1)]
         section_dicts.append({
             "title": s.title,
             "content": "\n".join(contents),
@@ -152,10 +153,17 @@ def get_sections(document_lines: List[Dict], max_iterations: int, max_characters
 
     return sections
 
-def elements_to_lines(elements: List[Dict]) -> List[Dict]:
+def elements_to_lines(elements: List[Dict], exclude_elements: List[str]) -> List[Dict]:
+    """
+    Inputs
+    - elements: list[dict] - the elements of the document
+    - exclude_elements: list[str] - the types of elements to exclude
+    """
     document_lines = []
     for element in elements:
-        if element["type"] in ["Image", "Figure"]:
+        if element["type"] in exclude_elements:
+            continue
+        elif element["type"] in ["Image", "Figure"]:
             # strip newlines from description to avoid confusing the semantic sectioning LLM
             description = element["description"].replace("\n", " ")
             document_lines.append({
@@ -195,10 +203,22 @@ def get_sections_from_str(document: str, max_characters: int = 20000):
     sections = get_sections(document_lines, max_iterations=max_iterations, max_characters=max_characters, llm_provider="openai", model="gpt-4o-mini", language="en")
     return sections, document_lines
 
-def get_sections_from_elements(elements: List[Dict], max_characters: int = 20000):
-    document_lines = elements_to_lines(elements)
+def get_sections_from_elements(elements: List[Dict], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: dict = {}):
+    # get the semantic sectioning config params, using defaults if not provided
+    llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
+    model = semantic_sectioning_config.get("model", "gpt-4o-mini")
+    language = semantic_sectioning_config.get("language", "en")
+
+    document_lines = elements_to_lines(elements=elements, exclude_elements=exclude_elements)
     document_lines_str = [line["content"] for line in document_lines]
     document_str = "\n".join(document_lines_str)
     max_iterations = 2*(len(document_str) // max_characters + 1)
-    sections = get_sections(document_lines, max_iterations=max_iterations, max_characters=max_characters, llm_provider="openai", model="gpt-4o-mini", language="en")
+    sections = get_sections(
+        document_lines=document_lines, 
+        max_iterations=max_iterations, 
+        max_characters=max_characters, 
+        llm_provider=llm_provider, 
+        model=model, 
+        language=language
+        )
     return sections, document_lines

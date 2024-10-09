@@ -228,7 +228,7 @@ def parse_file(pdf_path: str, save_path: str, vlm_config: dict) -> list[dict]:
     page_images_path = f"{save_path}/page_images"
     image_file_paths = pdf_to_images(pdf_path, page_images_path)
     all_page_content = []
-    for i, image_path in enumerate(image_file_paths[0:3]):
+    for i, image_path in enumerate(image_file_paths[0:5]):
         print (f"Processing {image_path}")
         page_content = parse_page(image_path, page_number=i+1, save_path=save_path, vlm_config=vlm_config)
         all_page_content.extend(page_content)

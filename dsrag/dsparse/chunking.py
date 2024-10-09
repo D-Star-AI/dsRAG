@@ -31,8 +31,9 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
 
     for section in sections:
         section_chunk_line_indices = [] # list of tuples (start, end) for each chunk within the section
-        line_start = section['line_start']
-        line_end = section['line_end']
+        line_start = section['start']
+        line_end = section['end']
+        print(f"Chunking section from line {line_start} to {line_end}")
         for i in range(line_start, line_end+1):
             if document_lines[i]['element_type'] in ['Image', 'Figure']:
                 # Split before and after the image/figure
@@ -40,6 +41,7 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
                     section_chunk_line_indices.append((line_start, i-1))
                 section_chunk_line_indices.append((i, i))
                 line_start = i + 1
+            # TODO: handle the else case
 
         for line_start, line_end in section_chunk_line_indices:
             # don't try to chunk single-line sections
@@ -51,6 +53,25 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
                 chunks = chunk_sub_section(line_start, line_end, document_lines, chunk_size)
                 for chunk_line_start, chunk_line_end in chunks:
                     chunk_line_indices.append((chunk_line_start, chunk_line_end))
+            else:
+                chunk_line_indices.append((line_start, line_end))
+
+    print(chunk_line_indices)
+
+    chunks = []
+    for chunk_line_start, chunk_line_end in chunk_line_indices:
+        chunk = {
+            'line_start': chunk_line_start,
+            'line_end': chunk_line_end,
+            'content': "\n".join([document_lines[i]['content'] for i in range(chunk_line_start, chunk_line_end+1)]),
+            'description': document_lines[chunk_line_start]['description'],
+            'image_path': document_lines[chunk_line_start]['image_path'],
+            'page_start': document_lines[chunk_line_start]['page_number'],
+            'page_end': document_lines[chunk_line_end]['page_number']
+        }
+        chunks.append(chunk)
+
+    return chunks
 
 def chunk_sub_section(line_start: int, line_end: int, document_lines: List[Dict], max_length: int) -> List[Dict]:
     """
