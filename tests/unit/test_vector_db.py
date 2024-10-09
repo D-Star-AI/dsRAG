@@ -5,7 +5,13 @@ import sys
 import unittest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-from dsrag.database.vector import BasicVectorDB, VectorDB, WeaviateVectorDB, ChromaDB, QdrantVectorDB
+from dsrag.database.vector import (
+    BasicVectorDB,
+    VectorDB,
+    WeaviateVectorDB,
+    ChromaDB,
+    QdrantVectorDB,
+)
 from dsrag.database.vector.types import ChunkMetadata
 
 
@@ -180,7 +186,6 @@ class TestVectorDB(unittest.TestCase):
         self.assertEqual(faiss_results, non_faiss_results)
 
     def test__delete(self):
-
         db = BasicVectorDB(self.kb_id, self.storage_directory, use_faiss=True)
         vectors = [np.array([1, 0]), np.array([0, 1])]
         metadata: Sequence[ChunkMetadata] = [
@@ -246,7 +251,7 @@ class TestChromaDB(unittest.TestCase):
         # delete test data from ChromaDB
         self.db.delete()
         return super().tearDown()
-    
+
     def test__add_vectors_and_search(self):
         db = ChromaDB(kb_id=self.kb_id)
         vectors = [np.array([1, 0]), np.array([0, 1])]
@@ -275,7 +280,12 @@ class TestChromaDB(unittest.TestCase):
 
     def test__search_with_metadata_filter(self):
         db = ChromaDB(kb_id=self.kb_id)
-        vectors = [np.array([1, 0]), np.array([1, 0]), np.array([0, 1]), np.array([1, 0])]
+        vectors = [
+            np.array([1, 0]),
+            np.array([1, 0]),
+            np.array([0, 1]),
+            np.array([1, 0]),
+        ]
         metadata: Sequence[ChunkMetadata] = [
             {
                 "doc_id": "1",
@@ -377,7 +387,6 @@ class TestChromaDB(unittest.TestCase):
         )
 
 
-        
 class TestWeaviateVectorDB(unittest.TestCase):
     def setUp(self):
         self.kb_id = "test_kb"
@@ -494,6 +503,7 @@ class TestWeaviateVectorDB(unittest.TestCase):
         self.assertIsInstance(self.db, WeaviateVectorDB)
         self.assertEqual(self.db.kb_id, self.kb_id)
 
+
 class TestQdrantDB(unittest.TestCase):
     def setUp(self):
         self.kb_id = "test_qdrant_kb"
@@ -503,7 +513,7 @@ class TestQdrantDB(unittest.TestCase):
     def tearDown(self):
         self.db.delete()
         return super().tearDown()
-    
+
     def test__add_vectors_and_search(self):
         db = QdrantVectorDB(kb_id=self.kb_id, location=":memory:")
         vectors = [np.array([1, 0]), np.array([0, 1])]
@@ -534,7 +544,12 @@ class TestQdrantDB(unittest.TestCase):
         from qdrant_client import models
 
         db = QdrantVectorDB(kb_id=self.kb_id, location=":memory:")
-        vectors = [np.array([1, 0]), np.array([1, 0]), np.array([0, 1]), np.array([1, 0])]
+        vectors = [
+            np.array([1, 0]),
+            np.array([1, 0]),
+            np.array([0, 1]),
+            np.array([1, 0]),
+        ]
         metadata: Sequence[ChunkMetadata] = [
             {
                 "doc_id": "1",
@@ -565,18 +580,24 @@ class TestQdrantDB(unittest.TestCase):
         db.add_vectors(vectors, metadata)
 
         query_vector = np.array([1, 0])
-        metadata_filter = models.Filter(must=[
-            models.FieldCondition(key="doc_id", match=models.MatchValue(value="1"))
-        ])
+        metadata_filter = models.Filter(
+            must=[
+                models.FieldCondition(key="doc_id", match=models.MatchValue(value="1"))
+            ]
+        )
         results = db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["metadata"]["doc_id"], "1")
 
         # Test with the 'in' operator
-        metadata_filter = models.Filter(must=[
-            models.FieldCondition(key="doc_id", match=models.MatchAny(any=["1", "4"]))
-        ])
+        metadata_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="doc_id", match=models.MatchAny(any=["1", "4"])
+                )
+            ]
+        )
         results = db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
         self.assertEqual(len(results), 2)
         self.assertIn(results[0]["metadata"]["doc_id"], ["1", "4"])
@@ -636,6 +657,7 @@ class TestQdrantDB(unittest.TestCase):
             "Error in add_vectors: the number of vectors and metadata items must be the same."
             in str(context.exception)
         )
-        
+
+
 if __name__ == "__main__":
     unittest.main()

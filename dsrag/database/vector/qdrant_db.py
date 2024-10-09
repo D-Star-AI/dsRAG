@@ -6,6 +6,7 @@ import numpy as np
 from typing import Optional
 from qdrant_client import QdrantClient, models
 
+
 def convert_id(_id: str) -> str:
     """
     Converts any string into a UUID string based on a seed.
@@ -14,6 +15,7 @@ def convert_id(_id: str) -> str:
     This allows us to overwrite the same point with the original ID.
     """
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, _id))
+
 
 class QdrantVectorDB(VectorDB):
     """
@@ -106,24 +108,31 @@ class QdrantVectorDB(VectorDB):
             ) from exc
 
         if not self.client.collection_exists(self.kb_id):
-            self.client.create_collection(self.kb_id, vectors_config=models.VectorParams(size=len(vectors[0]), distance=models.Distance.COSINE))
+            self.client.create_collection(
+                self.kb_id,
+                vectors_config=models.VectorParams(
+                    size=len(vectors[0]), distance=models.Distance.COSINE
+                ),
+            )
         points = []
         for vector, meta in zip(vectors, metadata):
             doc_id = meta.get("doc_id", "")
             chunk_text = meta.get("chunk_text", "")
             chunk_index = meta.get("chunk_index", 0)
             uuid = convert_id(f"{doc_id}_{chunk_index}")
-            points.append(models.PointStruct(
-                id=uuid,
-                vector=vector,
-                payload={
-                    "content": chunk_text,
-                    "doc_id": doc_id,
-                    "chunk_index": chunk_index,
-                    "metadata": meta,
-                }
-            ))
-            
+            points.append(
+                models.PointStruct(
+                    id=uuid,
+                    vector=vector,
+                    payload={
+                        "content": chunk_text,
+                        "doc_id": doc_id,
+                        "chunk_index": chunk_index,
+                        "metadata": meta,
+                    },
+                )
+            )
+
         self.client.upsert(self.kb_id, points)
 
     def remove_document(self, doc_id) -> None:
@@ -133,11 +142,23 @@ class QdrantVectorDB(VectorDB):
         Args:
             doc_id: The UUID of the document to remove.
         """
-        self.client.delete(self.kb_id, models.Filter(must=[
-            models.FieldCondition(key="doc_id", match=models.MatchValue(value=doc_id))
-        ]))
+        self.client.delete(
+            self.kb_id,
+            models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="doc_id", match=models.MatchValue(value=doc_id)
+                    )
+                ]
+            ),
+        )
 
-    def search(self, query_vector: list, top_k: int=10, metadata_filter: Optional[dict] = None) -> list[VectorSearchResult]:
+    def search(
+        self,
+        query_vector: list,
+        top_k: int = 10,
+        metadata_filter: Optional[dict] = None,
+    ) -> list[VectorSearchResult]:
         """
         Searches for the top-k closest vectors to the given query vector.
 
@@ -159,7 +180,7 @@ class QdrantVectorDB(VectorDB):
             limit=top_k,
             query_filter=metadata_filter,
             with_payload=True,
-            with_vectors=True
+            with_vectors=True,
         ).points
         for point in response:
             results.append(
@@ -178,7 +199,7 @@ class QdrantVectorDB(VectorDB):
     def delete(self):
         """Deletes the collection from Qdrant"""
         self.client.delete_collection(self.kb_id)
-        
+
     def to_dict(self):
         return {
             **super().to_dict(),
