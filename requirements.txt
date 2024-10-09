@@ -230,7 +230,7 @@ jsonpointer==3.0.0
     # via
     #   dsrag (pyproject.toml)
     #   jsonpatch
-jsonref=1.0.0
+jsonref==1.0.0
     # via instructor
 kubernetes==31.0.0
     # via chromadb
