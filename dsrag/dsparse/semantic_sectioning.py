@@ -27,15 +27,11 @@ Note: the document provided to you may just be an excerpt from a larger document
 LANGUAGE_ADDENDUM = "For your section titles, YOU MUST use the same language as the document. If the document is in English, your section titles should be in English. If the document is in another language, your section titles should be in that language."
 
 
-def get_document_lines(document: str) -> List[str]:
-    document_lines = document.split("\n")
-    return document_lines
-
-def get_document_with_lines(document_lines: List[str], start_line: int, max_characters: int) -> str:
+def get_document_with_lines(document_lines: List[Dict], start_line: int, max_characters: int) -> str:
     document_with_line_numbers = ""
     character_count = 0
     for i in range(start_line, len(document_lines)):
-        line = document_lines[i]
+        line = document_lines[i]["content"]
         document_with_line_numbers += f"[{i}] {line}\n"
         character_count += len(line)
         if character_count > max_characters or i == len(document_lines) - 1:
@@ -116,23 +112,23 @@ def get_sections_text(sections: List[Section], document_lines: List[str]):
     return section_dicts
 
 
-def get_sections(document: str, max_characters: int = 20000, llm_provider: str = "openai", model: str = "gpt-4o-mini", language: str = "en") -> List[Dict[str, Any]]:
+def get_sections(document_lines: List[Dict], max_iterations: int, max_characters: int = 20000, llm_provider: str = "openai", model: str = "gpt-4o-mini", language: str = "en") -> List[Dict[str, Any]]:
     """
     Inputs
-    - document: str - the text of the document
+    - document_lines: list[dict] - the text of the document
+    - max_iterations: int - the maximum number of iterations to run (used as a safety measure to prevent the possibility of an infinite loop)
     - max_characters: int - the maximum number of characters to process in one call to the LLM
     - llm_provider: str - the LLM provider to use (either "anthropic" or "openai")
     - model: str - the name of the LLM model to use
 
     Returns
-    - all_sections: a list of dictionaries, each containing the following keys:
+    - sections: a list of dictionaries, each containing the following keys:
         - title: str - the main topic of this section of the document (very descriptive)
         - start: int - line number where the section begins (inclusive)
         - end: int - line number where the section ends (inclusive)
         - content: str - the text of the section
     """
-    max_iterations = 2*(len(document) // max_characters + 1)
-    document_lines = get_document_lines(document)
+    
     start_line = 0
     all_sections = []
     for _ in range(max_iterations):
@@ -152,6 +148,57 @@ def get_sections(document: str, max_characters: int = 20000, llm_provider: str =
                 start_line = end_line + 1
 
     # get the section text
-    section_dicts = get_sections_text(all_sections, document_lines)
+    sections = get_sections_text(all_sections, document_lines)
 
-    return section_dicts, document_lines
+    return sections
+
+def elements_to_lines(elements: List[Dict]) -> List[Dict]:
+    document_lines = []
+    for element in elements:
+        if element["type"] in ["Image", "Figure"]:
+            # strip newlines from description to avoid confusing the semantic sectioning LLM
+            description = element["description"].replace("\n", " ")
+            document_lines.append({
+                "content": description,
+                "element_type": element["type"],
+                "page_number": element.get("page_number", None),
+                "image_path": element.get("image_path", None)
+            })
+        else:
+            lines = element["content"].split("\n")
+            for line in lines:
+                document_lines.append({
+                    "content": line,
+                    "element_type": element["type"],
+                    "page_number": element.get("page_number", None),
+                    "image_path": element.get("image_path", None)
+                })
+
+    return document_lines
+
+def str_to_lines(document: str) -> List[Dict]:
+    document_lines = []
+    lines = document.split("\n")
+    for line in lines:
+        document_lines.append({
+            "content": line,
+            "element_type": None,
+            "page_number": None,
+            "image_path": None
+        })
+
+    return document_lines
+
+def get_sections_from_str(document: str, max_characters: int = 20000):
+    document_lines = str_to_lines(document)
+    max_iterations = 2*(len(document) // max_characters + 1)
+    sections = get_sections(document_lines, max_iterations=max_iterations, max_characters=max_characters, llm_provider="openai", model="gpt-4o-mini", language="en")
+    return sections, document_lines
+
+def get_sections_from_elements(elements: List[Dict], max_characters: int = 20000):
+    document_lines = elements_to_lines(elements)
+    document_lines_str = [line["content"] for line in document_lines]
+    document_str = "\n".join(document_lines_str)
+    max_iterations = 2*(len(document_str) // max_characters + 1)
+    sections = get_sections(document_lines, max_iterations=max_iterations, max_characters=max_characters, llm_provider="openai", model="gpt-4o-mini", language="en")
+    return sections, document_lines

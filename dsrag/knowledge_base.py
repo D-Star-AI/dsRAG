@@ -24,8 +24,8 @@ from dsrag.database.chunk import ChunkDB, BasicChunkDB
 from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
 from dsrag.llm import LLM, OpenAIChatAPI
-from dsrag.sectioning_and_chunking.semantic_sectioning import get_sections
-from dsrag.document_parsing import parse_file, get_pages_from_chunks
+from dsrag.dsparse.semantic_sectioning import get_sections
+from dsrag.dsparse.document_parsing import parse_file, get_pages_from_chunks
 
 
 class KnowledgeBase:
@@ -260,58 +260,7 @@ class KnowledgeBase:
         else:
             document_summary = ""
 
-        # split the document into chunks
-        chunks = (
-            []
-        )  # chunks is a list of dictionaries with keys 'chunk_text', 'document_title', 'document_summary', 'section_title', 'section_summary'
-        for section in sections:
-            section_text = section["content"]
-            section_title = section["title"]
-
-            # section summary
-            get_section_summaries = auto_context_config.get(
-                "get_section_summaries", False
-            )
-            if get_section_summaries and len(sections) > 1:
-                section_summarization_guidance = auto_context_config.get(
-                    "section_summarization_guidance", ""
-                )
-                section_summary = get_section_summary(
-                    self.auto_context_model,
-                    section_text,
-                    document_title=document_title,
-                    section_title=section_title,
-                    section_summarization_guidance=section_summarization_guidance,
-                    language=self.kb_metadata["language"]
-                )
-            else:
-                section_summary = ""
-
-            # break section into chunks
-            if len(section_text) < min_length_for_chunking:
-                chunks.append(
-                    {
-                        "chunk_text": section_text,
-                        "document_title": document_title,
-                        "document_summary": document_summary,
-                        "section_title": section_title,
-                        "section_summary": section_summary,
-                    }
-                )
-            else:
-                section_chunks = self.split_into_chunks(
-                    section_text, chunk_size=chunk_size
-                )
-                for chunk in section_chunks:
-                    chunks.append(
-                        {
-                            "chunk_text": chunk,
-                            "document_title": document_title,
-                            "document_summary": document_summary,
-                            "section_title": section_title,
-                            "section_summary": section_summary,
-                        }
-                    )
+        # TODO: add chunking function call here
 
         print(f"Adding {len(chunks)} chunks to the database")
 
