@@ -28,8 +28,7 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
     """
 
     chunks = []
-
-    for section in sections:
+    for section_index, section in enumerate(sections):
         section_chunk_line_indices = [] # list of tuples (start, end) for each chunk within the section
         line_start = section['start']
         line_end = section['end']
@@ -63,7 +62,8 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
                     'content': text,
                     'image_path': document_lines[line_start].get('image_path', ''),
                     'page_start': document_lines[line_start].get('page_number', None),
-                    'page_end': document_lines[line_end].get('page_number', None)
+                    'page_end': document_lines[line_end].get('page_number', None),
+                    'section_index': section_index
                 }
                 chunks.append(chunk)
             else:
@@ -75,7 +75,8 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
                         'content': chunk_text,
                         'image_path': document_lines[chunk_line_start].get('image_path', ''),
                         'page_start': document_lines[chunk_line_start].get('page_number', None),
-                        'page_end': document_lines[chunk_line_end].get('page_number', None)
+                        'page_end': document_lines[chunk_line_end].get('page_number', None),
+                        'section_index': section_index
                     }
                     chunks.append(chunk)
 

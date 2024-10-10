@@ -233,7 +233,7 @@ def parse_file(pdf_path: str, save_path: str, vlm_config: dict) -> list[dict]:
         print (f"Processing {image_path}")
         page_content = parse_page(image_path, page_number=i+1, save_path=save_path, vlm_config=vlm_config)
         all_page_content.extend(page_content)
-        time.sleep(7) # sleep for a few seconds to avoid rate limit issues with the Gemini API
+        time.sleep(3) # sleep for a few seconds to avoid rate limit issues with the Gemini API
 
     # save the extracted content to a JSON file
     output_file_path = f"{save_path}/elements.json"

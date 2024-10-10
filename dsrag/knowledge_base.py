@@ -24,8 +24,7 @@ from dsrag.database.chunk import ChunkDB, BasicChunkDB
 from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
 from dsrag.llm import LLM, OpenAIChatAPI
-from dsrag.dsparse.semantic_sectioning import get_sections
-from dsrag.dsparse.document_parsing import parse_file, get_pages_from_chunks
+from dsrag.dsparse.parse_and_chunk import parse_and_chunk_vlm, parse_and_chunk_no_vlm
 
 
 class KnowledgeBase:
@@ -209,28 +208,32 @@ class KnowledgeBase:
         if text == "" and file_path == "":
             raise ValueError("Either text or file_path must be provided")
 
-        if text == "":
-            text, pdf_pages = parse_file(file_path)
-        else:
-            pdf_pages = None
-
         # verify that the document does not already exist in the KB - the doc_id should be unique
         if doc_id in self.chunk_db.get_all_doc_ids():
             print(f"Document with ID {doc_id} already exists in the KB. Skipping...")
             return
-
-        # semantic sectioning
-        if semantic_sectioning_config.get("use_semantic_sectioning", True):
-            llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
-            model = semantic_sectioning_config.get("model", "gpt-4o-mini")
-            sections, _ = get_sections(text, llm_provider=llm_provider, model=model, language=self.kb_metadata["language"])
+        
+        """
+        if text == "":
+            text, pdf_pages = parse_file(file_path)
         else:
-            sections = [
-                {
-                    "title": "",
-                    "content": text,
-                }
-            ]
+            pdf_pages = None
+        """
+
+        # file parsing, semantic sectioning, and chunking
+        if use_vlm:
+            sections, chunks = parse_and_chunk_vlm(
+                file_path=file_path,
+                save_path="",
+                vlm_config={},
+                semantic_sectioning_config=semantic_sectioning_config,
+                exclude_elements=[],
+            )
+        else:
+            sections, chunks = parse_and_chunk_no_vlm(
+                file_path=file_path,
+                semantic_sectioning_config=semantic_sectioning_config,
+            )        
 
         # document title and summary
         if not document_title and auto_context_config.get("use_generated_title", True):
@@ -260,12 +263,16 @@ class KnowledgeBase:
         else:
             document_summary = ""
 
-        # TODO: add chunking function call here
+        # TODO: add section summaries here
+        if auto_context_config.get("get_section_summaries", False):
+            pass
 
         print(f"Adding {len(chunks)} chunks to the database")
 
+        """
         if pdf_pages is not None:
             chunks = get_pages_from_chunks(text, pdf_pages, chunks)
+        """
 
         # prepare the chunks for embedding by prepending the chunk headers
         chunks_to_embed = []

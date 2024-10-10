@@ -1,6 +1,6 @@
 import PyPDF2
 import docx2txt
-
+from typing import List, Dict, Tuple
 
 def extract_text_from_pdf(file_path: str) -> tuple[str, list]:
     with open(file_path, 'rb') as file:
@@ -22,12 +22,10 @@ def extract_text_from_pdf(file_path: str) -> tuple[str, list]:
 
     return extracted_text, pages
 
-
 def extract_text_from_docx(file_path: str) -> str:
     return docx2txt.process(file_path)
 
-
-def parse_file(file_path: str) -> str:
+def parse_file_no_vlm(file_path: str) -> str:
     pdf_pages = None
     if file_path.endswith(".pdf"):
         text, pdf_pages = extract_text_from_pdf(file_path)
@@ -43,8 +41,7 @@ def parse_file(file_path: str) -> str:
     
     return text, pdf_pages
 
-
-def get_pages_from_chunks(full_text: str, pages: list[dict], chunks: list) -> list:
+def get_pages_from_chunks(full_text: str, pages: list[dict], chunks: list[dict]) -> list:
 
     current_page_index = 0
     current_page_start = 0

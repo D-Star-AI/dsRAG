@@ -197,10 +197,22 @@ def str_to_lines(document: str) -> List[Dict]:
 
     return document_lines
 
-def get_sections_from_str(document: str, max_characters: int = 20000):
+def get_sections_from_str(document: str, max_characters: int = 20000, semantic_sectioning_config: dict = {}):
+    # get the semantic sectioning config params, using defaults if not provided
+    llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
+    model = semantic_sectioning_config.get("model", "gpt-4o-mini")
+    language = semantic_sectioning_config.get("language", "en")
+
     document_lines = str_to_lines(document)
     max_iterations = 2*(len(document) // max_characters + 1)
-    sections = get_sections(document_lines, max_iterations=max_iterations, max_characters=max_characters, llm_provider="openai", model="gpt-4o-mini", language="en")
+    sections = get_sections(
+        document_lines=document_lines, 
+        max_iterations=max_iterations, 
+        max_characters=max_characters, 
+        llm_provider=llm_provider, 
+        model=model, 
+        language=language
+        )
     return sections, document_lines
 
 def get_sections_from_elements(elements: List[Dict], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: dict = {}):
