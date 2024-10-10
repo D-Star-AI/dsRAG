@@ -76,11 +76,11 @@ def parse_and_chunk(file_path: str, save_path: str, vlm_config: dict, semantic_s
 if __name__ == "__main__":
     user_id = "zmcc"
 
-    pdf_path = '/Users/zach/Code/dsRAG/tests/data/levels_of_agi.pdf'
-    file_id = "levels_of_agi"
+    #pdf_path = '/Users/zach/Code/dsRAG/tests/data/levels_of_agi.pdf'
+    #file_id = "levels_of_agi"
     
-    #pdf_path = "/Users/zach/Code/mck_energy.pdf"
-    #file_id = "mck_energy"
+    pdf_path = "/Users/zach/Code/mck_energy.pdf"
+    file_id = "mck_energy"
 
     save_path = f"{user_id}/{file_id}" # base directory to save the page images, pages with bounding boxes, and extracted images
 

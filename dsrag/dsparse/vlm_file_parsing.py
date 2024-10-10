@@ -192,6 +192,7 @@ def parse_page(page_image_path: str, page_number: int, save_path: str, vlm_confi
     # save images for each bounding box
     i = 0 # counter for the number of images extracted
     for element in page_content:
+        element["page_number"] = page_number
         if element["type"] in ["Image", "Figure"]:
             bounding_box = element["bounding_box"]
 

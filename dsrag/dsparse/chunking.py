@@ -21,10 +21,9 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
     - chunks: a list of dictionaries, each containing the following keys:
         - line_start: int - line number where the chunk begins (inclusive)
         - line_end: int - line number where the chunk ends (inclusive)
-        - content: str - the text of the chunk
-        - description: str - the description of the image (if applicable)
+        - content: str - the text of the chunk (or a description of the image if applicable)
         - image_path: str - the path to the image file (if applicable)
-        - page_start: int - the page number the chunk starts on
+        - page_start: int - the page number the chunk starts on (inclusive)
         - page_end: int - the page number the chunk ends on (inclusive)
     """
 
@@ -62,7 +61,6 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
                     'line_start': line_start,
                     'line_end': line_end,
                     'content': text,
-                    'description': document_lines[line_start].get('description', ''),
                     'image_path': document_lines[line_start].get('image_path', ''),
                     'page_start': document_lines[line_start].get('page_number', None),
                     'page_end': document_lines[line_end].get('page_number', None)
@@ -75,7 +73,6 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
                         'line_start': chunk_line_start,
                         'line_end': chunk_line_end,
                         'content': chunk_text,
-                        'description': document_lines[chunk_line_start].get('description', ''),
                         'image_path': document_lines[chunk_line_start].get('image_path', ''),
                         'page_start': document_lines[chunk_line_start].get('page_number', None),
                         'page_end': document_lines[chunk_line_end].get('page_number', None)
