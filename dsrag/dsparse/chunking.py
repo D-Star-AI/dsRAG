@@ -28,14 +28,12 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
         - page_end: int - the page number the chunk ends on (inclusive)
     """
 
-    #chunk_line_indices = [] # list of tuples (start, end) for each chunk
     chunks = []
 
     for section in sections:
         section_chunk_line_indices = [] # list of tuples (start, end) for each chunk within the section
         line_start = section['start']
         line_end = section['end']
-        print(f"Chunking section from line {line_start} to {line_end}")
 
         image_indices = [i for i in range(line_start, line_end+1) if document_lines[i]['element_type'] in ['Image', 'Figure']]
 
@@ -87,6 +85,11 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
     return chunks
 
 def chunk_sub_section(line_start: int, line_end: int, document_lines: List[Dict], max_length: int) -> Tuple[List[str], List[Tuple[int, int]]]:
+    """
+    A sub-section is a portion of a section that is separated by images or figures. 
+    - If there are no images or figures then the entire section is considered a sub-section.
+    - This function chunks the sub-section into smaller pieces of text.
+    """
     # Concatenate the lines into a single string with newline delimiters
     concatenated_text = ""
     line_offsets = []  # List of tuples (start_char_index, end_char_index) for each line
@@ -131,8 +134,6 @@ def chunk_sub_section(line_start: int, line_end: int, document_lines: List[Dict]
         for i in range(line_start, line_end + 1)
     ]
 
-    print(f"Line char ranges: {line_char_ranges}")
-
     # Iterate through each chunk and determine the corresponding line indices
     chunk_line_indices = []
     current_char = 0
@@ -145,6 +146,18 @@ def chunk_sub_section(line_start: int, line_end: int, document_lines: List[Dict]
         # Map chunk to line indices
         chunk_line_start, chunk_line_end = find_lines_in_range(chunk_start_char, chunk_end_char, line_char_ranges, line_start, line_end)
         chunk_line_indices.append((chunk_line_start, chunk_line_end))
+
+    # merge the last two chunks if the last chunk is too small
+    if len(chunks_text) > 1:
+        last_chunk_text = chunks_text[-1]
+        penultimate_chunk_text = chunks_text[-2]
+        if len(last_chunk_text) < max_length // 2:
+            # merge the last two chunks
+            merged_text = penultimate_chunk_text + "\n" + last_chunk_text
+            chunks_text[-2] = merged_text
+            chunk_line_indices[-2] = (chunk_line_indices[-2][0], chunk_line_indices[-1][1])
+            chunks_text.pop()
+            chunk_line_indices.pop()
 
     assert len(chunks_text) == len(chunk_line_indices), "Mismatch between chunk text and line indices"
     return chunks_text, chunk_line_indices
@@ -188,120 +201,3 @@ def find_lines_in_range(chunk_start: int, chunk_end: int, line_char_ranges: List
         chunk_line_end = line_end
 
     return (chunk_line_start, chunk_line_end)
-
-
-if __name__ == "__main__":
-    sections = [
-        {
-            'title': 'Section 1',
-            'start': 0,
-            'end': 3,
-            'content': 'This is the first section of the document.'
-        },
-        {
-            'title': 'Section 2',
-            'start': 4,
-            'end': 7,
-            'content': 'This is the second section of the document.'
-        }
-    ]
-
-    document_lines = [
-        {
-            'content': 'This is the first line of the document. And here is another sentence.',
-            'element_type': 'NarrativeText',
-            'page_number': 1,
-            'image_path': None
-        },
-        {
-            'content': 'This is the second line of the document.',
-            'element_type': 'NarrativeText',
-            'page_number': 1,
-            'image_path': None
-        },
-        {
-            'content': 'This is the third line of the document........',
-            'element_type': 'NarrativeText',
-            'page_number': 1,
-            'image_path': None
-        },
-        {
-            'content': 'This is the fourth line of the document.',
-            'element_type': 'NarrativeText',
-            'page_number': 1,
-            'image_path': None
-        },
-        {
-            'content': 'This is the fifth line of the document. With another sentence.',
-            'element_type': 'NarrativeText',
-            'page_number': 1,
-            'image_path': None
-        },
-        {
-            'content': 'This is the sixth line of the document.',
-            'element_type': 'NarrativeText',
-            'page_number': 1,
-            'image_path': None
-        },
-        {
-            'content': 'This is the seventh line of the document.',
-            'element_type': 'NarrativeText',
-            'page_number': 1,
-            'image_path': None
-        },
-        {
-            'content': 'This is the eighth line of the document. And here is another sentence that is a bit longer',
-            'element_type': 'NarrativeText',
-            'page_number': 1,
-            'image_path': None
-        }
-    ]
-
-
-    chunk_size = 90
-    min_length_for_chunking = 180
-
-    # print line lengths
-    for i in range(0, len(document_lines)):
-        print(f"Line {i}: {len(document_lines[i]['content'])}")
-    
-    # test chunk_sub_section
-    chunks_text, chunk_line_indices = chunk_sub_section(4, 7, document_lines, chunk_size)
-    print ("\n")
-    for chunk, (chunk_line_start, chunk_line_end) in zip(chunks_text, chunk_line_indices):
-        print(chunk)
-        chunk_length = len(chunk)
-        print(f"Chunk length: {chunk_length}\n")
-        print(f"Chunk from line {chunk_line_start} to {chunk_line_end}\n")
-    
-    """
-    chunks = chunk_document(sections, document_lines, chunk_size, min_length_for_chunking)
-    for chunk in chunks:
-        chunk_start = chunk['line_start']
-        chunk_end = chunk['line_end']
-        print(f"Chunk from line {chunk_start} to {chunk_end}")
-        chunk_length = len("\n".join([document_lines[i]['content'] for i in range(chunk_start, chunk_end+1)]))
-        print(f"Chunk length: {chunk_length}\n")
-    """
-
-    """
-    # Test find_lines_in_range
-    # (line_idx, start_char, end_char)
-    line_char_ranges = [
-        (0, 0, 49),
-        (1, 50, 99),
-        (2, 100, 149),
-        (3, 150, 199),
-        (4, 200, 249),
-        (5, 250, 299),
-        (6, 300, 349),
-        (7, 350, 399)
-    ]
-
-    chunk_start = 50
-    chunk_end = 82
-    line_start = 0
-    line_end = 0
-    chunk_line_start, chunk_line_end = find_lines_in_range(chunk_start, chunk_end, line_char_ranges, line_start, line_end)
-    print(f"Chunk spans from line {chunk_line_start} to line {chunk_line_end}")
-    """

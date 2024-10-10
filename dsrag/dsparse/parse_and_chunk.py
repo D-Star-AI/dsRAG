@@ -24,7 +24,6 @@ def parse_and_chunk(file_path: str, save_path: str, vlm_config: dict, semantic_s
         - page_end: int - the page number the chunk ends on (inclusive)
     """
 
-    """
     # Step 1: Parse the file
     elements = parse_file(pdf_path=file_path, save_path=save_path, vlm_config=vlm_config)
     # dump to json for testing
@@ -50,7 +49,6 @@ def parse_and_chunk(file_path: str, save_path: str, vlm_config: dict, semantic_s
         json.dump(document_lines, f, indent=4)
     with open('sections.json', 'w') as f:
         json.dump(sections, f, indent=4)
-    """
 
     # Step 3: Chunk the document
 
@@ -63,15 +61,15 @@ def parse_and_chunk(file_path: str, save_path: str, vlm_config: dict, semantic_s
     chunks = chunk_document(
         sections=sections, 
         document_lines=document_lines, 
-        chunk_size=800, 
-        min_length_for_chunking=1600
+        chunk_size=1000, 
+        min_length_for_chunking=2000
         )
     
     # dump to json for testing
     with open('chunks.json', 'w') as f:
         json.dump(chunks, f, indent=4)
 
-    #return chunks
+    return chunks
 
 
 # Test the function
@@ -99,7 +97,7 @@ if __name__ == "__main__":
         "language": "en",
     }
     
-    parse_and_chunk(
+    chunks = parse_and_chunk(
         file_path=pdf_path,
         save_path=save_path,
         vlm_config=vlm_config,
