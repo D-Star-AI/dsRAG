@@ -63,8 +63,8 @@ def parse_and_chunk(file_path: str, save_path: str, vlm_config: dict, semantic_s
     chunks = chunk_document(
         sections=sections, 
         document_lines=document_lines, 
-        chunk_size=1200, 
-        min_length_for_chunking=2000
+        chunk_size=800, 
+        min_length_for_chunking=1600
         )
     
     # dump to json for testing

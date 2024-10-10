@@ -86,7 +86,7 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
 
     return chunks
 
-def chunk_sub_section(line_start: int, line_end: int, document_lines: List[Dict], max_length: int) -> List[Dict]:
+def chunk_sub_section(line_start: int, line_end: int, document_lines: List[Dict], max_length: int) -> Tuple[List[str], List[Tuple[int, int]]]:
     # Concatenate the lines into a single string with newline delimiters
     concatenated_text = ""
     line_offsets = []  # List of tuples (start_char_index, end_char_index) for each line
@@ -131,41 +131,7 @@ def chunk_sub_section(line_start: int, line_end: int, document_lines: List[Dict]
         for i in range(line_start, line_end + 1)
     ]
 
-    # Function to find lines within a given character range
-    def find_lines_in_range(chunk_start: int, chunk_end: int) -> Tuple[int, int]:
-        chunk_line_start = None
-        chunk_line_end = None
-
-        for line_idx, start, end in line_char_ranges:
-            if start <= chunk_start < end:
-                chunk_line_start = line_idx
-            if start < chunk_end <= end:
-                chunk_line_end = line_idx
-            if chunk_start < start and chunk_end > end:
-                if chunk_line_start is None:
-                    chunk_line_start = line_idx
-                chunk_line_end = line_idx
-
-        # Handle cases where the chunk starts or ends exactly on a boundary
-        if chunk_line_start is None:
-            for line_idx, start, end in line_char_ranges:
-                if start >= chunk_start and start < chunk_end:
-                    chunk_line_start = line_idx
-                    break
-
-        if chunk_line_end is None:
-            for line_idx, start, end in reversed(line_char_ranges):
-                if end <= chunk_end and end > chunk_start:
-                    chunk_line_end = line_idx
-                    break
-
-        # Fallback in case no lines are found
-        if chunk_line_start is None:
-            chunk_line_start = line_start
-        if chunk_line_end is None:
-            chunk_line_end = line_end
-
-        return (chunk_line_start, chunk_line_end)
+    print(f"Line char ranges: {line_char_ranges}")
 
     # Iterate through each chunk and determine the corresponding line indices
     chunk_line_indices = []
@@ -177,11 +143,51 @@ def chunk_sub_section(line_start: int, line_end: int, document_lines: List[Dict]
         current_char = chunk_end_char + 1  # +1 for the newline delimiter
 
         # Map chunk to line indices
-        chunk_line_start, chunk_line_end = find_lines_in_range(chunk_start_char, chunk_end_char)
+        chunk_line_start, chunk_line_end = find_lines_in_range(chunk_start_char, chunk_end_char, line_char_ranges, line_start, line_end)
         chunk_line_indices.append((chunk_line_start, chunk_line_end))
 
     assert len(chunks_text) == len(chunk_line_indices), "Mismatch between chunk text and line indices"
     return chunks_text, chunk_line_indices
+
+# Function to find lines within a given character range
+def find_lines_in_range(chunk_start: int, chunk_end: int, line_char_ranges: List[Tuple], line_start: int, line_end: int) -> Tuple[int, int]:
+    """
+    Inputs
+    - chunk_start: Start character index of the chunk
+    - chunk_end: End character index of the chunk
+    - line_char_ranges: List of tuples (line_idx, start_char, end_char) for each line
+    - line_start: start line index for this section
+    - line_end: end line index for this section
+
+    Outputs
+    - Tuple of line indices corresponding to the chunk
+    """
+    chunk_line_start = None
+    chunk_line_end = None
+
+    # First pass: Look for direct overlaps
+    for line_idx, start, end in line_char_ranges:
+        # Check if chunk starts at or within this line
+        if start <= chunk_start <= end + 1:  # +1 to include newline position
+            chunk_line_start = line_idx
+            
+        # Check if chunk ends at or within this line
+        if start <= chunk_end <= end + 1:    # +1 to include newline position
+            chunk_line_end = line_idx
+            
+        # Check for lines fully contained within chunk
+        if chunk_start < start and chunk_end > end:
+            if chunk_line_start is None:
+                chunk_line_start = line_idx
+            chunk_line_end = line_idx
+
+    # Fallback in case no lines are found
+    if chunk_line_start is None:
+        chunk_line_start = line_start
+    if chunk_line_end is None:
+        chunk_line_end = line_end
+
+    return (chunk_line_start, chunk_line_end)
 
 
 if __name__ == "__main__":
@@ -251,24 +257,24 @@ if __name__ == "__main__":
         }
     ]
 
+
     chunk_size = 90
     min_length_for_chunking = 180
 
     # print line lengths
     for i in range(0, len(document_lines)):
         print(f"Line {i}: {len(document_lines[i]['content'])}")
-
-    """
-    # test chunk_sub_section
-    chunks = chunk_sub_section(4, 7, document_lines, chunk_size)
-    print ("\n")
-    for chunk in chunks:
-        print(chunk)
-        chunk_length = len("\n".join([document_lines[i]['content'] for i in range(chunk[0], chunk[1]+1)]))
-        print(f"Chunk length: {chunk_length}\n")
-
-    """
     
+    # test chunk_sub_section
+    chunks_text, chunk_line_indices = chunk_sub_section(4, 7, document_lines, chunk_size)
+    print ("\n")
+    for chunk, (chunk_line_start, chunk_line_end) in zip(chunks_text, chunk_line_indices):
+        print(chunk)
+        chunk_length = len(chunk)
+        print(f"Chunk length: {chunk_length}\n")
+        print(f"Chunk from line {chunk_line_start} to {chunk_line_end}\n")
+    
+    """
     chunks = chunk_document(sections, document_lines, chunk_size, min_length_for_chunking)
     for chunk in chunks:
         chunk_start = chunk['line_start']
@@ -276,3 +282,26 @@ if __name__ == "__main__":
         print(f"Chunk from line {chunk_start} to {chunk_end}")
         chunk_length = len("\n".join([document_lines[i]['content'] for i in range(chunk_start, chunk_end+1)]))
         print(f"Chunk length: {chunk_length}\n")
+    """
+
+    """
+    # Test find_lines_in_range
+    # (line_idx, start_char, end_char)
+    line_char_ranges = [
+        (0, 0, 49),
+        (1, 50, 99),
+        (2, 100, 149),
+        (3, 150, 199),
+        (4, 200, 249),
+        (5, 250, 299),
+        (6, 300, 349),
+        (7, 350, 399)
+    ]
+
+    chunk_start = 50
+    chunk_end = 82
+    line_start = 0
+    line_end = 0
+    chunk_line_start, chunk_line_end = find_lines_in_range(chunk_start, chunk_end, line_char_ranges, line_start, line_end)
+    print(f"Chunk spans from line {chunk_line_start} to line {chunk_line_end}")
+    """
