@@ -257,9 +257,7 @@ class KnowledgeBase:
             document_title = doc_id
 
         if auto_context_config.get("get_document_summary", True):
-            document_summarization_guidance = auto_context_config.get(
-                "document_summarization_guidance", ""
-            )
+            document_summarization_guidance = auto_context_config.get("document_summarization_guidance", "")
             document_summary = get_document_summary(
                 self.auto_context_model,
                 text,
@@ -270,11 +268,27 @@ class KnowledgeBase:
         else:
             document_summary = ""
 
-        # TODO: add section summaries here
+        # get section summaries
         if auto_context_config.get("get_section_summaries", False):
-            pass
+            for section in sections:
+                section_summarization_guidance = auto_context_config.get("section_summarization_guidance", "")
+                section["section_summary"] = get_section_summary(
+                    auto_context_model=self.auto_context_model,
+                    section_text=section["content"],
+                    document_title=document_title,
+                    section_title=section["title"],
+                    section_summarization_guidance=section_summarization_guidance,
+                    language=self.kb_metadata["language"]
+                )
 
-        
+        # add document title, document summary, and section summaries to the chunks
+        for chunk in chunks:
+            chunk["document_title"] = document_title
+            chunk["document_summary"] = document_summary
+            section_index = chunk["section_index"]
+            if section_index is not None:
+                chunk["section_title"] = sections[section_index]["section_title"]
+                chunk["section_summary"] = sections[section_index]["section_summary"]
 
         # ADD CHUNKS TO DATABASE
         
@@ -292,19 +306,10 @@ class KnowledgeBase:
             chunk_to_embed = f"{chunk_header}\n\n{chunk['chunk_text']}"
             chunks_to_embed.append(chunk_to_embed)
 
-        # embed the chunks
-        if len(chunks_to_embed) <= 50:
-            # if the document is short, we can get all the embeddings at once
-            chunk_embeddings = self.get_embeddings(
-                chunks_to_embed, input_type="document"
-            )
-        else:
-            # if the document is long, we need to get the embeddings in chunks
-            chunk_embeddings = []
-            for i in range(0, len(chunks), 50):
-                chunk_embeddings += self.get_embeddings(
-                    chunks_to_embed[i : i + 50], input_type="document"
-                )
+        # embed the chunks - if the document is long, we need to get the embeddings in chunks
+        chunk_embeddings = []
+        for i in range(0, len(chunks), 50):
+            chunk_embeddings += self.get_embeddings(chunks_to_embed[i : i + 50], input_type="document")
 
         # add the chunks to the chunk database
         assert len(chunks) == len(chunk_embeddings) == len(chunks_to_embed)
@@ -312,13 +317,13 @@ class KnowledgeBase:
             doc_id,
             {
                 i: {
-                    "chunk_text": chunk["chunk_text"],
+                    "chunk_text": chunk["content"],
                     "document_title": chunk["document_title"],
                     "document_summary": chunk["document_summary"],
                     "section_title": chunk["section_title"],
                     "section_summary": chunk["section_summary"],
-                    "chunk_page_start": chunk.get("chunk_page_start", None),
-                    "chunk_page_end": chunk.get("chunk_page_end", None),
+                    "chunk_page_start": chunk.get("page_start", None),
+                    "chunk_page_end": chunk.get("page_end", None),
                 }
                 for i, chunk in enumerate(chunks)
             },
@@ -333,15 +338,15 @@ class KnowledgeBase:
                 {
                     "doc_id": doc_id,
                     "chunk_index": i,
-                    "chunk_text": chunk["chunk_text"],
+                    "chunk_text": chunk["content"],
                     "chunk_header": get_chunk_header(
                         document_title=chunk["document_title"],
                         document_summary=chunk["document_summary"],
                         section_title=chunk["section_title"],
                         section_summary=chunk["section_summary"],
                     ),
-                    "chunk_page_start": chunk.get("chunk_page_start", ""),
-                    "chunk_page_end": chunk.get("chunk_page_end", ""),
+                    "chunk_page_start": chunk.get("page_start", ""),
+                    "chunk_page_end": chunk.get("page_end", ""),
                     # Add the rest of the metadata to the vector metadata
                     **metadata
                 }
@@ -368,17 +373,6 @@ class KnowledgeBase:
 
     def get_embeddings(self, text: list[str], input_type: str = "") -> list[Vector]:
         return self.embedding_model.get_embeddings(text, input_type)
-
-    def split_into_chunks(self, text: str, chunk_size: int):
-        """
-        Note: it's very important that chunk overlap is set to 0 here, since results are created by concatenating chunks.
-        """
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size, chunk_overlap=0, length_function=len
-        )
-        texts = text_splitter.create_documents([text])
-        chunks = [text.page_content for text in texts]
-        return chunks
 
     def cosine_similarity(self, v1, v2):
         return np.dot(v1, v2)  # since the embeddings are normalized
