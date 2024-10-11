@@ -230,7 +230,7 @@ def parse_file(pdf_path: str, save_path: str, vlm_config: dict) -> list[dict]:
     page_images_path = f"{save_path}/page_images"
     image_file_paths = pdf_to_images(pdf_path, page_images_path)
     all_page_content = []
-    for i, image_path in enumerate(image_file_paths[0:5]):
+    for i, image_path in enumerate(image_file_paths):
         print (f"Processing {image_path}")
         page_content = parse_page(image_path, page_number=i+1, save_path=save_path, vlm_config=vlm_config)
         all_page_content.extend(page_content)
@@ -242,24 +242,3 @@ def parse_file(pdf_path: str, save_path: str, vlm_config: dict) -> list[dict]:
         json.dump(all_page_content, f, indent=2)
 
     return all_page_content
-
-
-if __name__ == "__main__":
-    user_id = "zmcc"
-
-    pdf_path = '/Users/zach/Code/dsRAG/tests/data/levels_of_agi.pdf'
-    file_id = "levels_of_agi"
-    
-    #pdf_path = "/Users/zach/Code/mck_energy.pdf"
-    #file_id = "mck_energy"
-
-    save_path = f"{user_id}/{file_id}" # base directory to save the page images, pages with bounding boxes, and extracted images
-
-    vlm_config = {
-        "provider": "vertex_ai",
-        "model": "gemini-1.5-pro-002",
-        "project_id": os.environ["VERTEX_PROJECT_ID"],
-        "location": "us-central1"
-    }
-    
-    parse_file(pdf_path, save_path, vlm_config)
