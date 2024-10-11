@@ -56,6 +56,13 @@ class ChunkDB(ABC):
         pass
 
     @abstractmethod
+    def get_image_path(self, doc_id: str, chunk_index: int) -> Optional[str]:
+        """
+        Retrieve the image path of a specific chunk from a given document ID. Should return None if the chunk is not an image.
+        """
+        pass
+
+    @abstractmethod
     def get_document(self, doc_id: str) -> Optional[FormattedDocument]:
         """
         Retrieve all chunks from a given document ID.

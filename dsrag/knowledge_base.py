@@ -378,7 +378,9 @@ class KnowledgeBase:
         return self.chunk_db.get_chunk_text(doc_id, chunk_index)
     
     def get_chunk_content(self, doc_id: str, chunk_index: int) -> tuple[str, str]:
-        return self.chunk_db.get_chunk_text(doc_id, chunk_index)
+        chunk_text = self.chunk_db.get_chunk_text(doc_id, chunk_index)
+        image_path = self.chunk_db.get_image_path(doc_id, chunk_index)
+        return chunk_text, image_path
 
     def get_segment_header(self, doc_id: str, chunk_index: int) -> str:
         document_title = self.chunk_db.get_document_title(doc_id, chunk_index) or ""
@@ -498,6 +500,9 @@ class KnowledgeBase:
             - overall_max_length_extension: the maximum length of all segments combined will be increased by this amount for each additional query beyond the first
             - decay_rate
             - top_k_for_document_selection: the number of documents to consider
+        - latency_profiling: whether to print latency profiling information
+        - metadata_filter: metadata filter to apply to the search results
+        - return_images: whether to return image paths when available
 
         Returns relevant_segment_info, a list of segment_info dictionaries, ordered by relevance, that each contain:
         - doc_id: the document ID of the document that the segment is from
@@ -515,10 +520,8 @@ class KnowledgeBase:
         elif isinstance(rse_params, str):
             raise ValueError(f"Invalid rse_params preset name: {rse_params}")
 
-        # set the RSE parameters
-        default_rse_params = RSE_PARAMS_PRESETS[
-            "balanced"
-        ]  # use the 'balanced' preset as the default for any missing parameters
+        # set the RSE parameters - use the 'balanced' preset as the default for any missing parameters
+        default_rse_params = RSE_PARAMS_PRESETS["balanced"]
         max_length = rse_params.get("max_length", default_rse_params["max_length"])
         overall_max_length = rse_params.get(
             "overall_max_length", default_rse_params["overall_max_length"]
