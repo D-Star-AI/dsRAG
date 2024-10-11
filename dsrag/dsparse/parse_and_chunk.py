@@ -113,17 +113,17 @@ def parse_and_chunk_no_vlm(file_path: str, semantic_sectioning_config: dict) -> 
     text, pdf_pages = parse_file_no_vlm(file_path)
     
     if testing_mode:
-        # dump to json for testing
-        with open('elements.json', 'w') as f:
-            json.dump(elements, f, indent=4)
+        # dump to txt file for testing
+        with open('text.txt', 'w') as f:
+            f.write(text)
 
     
     # Step 2: Get the sections from the elements
     
     if testing_mode:
         # load from json for testing
-        with open('elements.json', 'r') as f:
-            elements = json.load(f)
+        with open('text.txt', 'r') as f:
+            text = f.read()
     
     sections, document_lines = get_sections_from_str(
         document=text,
@@ -167,11 +167,11 @@ def parse_and_chunk_no_vlm(file_path: str, semantic_sectioning_config: dict) -> 
 if __name__ == "__main__":
     user_id = "zmcc"
 
-    #pdf_path = '/Users/zach/Code/dsRAG/tests/data/levels_of_agi.pdf'
-    #file_id = "levels_of_agi"
+    pdf_path = '/Users/zach/Code/dsRAG/tests/data/levels_of_agi.pdf'
+    file_id = "levels_of_agi"
     
-    pdf_path = "/Users/zach/Code/mck_energy.pdf"
-    file_id = "mck_energy"
+    #pdf_path = "/Users/zach/Code/mck_energy.pdf"
+    #file_id = "mck_energy"
 
     save_path = f"{user_id}/{file_id}" # base directory to save the page images, pages with bounding boxes, and extracted images
 
@@ -188,9 +188,16 @@ if __name__ == "__main__":
         "language": "en",
     }
     
+    """
     chunks = parse_and_chunk_vlm(
         file_path=pdf_path,
         save_path=save_path,
         vlm_config=vlm_config,
+        semantic_sectioning_config=semantic_sectioning_config
+        )
+    """
+        
+    chunks = parse_and_chunk_no_vlm(
+        file_path=pdf_path,
         semantic_sectioning_config=semantic_sectioning_config
         )
