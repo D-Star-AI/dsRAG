@@ -324,6 +324,7 @@ class KnowledgeBase:
                     "section_summary": chunk["section_summary"],
                     "chunk_page_start": chunk.get("page_start", None),
                     "chunk_page_end": chunk.get("page_end", None),
+                    "image_path": chunk.get("image_path", None),
                 }
                 for i, chunk in enumerate(chunks)
             },
@@ -347,6 +348,7 @@ class KnowledgeBase:
                     ),
                     "chunk_page_start": chunk.get("page_start", ""),
                     "chunk_page_end": chunk.get("page_end", ""),
+                    "image_path": chunk.get("image_path", ""), # not sure if this needs to be added
                     # Add the rest of the metadata to the vector metadata
                     **metadata
                 }
@@ -362,6 +364,9 @@ class KnowledgeBase:
         self.vector_db.remove_document(doc_id)
 
     def get_chunk_text(self, doc_id: str, chunk_index: int) -> Optional[str]:
+        return self.chunk_db.get_chunk_text(doc_id, chunk_index)
+    
+    def get_chunk_content(self, doc_id: str, chunk_index: int) -> tuple[str, str]:
         return self.chunk_db.get_chunk_text(doc_id, chunk_index)
 
     def get_segment_header(self, doc_id: str, chunk_index: int) -> str:
@@ -414,16 +419,54 @@ class KnowledgeBase:
         _, end_page_number = self.chunk_db.get_chunk_page_numbers(doc_id, chunk_end - 1)
         return start_page_number, end_page_number
 
-    def get_segment_text_from_database(
-        self, doc_id: str, chunk_start: int, chunk_end: int
-    ) -> str:
+    def get_segment_text_from_database(self, doc_id: str, chunk_start: int, chunk_end: int) -> str:
         segment = f"{self.get_segment_header(doc_id=doc_id, chunk_index=chunk_start)}\n\n"  # initialize the segment with the segment header
-        for chunk_index in range(
-            chunk_start, chunk_end
-        ):  # NOTE: end index is non-inclusive
+        for chunk_index in range(chunk_start, chunk_end):  # end index is non-inclusive
             chunk_text = self.get_chunk_text(doc_id, chunk_index) or ""
             segment += chunk_text
         return segment.strip()
+    
+    def get_segment_content_from_database(self, doc_id: str, chunk_start: int, chunk_end: int) -> list[dict]:
+        """
+        Instead of returning a single string, like get_segment_text_from_database, this function returns a list of dictionaries, which enables
+        the return of image paths when available. For adjacent chunks that are text, the text is concatenated into a single dictionary. If there 
+        are no images in the segment, then the list will just contain a single dictionary with the type "text" and the content as the entire segment text.
+        The segment header is treated just like any other text chunk and will be combined with the first chunk if it is text.
+
+        Returns a list of dictionaries, where each dictionary has the following keys: `type` and `content`
+        - `type` is either "text" or "image"
+        - `content` is the text content (if 'type' is "text") or image path (if 'type' is "image")
+        """
+        segment = []
+
+        # Retrieve and add the segment header as the initial text content
+        header_text = self.get_segment_header(doc_id=doc_id, chunk_index=chunk_start)
+        if header_text:
+            segment.append({
+                "type": "text",
+                "content": header_text
+            })
+
+        for chunk_index in range(chunk_start, chunk_end):  # end index is non-inclusive
+            chunk_text, image_path = self.get_chunk_content(doc_id, chunk_index)
+            if image_path:
+                segment.append({
+                    "type": "image",
+                    "content": image_path
+                })
+            else:
+                # If current chunk is text, concatenate it with the previous text chunk if possible
+                if segment and segment[-1]["type"] == "text":
+                    # Concatenate the text
+                    segment[-1]["content"] += chunk_text
+                else:
+                    # Append as a new text dictionary
+                    segment.append({
+                        "type": "text",
+                        "content": chunk_text
+                    })
+
+        return segment
 
     def query(
         self,
@@ -431,6 +474,7 @@ class KnowledgeBase:
         rse_params: Union[Dict, str] = "balanced",
         latency_profiling: bool = False,
         metadata_filter: Optional[MetadataFilter] = None,
+        return_images: bool = False, # whether to return image paths when available
     ) -> list[dict]:
         """
         Inputs:
@@ -448,7 +492,11 @@ class KnowledgeBase:
         - doc_id: the document ID of the document that the segment is from
         - chunk_start: the start index of the segment in the document
         - chunk_end: the (non-inclusive) end index of the segment in the document
-        - text: the full text of the segment
+        - text OR content: 
+            if return_images is False, text: a string that contains the full text of the segment
+            if return_images is True, content: a list of dictionaries, where each dictionary has the following keys: `type` and `content`
+                - `type` is either "text" or "image"
+                - `content` is the text content (if 'type' is "text") or image path (if 'type' is "image")
         """
         # check if the rse_params is a preset name and convert it to a dictionary if it is
         if isinstance(rse_params, str) and rse_params in RSE_PARAMS_PRESETS:
@@ -543,19 +591,35 @@ class KnowledgeBase:
             score = scores[segment_index]
             relevant_segment_info[-1]["score"] = score
 
-        # retrieve the actual text (including segment header) for each of the segments
-        for segment_info in relevant_segment_info:
-            segment_info["text"] = self.get_segment_text_from_database(
-                segment_info["doc_id"],
-                segment_info["chunk_start"],
-                segment_info["chunk_end"],
-            )
-            start_page_number, end_page_number = self.get_segment_page_numbers(
-                segment_info["doc_id"],
-                segment_info["chunk_start"],
-                segment_info["chunk_end"]
-            )
-            segment_info["chunk_page_start"] = start_page_number
-            segment_info["chunk_page_end"] = end_page_number
+        if return_images:
+            # retrieve the text and image paths (including segment header) for each of the segments
+            for segment_info in relevant_segment_info:
+                segment_info["content"] = self.get_segment_content_from_database(
+                    segment_info["doc_id"],
+                    segment_info["chunk_start"],
+                    segment_info["chunk_end"],
+                )
+                start_page_number, end_page_number = self.get_segment_page_numbers(
+                    segment_info["doc_id"],
+                    segment_info["chunk_start"],
+                    segment_info["chunk_end"]
+                )
+                segment_info["chunk_page_start"] = start_page_number
+                segment_info["chunk_page_end"] = end_page_number
+        else:
+            # retrieve the text (including segment header) for each of the segments
+            for segment_info in relevant_segment_info:
+                segment_info["text"] = self.get_segment_text_from_database(
+                    segment_info["doc_id"],
+                    segment_info["chunk_start"],
+                    segment_info["chunk_end"],
+                )
+                start_page_number, end_page_number = self.get_segment_page_numbers(
+                    segment_info["doc_id"],
+                    segment_info["chunk_start"],
+                    segment_info["chunk_end"]
+                )
+                segment_info["chunk_page_start"] = start_page_number
+                segment_info["chunk_page_end"] = end_page_number
 
         return relevant_segment_info
