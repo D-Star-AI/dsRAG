@@ -1,6 +1,6 @@
 from vlm_file_parsing import parse_file
 from non_vlm_file_parsing import parse_file_no_vlm
-from semantic_sectioning import get_sections_from_elements, get_sections_from_str
+from semantic_sectioning import get_sections_from_elements, get_sections_from_str, get_sections_from_pages
 from chunking import chunk_document
 from typing import List, Dict, Tuple
 import json
@@ -125,11 +125,19 @@ def parse_and_chunk_no_vlm(file_path: str, semantic_sectioning_config: dict) -> 
         with open('text.txt', 'r') as f:
             text = f.read()
     
-    sections, document_lines = get_sections_from_str(
-        document=text,
-        max_characters=20000,
-        semantic_sectioning_config=semantic_sectioning_config
-        )
+    if pdf_pages:
+        # If we have pdf pages then we want to use them so we can keep track of the page numbers
+        sections, document_lines = get_sections_from_pages(
+            pages=pdf_pages,
+            max_characters=20000,
+            semantic_sectioning_config=semantic_sectioning_config
+            )
+    else:
+        sections, document_lines = get_sections_from_str(
+            document=text,
+            max_characters=20000,
+            semantic_sectioning_config=semantic_sectioning_config
+            )
     
     if testing_mode:
         # dump to json for testing

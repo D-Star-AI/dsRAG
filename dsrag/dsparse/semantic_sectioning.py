@@ -190,12 +190,46 @@ def str_to_lines(document: str) -> List[Dict]:
     for line in lines:
         document_lines.append({
             "content": line,
-            "element_type": None,
+            "element_type": "NarrativeText",
             "page_number": None,
             "image_path": None
         })
 
     return document_lines
+
+def pages_to_lines(pages: List[str]) -> List[Dict]:
+    document_lines = []
+    for i, page in enumerate(pages):
+        lines = page.split("\n")
+        for line in lines:
+            document_lines.append({
+                "content": line,
+                "element_type": "NarrativeText",
+                "page_number": i+1, # page numbers are 1-indexed
+                "image_path": None
+            })
+
+    return document_lines
+
+def get_sections_from_elements(elements: List[Dict], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: dict = {}):
+    # get the semantic sectioning config params, using defaults if not provided
+    llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
+    model = semantic_sectioning_config.get("model", "gpt-4o-mini")
+    language = semantic_sectioning_config.get("language", "en")
+
+    document_lines = elements_to_lines(elements=elements, exclude_elements=exclude_elements)
+    document_lines_str = [line["content"] for line in document_lines]
+    document_str = "\n".join(document_lines_str)
+    max_iterations = 2*(len(document_str) // max_characters + 1)
+    sections = get_sections(
+        document_lines=document_lines, 
+        max_iterations=max_iterations, 
+        max_characters=max_characters, 
+        llm_provider=llm_provider, 
+        model=model, 
+        language=language
+        )
+    return sections, document_lines
 
 def get_sections_from_str(document: str, max_characters: int = 20000, semantic_sectioning_config: dict = {}):
     # get the semantic sectioning config params, using defaults if not provided
@@ -215,13 +249,13 @@ def get_sections_from_str(document: str, max_characters: int = 20000, semantic_s
         )
     return sections, document_lines
 
-def get_sections_from_elements(elements: List[Dict], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: dict = {}):
+def get_sections_from_pages(pages: List[str], max_characters: int = 20000, semantic_sectioning_config: dict = {}):
     # get the semantic sectioning config params, using defaults if not provided
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
 
-    document_lines = elements_to_lines(elements=elements, exclude_elements=exclude_elements)
+    document_lines = pages_to_lines(pages)
     document_lines_str = [line["content"] for line in document_lines]
     document_str = "\n".join(document_lines_str)
     max_iterations = 2*(len(document_str) // max_characters + 1)
