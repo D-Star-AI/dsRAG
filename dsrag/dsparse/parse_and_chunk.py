@@ -6,14 +6,20 @@ from typing import List, Dict, Tuple
 import json
 import os
 
-def parse_and_chunk_vlm(file_path: str, save_path: str, vlm_config: dict, semantic_sectioning_config: dict, exclude_elements: List[str] = ["Header", "Footer"]) -> Tuple[List[Dict], List[Dict]]:
+def parse_and_chunk_vlm(file_path: str, vlm_config: dict, semantic_sectioning_config: dict, chunking_config: dict) -> Tuple[List[Dict], List[Dict]]:
     """
     Inputs
     - file_path: the path to the file to parse and chunk
         - supported file types: .pdf
-    - save_path: the path to save the parsed elements to
     - vlm_config: a dictionary containing the configuration for the VLM parser
+        - provider: the VLM provider to use - only "vertex_ai" is supported at the moment
+        - model: the VLM model to use
+        - project_id: the GCP project ID (required if provider is "vertex_ai")
+        - location: the GCP location (required if provider is "vertex_ai")
+        - save_path: the path to save intermediate files created during VLM processing
+        - exclude_elements: a list of element types to exclude from the parsed text. Default is ["Header", "Footer"].
     - semantic_sectioning_config: a dictionary containing the configuration for the semantic sectioning algorithm
+    - chunking_config: a dictionary containing the configuration for the chunking algorithm
 
     Outputs
     - sections: a list of dictionaries, each containing the following keys:
@@ -35,6 +41,7 @@ def parse_and_chunk_vlm(file_path: str, save_path: str, vlm_config: dict, semant
 
     # Step 1: Parse the file
 
+    save_path = vlm_config["save_path"]
     elements = parse_file(pdf_path=file_path, save_path=save_path, vlm_config=vlm_config)
     
     if testing_mode:
@@ -49,6 +56,9 @@ def parse_and_chunk_vlm(file_path: str, save_path: str, vlm_config: dict, semant
         # load from json for testing
         with open('elements.json', 'r') as f:
             elements = json.load(f)
+
+    # get the exclude_elements from the vlm_config
+    exclude_elements = vlm_config.get('exclude_elements', ["Header", "Footer"])
     
     sections, document_lines = get_sections_from_elements(
         elements=elements,
@@ -74,11 +84,14 @@ def parse_and_chunk_vlm(file_path: str, save_path: str, vlm_config: dict, semant
         with open('sections.json', 'r') as f:
             sections = json.load(f)
 
+    chunk_size = chunking_config.get('chunk_size', 800)
+    min_length_for_chunking = chunking_config.get('min_length_for_chunking', 1600)
+
     chunks = chunk_document(
         sections=sections, 
         document_lines=document_lines, 
-        chunk_size=1000, 
-        min_length_for_chunking=2000
+        chunk_size=chunk_size, 
+        min_length_for_chunking=min_length_for_chunking
         )
     
     if testing_mode:
@@ -88,12 +101,13 @@ def parse_and_chunk_vlm(file_path: str, save_path: str, vlm_config: dict, semant
 
     return sections, chunks
 
-def parse_and_chunk_no_vlm(file_path: str, semantic_sectioning_config: dict) -> List[Dict]:
+def parse_and_chunk_no_vlm(file_path: str, semantic_sectioning_config: dict, chunking_config: dict) -> List[Dict]:
     """
     Inputs
     - file_path: the path to the file to parse and chunk
         - supported file types: .txt, .pdf, .docx, .md
     - semantic_sectioning_config: a dictionary containing the configuration for the semantic sectioning algorithm
+    - chunking_config: a dictionary containing the configuration for the chunking algorithm
 
     Outputs
     - sections: a list of dictionaries, each containing the following
@@ -156,11 +170,14 @@ def parse_and_chunk_no_vlm(file_path: str, semantic_sectioning_config: dict) -> 
         with open('sections.json', 'r') as f:
             sections = json.load(f)
 
+    chunk_size = chunking_config.get('chunk_size', 800)
+    min_length_for_chunking = chunking_config.get('min_length_for_chunking', 1600)
+
     chunks = chunk_document(
         sections=sections, 
         document_lines=document_lines, 
-        chunk_size=1000, 
-        min_length_for_chunking=2000
+        chunk_size=chunk_size, 
+        min_length_for_chunking=min_length_for_chunking
         )
     
     if testing_mode:
@@ -187,7 +204,9 @@ if __name__ == "__main__":
         "provider": "vertex_ai",
         "model": "gemini-1.5-pro-002",
         "project_id": os.environ["VERTEX_PROJECT_ID"],
-        "location": "us-central1"
+        "location": "us-central1",
+        "save_path": save_path,
+        "exclude_elements": ["Header", "Footer"],
     }
 
     semantic_sectioning_config = {
@@ -199,7 +218,6 @@ if __name__ == "__main__":
     """
     chunks = parse_and_chunk_vlm(
         file_path=pdf_path,
-        save_path=save_path,
         vlm_config=vlm_config,
         semantic_sectioning_config=semantic_sectioning_config
         )

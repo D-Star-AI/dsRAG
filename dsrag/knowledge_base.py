@@ -176,9 +176,9 @@ class KnowledgeBase:
         file_path: str = "",
         document_title: str = "",
         auto_context_config: dict = {},
+        file_parsing_config: dict = {},
         semantic_sectioning_config: dict = {},
-        chunk_size: int = 800,
-        min_length_for_chunking: int = 1600,
+        chunking_config: dict = {},
         supp_id: str = "",
         metadata: dict = {},
     ):
@@ -195,12 +195,22 @@ class KnowledgeBase:
             - document_summarization_guidance: str
             - get_section_summaries: bool - whether to get section summaries (default is False)
             - section_summarization_guidance: str
+        - file_parsing_config: a dictionary with configuration parameters for parsing the file (ignored if text is provided instead of a file_path)
+            - use_vlm: bool - whether to use VLM (visual language model) for parsing the file (default is False)
+            - vlm_config: a dictionary with configuration parameters for VLM (ignored if use_vlm is False)
+                - provider: the VLM provider to use - only "vertex_ai" is supported at the moment
+                - model: the VLM model to use
+                - project_id: the GCP project ID (required if provider is "vertex_ai")
+                - location: the GCP location (required if provider is "vertex_ai")
+                - save_path: the path to save intermediate files created during VLM processing
+                - exclude_elements: a list of element types to exclude from the parsed text. Default is ["Header", "Footer"].
         - semantic_sectioning_config: a dictionary with configuration for the semantic sectioning model (defaults will be used if not provided)
             - llm_provider: the LLM provider to use for semantic sectioning - only "openai" and "anthropic" are supported at the moment
             - model: the LLM model to use for semantic sectioning
             - use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
-        - chunk_size: the maximum number of characters to include in each chunk
-        - min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk. If semantic sectioning is used, this parameter will be applied to each section. Setting this to a higher value than the chunk_size can help avoid unnecessary chunking of short documents or sections.
+        - chunking_config: a dictionary with configuration for chunking the document/sections into smaller pieces (defaults will be used if not provided)
+            - chunk_size: the maximum number of characters to include in each chunk
+            - min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk. If semantic sectioning is used, this parameter will be applied to each section. Setting this to a higher value than the chunk_size can help avoid unnecessary chunking of short documents or sections.
         - supp_id: supplementary ID for the document (Can be any string you like. Useful for filtering documents later on.)
         - metadata: a dictionary of metadata to associate with the document - can use whatever keys you like
         """
@@ -212,28 +222,25 @@ class KnowledgeBase:
         if doc_id in self.chunk_db.get_all_doc_ids():
             print(f"Document with ID {doc_id} already exists in the KB. Skipping...")
             return
-        
-        """
-        if text == "":
-            text, pdf_pages = parse_file(file_path)
-        else:
-            pdf_pages = None
-        """
 
         # file parsing, semantic sectioning, and chunking
+        use_vlm = file_parsing_config.get("use_vlm", False)
         if use_vlm:
+            vlm_config = file_parsing_config.get("vlm_config", {})
             sections, chunks = parse_and_chunk_vlm(
                 file_path=file_path,
-                save_path="",
-                vlm_config={},
+                vlm_config=vlm_config,
                 semantic_sectioning_config=semantic_sectioning_config,
-                exclude_elements=[],
+                chunking_config=chunking_config,
             )
         else:
             sections, chunks = parse_and_chunk_no_vlm(
                 file_path=file_path,
                 semantic_sectioning_config=semantic_sectioning_config,
-            )        
+                chunking_config=chunking_config,
+            )     
+
+        # AUTOCONTEXT: create contextual chunk headers   
 
         # document title and summary
         if not document_title and auto_context_config.get("use_generated_title", True):
@@ -267,12 +274,11 @@ class KnowledgeBase:
         if auto_context_config.get("get_section_summaries", False):
             pass
 
-        print(f"Adding {len(chunks)} chunks to the database")
+        
 
-        """
-        if pdf_pages is not None:
-            chunks = get_pages_from_chunks(text, pdf_pages, chunks)
-        """
+        # ADD CHUNKS TO DATABASE
+        
+        print(f"Adding {len(chunks)} chunks to the database")
 
         # prepare the chunks for embedding by prepending the chunk headers
         chunks_to_embed = []
