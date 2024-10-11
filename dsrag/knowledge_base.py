@@ -226,6 +226,9 @@ class KnowledgeBase:
         # file parsing, semantic sectioning, and chunking
         use_vlm = file_parsing_config.get("use_vlm", False)
         if use_vlm:
+            # make sure a file_path is provided
+            if not file_path:
+                raise ValueError("VLM parsing requires a file_path, not text. Please provide a file_path instead.")
             vlm_config = file_parsing_config.get("vlm_config", {})
             sections, chunks = parse_and_chunk_vlm(
                 file_path=file_path,
@@ -234,11 +237,18 @@ class KnowledgeBase:
                 chunking_config=chunking_config,
             )
         else:
-            sections, chunks = parse_and_chunk_no_vlm(
-                file_path=file_path,
-                semantic_sectioning_config=semantic_sectioning_config,
-                chunking_config=chunking_config,
-            )     
+            if file_path:
+                sections, chunks = parse_and_chunk_no_vlm(
+                    semantic_sectioning_config=semantic_sectioning_config,
+                    chunking_config=chunking_config,
+                    file_path=file_path,
+                )
+            else:
+                sections, chunks = parse_and_chunk_no_vlm(
+                    semantic_sectioning_config=semantic_sectioning_config,
+                    chunking_config=chunking_config,
+                    text=text,
+                )
 
         # AUTOCONTEXT: create contextual chunk headers   
 
@@ -269,10 +279,10 @@ class KnowledgeBase:
             document_summary = ""
 
         # get section summaries
-        if auto_context_config.get("get_section_summaries", False):
-            for section in sections:
+        for section in sections:
+            if auto_context_config.get("get_section_summaries", False):
                 section_summarization_guidance = auto_context_config.get("section_summarization_guidance", "")
-                section["section_summary"] = get_section_summary(
+                section["summary"] = get_section_summary(
                     auto_context_model=self.auto_context_model,
                     section_text=section["content"],
                     document_title=document_title,
@@ -280,6 +290,8 @@ class KnowledgeBase:
                     section_summarization_guidance=section_summarization_guidance,
                     language=self.kb_metadata["language"]
                 )
+            else:
+                section["summary"] = ""
 
         # add document title, document summary, and section summaries to the chunks
         for chunk in chunks:
@@ -287,8 +299,8 @@ class KnowledgeBase:
             chunk["document_summary"] = document_summary
             section_index = chunk["section_index"]
             if section_index is not None:
-                chunk["section_title"] = sections[section_index]["section_title"]
-                chunk["section_summary"] = sections[section_index]["section_summary"]
+                chunk["section_title"] = sections[section_index]["title"]
+                chunk["section_summary"] = sections[section_index]["summary"]
 
         # ADD CHUNKS TO DATABASE
         
@@ -303,7 +315,7 @@ class KnowledgeBase:
                 section_title=chunk["section_title"],
                 section_summary=chunk["section_summary"],
             )
-            chunk_to_embed = f"{chunk_header}\n\n{chunk['chunk_text']}"
+            chunk_to_embed = f"{chunk_header}\n\n{chunk['content']}"
             chunks_to_embed.append(chunk_to_embed)
 
         # embed the chunks - if the document is long, we need to get the embeddings in chunks

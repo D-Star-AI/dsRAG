@@ -1,12 +1,13 @@
+from dsrag.dsparse.bounding_box_retry import get_improved_bounding_box
+from dsrag.dsparse.vertex_ai import make_llm_call_gemini
+#from dsrag.dsparse.types import Element
+
 import os
 from pdf2image import convert_from_path
 from PIL import Image
 import json
 import base64
-from bounding_box_retry import get_improved_bounding_box
 import time
-from vertex_ai import make_llm_call_gemini
-#from dsrag.dsparse.types import Element
 
 """
 pip install pdf2image

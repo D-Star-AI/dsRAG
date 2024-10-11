@@ -211,6 +211,16 @@ def pages_to_lines(pages: List[str]) -> List[Dict]:
 
     return document_lines
 
+def no_semantic_sectioning(document: str, num_lines: int):
+    # return the entire document as a single section
+    sections = [{
+        "title": "",
+        "content": document,
+        "start": 0,
+        "end": num_lines - 1 # 0-indexed and inclusive
+    }]
+    return sections
+
 def get_sections_from_elements(elements: List[Dict], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: dict = {}):
     # get the semantic sectioning config params, using defaults if not provided
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
@@ -220,15 +230,21 @@ def get_sections_from_elements(elements: List[Dict], exclude_elements: List[str]
     document_lines = elements_to_lines(elements=elements, exclude_elements=exclude_elements)
     document_lines_str = [line["content"] for line in document_lines]
     document_str = "\n".join(document_lines_str)
-    max_iterations = 2*(len(document_str) // max_characters + 1)
-    sections = get_sections(
-        document_lines=document_lines, 
-        max_iterations=max_iterations, 
-        max_characters=max_characters, 
-        llm_provider=llm_provider, 
-        model=model, 
-        language=language
-        )
+    
+    use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
+    if use_semantic_sectioning:
+        max_iterations = 2*(len(document_str) // max_characters + 1)
+        sections = get_sections(
+            document_lines=document_lines, 
+            max_iterations=max_iterations, 
+            max_characters=max_characters, 
+            llm_provider=llm_provider, 
+            model=model, 
+            language=language
+            )
+    else:
+        sections = no_semantic_sectioning(document=document_str, num_lines=len(document_lines))
+    
     return sections, document_lines
 
 def get_sections_from_str(document: str, max_characters: int = 20000, semantic_sectioning_config: dict = {}):
@@ -238,15 +254,20 @@ def get_sections_from_str(document: str, max_characters: int = 20000, semantic_s
     language = semantic_sectioning_config.get("language", "en")
 
     document_lines = str_to_lines(document)
-    max_iterations = 2*(len(document) // max_characters + 1)
-    sections = get_sections(
-        document_lines=document_lines, 
-        max_iterations=max_iterations, 
-        max_characters=max_characters, 
-        llm_provider=llm_provider, 
-        model=model, 
-        language=language
-        )
+    
+    use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
+    if use_semantic_sectioning:
+        max_iterations = 2*(len(document) // max_characters + 1)
+        sections = get_sections(
+            document_lines=document_lines, 
+            max_iterations=max_iterations, 
+            max_characters=max_characters, 
+            llm_provider=llm_provider, 
+            model=model, 
+            language=language
+            )
+    else:
+        sections = no_semantic_sectioning(document=document, num_lines=len(document_lines))
     return sections, document_lines
 
 def get_sections_from_pages(pages: List[str], max_characters: int = 20000, semantic_sectioning_config: dict = {}):
@@ -258,13 +279,19 @@ def get_sections_from_pages(pages: List[str], max_characters: int = 20000, seman
     document_lines = pages_to_lines(pages)
     document_lines_str = [line["content"] for line in document_lines]
     document_str = "\n".join(document_lines_str)
-    max_iterations = 2*(len(document_str) // max_characters + 1)
-    sections = get_sections(
-        document_lines=document_lines, 
-        max_iterations=max_iterations, 
-        max_characters=max_characters, 
-        llm_provider=llm_provider, 
-        model=model, 
-        language=language
-        )
+    
+    use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
+    if use_semantic_sectioning:
+        max_iterations = 2*(len(document_str) // max_characters + 1)
+        sections = get_sections(
+            document_lines=document_lines, 
+            max_iterations=max_iterations, 
+            max_characters=max_characters, 
+            llm_provider=llm_provider, 
+            model=model, 
+            language=language
+            )
+    else:
+        sections = no_semantic_sectioning(document=document_str, num_lines=len(document_lines))
+    
     return sections, document_lines

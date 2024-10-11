@@ -1,7 +1,8 @@
-from vlm_file_parsing import parse_file
-from non_vlm_file_parsing import parse_file_no_vlm
-from semantic_sectioning import get_sections_from_elements, get_sections_from_str, get_sections_from_pages
-from chunking import chunk_document
+from dsrag.dsparse.vlm_file_parsing import parse_file
+from dsrag.dsparse.non_vlm_file_parsing import parse_file_no_vlm
+from dsrag.dsparse.semantic_sectioning import get_sections_from_elements, get_sections_from_str, get_sections_from_pages
+from dsrag.dsparse.chunking import chunk_document
+
 from typing import List, Dict, Tuple
 import json
 import os
@@ -101,13 +102,14 @@ def parse_and_chunk_vlm(file_path: str, vlm_config: dict, semantic_sectioning_co
 
     return sections, chunks
 
-def parse_and_chunk_no_vlm(file_path: str, semantic_sectioning_config: dict, chunking_config: dict) -> List[Dict]:
+def parse_and_chunk_no_vlm(semantic_sectioning_config: dict, chunking_config: dict, file_path: str = "", text: str = "") -> List[Dict]:
     """
     Inputs
-    - file_path: the path to the file to parse and chunk
-        - supported file types: .txt, .pdf, .docx, .md
     - semantic_sectioning_config: a dictionary containing the configuration for the semantic sectioning algorithm
     - chunking_config: a dictionary containing the configuration for the chunking algorithm
+    - file_path: the path to the file to parse and chunk
+        - supported file types: .txt, .pdf, .docx, .md
+    - text: the text of the document to parse and chunk (include either text or file_path, not both)
 
     Outputs
     - sections: a list of dictionaries, each containing the following
@@ -119,12 +121,18 @@ def parse_and_chunk_no_vlm(file_path: str, semantic_sectioning_config: dict, chu
         - page_end: int - the page number the chunk ends on (inclusive)
         - section_index: int - the index of the section this chunk belongs to
     """
+    if text == "" and file_path == "":
+        raise ValueError("Either text or file_path must be provided")
 
     testing_mode = True
 
     # Step 1: Parse the file
 
-    text, pdf_pages = parse_file_no_vlm(file_path)
+    if file_path:
+        text, pdf_pages = parse_file_no_vlm(file_path)
+    else:
+        pdf_pages = None
+        # text is already provided
     
     if testing_mode:
         # dump to txt file for testing

@@ -5,7 +5,7 @@ import unittest
 # add ../../ to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from dsrag.document_parsing import extract_text_from_pdf
+from dsrag.dsparse.non_vlm_file_parsing import extract_text_from_pdf
 from dsrag.knowledge_base import KnowledgeBase
 
 
