@@ -74,7 +74,7 @@ response_schema = {
     },
 }
 
-def pdf_to_images(pdf_path: str, page_images_path: str, dpi=150) -> list[str]:
+def pdf_to_images(pdf_path: str, page_images_path: str, dpi=200) -> list[str]:
     """
     Convert a PDF to images and save them to a folder. Uses pdf2image (which relies on poppler).
 
@@ -111,7 +111,7 @@ def encode_image(image_path):
   with open(image_path, "rb") as image_file:
     return base64.b64encode(image_file.read()).decode('utf-8')
 
-def extract_image(page_image_path: str, bounding_box: list[int], extracted_image_path: str, padding: int = 100):
+def extract_image(page_image_path: str, bounding_box: list[int], extracted_image_path: str, padding: int = 150):
     """
     Given a page image and a bounding box, extract the image from the bounding boxes by cropping the page image.
     - Leave a bit of extra padding around the provided bounding box to ensure that the entire content is captured.
@@ -128,22 +128,21 @@ def extract_image(page_image_path: str, bounding_box: list[int], extracted_image
     ymin, xmin, ymax, xmax = bounding_box
     
     # Add some padding to the bounding box
-    xmin = max(0, xmin - padding)
     ymin = max(0, ymin - padding)
-    xmax = min(1000, xmax + padding)
+    xmin = max(0, xmin - padding)
     ymax = min(1000, ymax + padding)
-
+    xmax = min(1000, xmax + padding)
+    
     # Open the image
     with Image.open(page_image_path) as img:
         width, height = img.size
         print(f"Original image size: {width}x{height}")
 
         # Calculate actual pixel coordinates
-        ymin_scaled, xmin_scaled, ymax_scaled, xmax_scaled = bounding_box
-        actual_ymin = int(ymin_scaled / 1000 * height)
-        actual_xmin = int(xmin_scaled / 1000 * width)
-        actual_ymax = int(ymax_scaled / 1000 * height)
-        actual_xmax = int(xmax_scaled / 1000 * width)
+        actual_ymin = int((ymin/1000) * height)
+        actual_xmin = int((xmin/1000) * width)
+        actual_ymax = int((ymax/1000) * height)
+        actual_xmax = int((xmax/1000) * width)
 
         # Ensure coordinates are within image bounds
         actual_ymin = max(0, actual_ymin)
@@ -197,9 +196,14 @@ def parse_page(page_image_path: str, page_number: int, save_path: str, vlm_confi
         if element["type"] in ["Image", "Figure"]:
             bounding_box = element["bounding_box"]
 
+            # check if the bounding box is valid - should be a list of 4 integers all between 0 and 1000
+            if not isinstance(bounding_box, list) or len(bounding_box) != 4 or not all(isinstance(x, int) for x in bounding_box) or not all(0 <= x <= 1000 for x in bounding_box):
+                print(f"Invalid bounding box for element {element} on page {page_number}. Using the entire page instead.")
+                bounding_box = [0, 0, 1000, 1000] # use a bounding box that represents the entire page
+
             # run the bounding box through the bounding box retry function to improve accuracy
-            bounding_box = get_improved_bounding_box(page_image_path, bounding_box, vlm_config, i)
-            element["improved_bounding_box"] = bounding_box
+            #bounding_box = get_improved_bounding_box(page_image_path, bounding_box, vlm_config, i)
+            #element["improved_bounding_box"] = bounding_box
 
             # create the directory to save the extracted images if it doesn't exist
             if not os.path.exists(f"{save_path}/extracted_images"):
@@ -232,9 +236,18 @@ def parse_file(pdf_path: str, save_path: str, vlm_config: dict) -> list[dict]:
     all_page_content = []
     for i, image_path in enumerate(image_file_paths):
         print (f"Processing {image_path}")
-        page_content = parse_page(image_path, page_number=i+1, save_path=save_path, vlm_config=vlm_config)
+        try:
+            page_content = parse_page(image_path, page_number=i+1, save_path=save_path, vlm_config=vlm_config)
+        except:
+            try:
+                print(f"Error processing {image_path}. Sleeping for 60 seconds before retrying...")
+                time.sleep(60)
+                page_content = parse_page(image_path, page_number=i+1, save_path=save_path, vlm_config=vlm_config)
+            except:
+                print(f"Failed to process {image_path}")
+                page_content = []
         all_page_content.extend(page_content)
-        time.sleep(3) # sleep for a few seconds to avoid rate limit issues with the Gemini API
+        time.sleep(5) # sleep for a few seconds to avoid rate limit issues with the API
 
     # save the extracted content to a JSON file
     output_file_path = f"{save_path}/elements.json"
