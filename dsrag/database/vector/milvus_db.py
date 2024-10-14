@@ -3,7 +3,6 @@ from typing import Optional, Sequence
 
 from dsrag.database.vector import VectorSearchResult
 from dsrag.database.vector.db import VectorDB
-from pymilvus import MilvusClient, DataType
 
 from dsrag.database.vector.types import MetadataFilter, Vector, ChunkMetadata
 
@@ -47,6 +46,13 @@ def _convert_metadata_to_expr(metadata_filter: MetadataFilter) -> str:
 class MilvusDB(VectorDB):
     def __init__(self, kb_id: str, storage_directory: str = '~/dsRAG',
                  dimension: int = 768):
+        try:
+            from pymilvus import MilvusClient
+        except ImportError:
+            raise ImportError(
+                "MilvusDB requires the pymilvus library. "
+                "Please install it by running `pip install pymilvus`."
+            )
         self.kb_id = kb_id
         # Expand user path and ensure directory exists
         self.storage_directory = os.path.expanduser(storage_directory)
@@ -60,6 +66,7 @@ class MilvusDB(VectorDB):
         self._create_collection(collection_name=self.kb_id, dimension=dimension)
 
     def _create_collection(self, collection_name: str, dimension: int = 768):
+        from pymilvus import DataType
         if self.client.has_collection(collection_name=collection_name):
             return
 
