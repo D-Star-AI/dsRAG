@@ -457,7 +457,7 @@ class KnowledgeBase:
         if header_text:
             segment.append({
                 "type": "text",
-                "content": header_text
+                "content": header_text + "\n\n"
             })
 
         for chunk_index in range(chunk_start, chunk_end):  # end index is non-inclusive
@@ -513,6 +513,8 @@ class KnowledgeBase:
             if return_images is True, content: a list of dictionaries, where each dictionary has the following keys: `type` and `content`
                 - `type` is either "text" or "image"
                 - `content` is the text content (if 'type' is "text") or image path (if 'type' is "image")
+        - segment_page_start: the page number that the segment starts on
+        - segment_page_end: the page number that the segment ends on
         """
         # check if the rse_params is a preset name and convert it to a dictionary if it is
         if isinstance(rse_params, str) and rse_params in RSE_PARAMS_PRESETS:
@@ -618,8 +620,8 @@ class KnowledgeBase:
                     segment_info["chunk_start"],
                     segment_info["chunk_end"]
                 )
-                segment_info["chunk_page_start"] = start_page_number
-                segment_info["chunk_page_end"] = end_page_number
+                segment_info["segment_page_start"] = start_page_number
+                segment_info["segment_page_end"] = end_page_number
         else:
             # retrieve the text (including segment header) for each of the segments
             for segment_info in relevant_segment_info:
@@ -633,7 +635,7 @@ class KnowledgeBase:
                     segment_info["chunk_start"],
                     segment_info["chunk_end"]
                 )
-                segment_info["chunk_page_start"] = start_page_number
-                segment_info["chunk_page_end"] = end_page_number
+                segment_info["segment_page_start"] = start_page_number
+                segment_info["segment_page_end"] = end_page_number
 
         return relevant_segment_info
