@@ -76,5 +76,27 @@ class TestAutoContext(unittest.TestCase):
         assert "NIKE, Inc. Annual Report on Form 10-K for the Fiscal Year Ended May 31, 2023" in segment_header
         assert "financial performance" in segment_header
 
+class TestAutoContextNonEnglish(unittest.TestCase):
+    def test__get_document_title(self):
+        auto_context_model = OpenAIChatAPI(model="gpt-4o-mini")
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(script_dir, "../data/les_miserables.txt")
+        with open(file_path, "r") as f:
+            document_text = f.read()
+        document_title_guidance = ""
+        document_title = get_document_title(auto_context_model, document_text, document_title_guidance=document_title_guidance, language="fr")
+        assert "rables" in document_title.lower() # (part of Les Misérables)
+
+    def test__get_document_summary(self):
+        document_title = "Les Miserables"
+        auto_context_model = OpenAIChatAPI(model="gpt-4o-mini")
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(script_dir, "../data/les_miserables.txt")
+        with open(file_path, "r") as f:
+            document_text = f.read()
+        document_summarization_guidance = ""
+        document_summary = get_document_summary(auto_context_model, document_text, document_title, document_summarization_guidance=document_summarization_guidance, language="fr")
+        assert "concerne" in document_summary.lower()
+
 if __name__ == "__main__":
     unittest.main()

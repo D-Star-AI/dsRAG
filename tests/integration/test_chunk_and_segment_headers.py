@@ -20,7 +20,7 @@ class TestChunkAndSegmentHeaders(unittest.TestCase):
         file_path = os.path.join(script_dir, "../data/levels_of_agi.pdf")
 
         # extract text from the pdf
-        text = extract_text_from_pdf(file_path)
+        text, _ = extract_text_from_pdf(file_path)
         
         kb_id = "levels_of_agi"
         kb = KnowledgeBase(kb_id=kb_id, exists_ok=False)
@@ -61,7 +61,7 @@ class TestChunkAndSegmentHeaders(unittest.TestCase):
         file_path = os.path.join(script_dir, "../data/levels_of_agi.pdf")
 
         # extract text from the pdf
-        text = extract_text_from_pdf(file_path)
+        text, _ = extract_text_from_pdf(file_path)
         
         kb_id = "levels_of_agi"
         kb = KnowledgeBase(kb_id=kb_id, exists_ok=False)

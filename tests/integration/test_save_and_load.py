@@ -18,7 +18,7 @@ class TestSaveAndLoad(unittest.TestCase):
         self.cleanup()
 
         # initialize a KnowledgeBase object
-        auto_context_model = OpenAIChatAPI(model="gpt-3.5-turbo")
+        auto_context_model = OpenAIChatAPI(model="gpt-4o-mini")
         embedding_model = VoyageAIEmbedding(model="voyage-code-2")
         kb = KnowledgeBase(kb_id="test_kb", auto_context_model=auto_context_model, embedding_model=embedding_model, exists_ok=False)
 
@@ -26,7 +26,7 @@ class TestSaveAndLoad(unittest.TestCase):
         kb1 = KnowledgeBase(kb_id="test_kb")
 
         # verify that the KnowledgeBase object has the right parameters
-        self.assertEqual(kb1.auto_context_model.model, "gpt-3.5-turbo")
+        self.assertEqual(kb1.auto_context_model.model, "gpt-4o-mini")
         self.assertEqual(kb1.embedding_model.model, "voyage-code-2")
 
         # delete the KnowledgeBase object

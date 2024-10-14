@@ -1,0 +1,44 @@
+name: Manual Test Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Repository to run tests on (e.g., user/repo)'
+        required: true
+      branch:
+        description: 'Branch to run tests on'
+        required: true
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CO_API_KEY: ${{ secrets.CO_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration

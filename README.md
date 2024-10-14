@@ -22,6 +22,57 @@ Relevant Segment Extraction (RSE) is a query-time post-processing step that take
 
 For example, suppose you have a bunch of SEC filings in a knowledge base and you ask “What were Apple’s key financial results in the most recent fiscal year?” RSE will identify the most relevant segment as the entire “Consolidated Statement of Operations” section, which will be 5-10 chunks long. Whereas if you ask “Who is Apple’s CEO?” the most relevant segment will be identified as a single chunk that mentions “Tim Cook, CEO.”
 
+# Eval results
+We've evaluated dsRAG on a couple of end-to-end RAG benchmarks.
+
+#### FinanceBench
+First, we have [FinanceBench](https://arxiv.org/abs/2311.11944). This benchmark uses a corpus of a few hundred 10-Ks and 10-Qs. The queries are challenging, and often require combining multiple pieces of information. Ground truth answers are provided. Answers are graded manually on a pass/fail basis. Minor allowances for rounding errors are allowed, but other than that the answer must exactly match the ground truth answer to be considered correct.
+
+The baseline retrieval pipeline, which uses standard chunking and top-k retrieval, achieves a score of **19%** according to the paper. dsRAG, using default parameters and AutoQuery for query generation, achieves a score of **83%**.
+
+#### KITE
+We couldn't find any other suitable end-to-end RAG benchmarks, so we decided to create our own, called [KITE](https://github.com/D-Star-AI/KITE) (Knowledge-Intensive Task Evaluation).
+
+KITE currently consists of 4 datasets and a total of 50 questions.
+- **AI Papers** - ~100 academic papers about AI and RAG, downloaded from arXiv in PDF form.
+- **BVP Cloud 10-Ks** - 10-Ks for all companies in the Bessemer Cloud Index (~70 of them), in PDF form.
+- **Sourcegraph Company Handbook** - ~800 markdown files, with their original directory structure, downloaded from Sourcegraph's publicly accessible company handbook GitHub [page](https://github.com/sourcegraph/handbook/tree/main/content).
+- **Supreme Court Opinions** - All Supreme Court opinions from Term Year 2022 (delivered from January '23 to June '23), downloaded from the official Supreme Court [website](https://www.supremecourt.gov/opinions/slipopinion/22) in PDF form.
+
+Ground truth answers are included with each sample. Most samples also include grading rubrics. Grading is done on a scale of 0-10 for each question, with a strong LLM doing the grading.
+
+We tested four configurations:
+- Top-k retrieval (baseline)
+- Relevant segment extraction (RSE)
+- Top-k retrieval with contextual chunk headers (CCH)
+- CCH+RSE (dsRAG default config, minus semantic sectioning)
+
+Testing RSE and CCH on their own, in addition to testing them together, lets us see the individual contributions of those two features.
+
+Cohere English embeddings and the Cohere 3 English reranker were used for all configurations. LLM responses were generated with GPT-4o, and grading was also done with GPT-4o.
+
+|                         | Top-k    | RSE    | CCH+Top-k    | CCH+RSE    |
+|-------------------------|----------|--------|--------------|------------|
+| AI Papers               | 4.5      | 7.9    | 4.7          | 7.9        |
+| BVP Cloud               | 2.6      | 4.4    | 6.3          | 7.8        |
+| Sourcegraph             | 5.7      | 6.6    | 5.8          | 9.4        |
+| Supreme Court Opinions  | 6.1      | 8.0    | 7.4          | 8.5        |
+| **Average**             | 4.72     | 6.73   | 6.04         | 8.42       |
+
+Using CCH and RSE together leads to a dramatic improvement in performance, from 4.72 -> 8.42. Looking at the RSE and CCH+Top-k results, we can see that using each of those features individually leads to a large improvement over the baseline, with RSE appearing to be slightly more important than CCH.
+
+To put these results in perspective, we also tested the CCH+RSE configuration with a smaller model, GPT-4o Mini. As expected, this led to a decrease in performance compared to using GPT-4o, but the difference was surprisingly small (7.95 vs. 8.42). Using CCH+RSE with GPT-4o Mini dramatically outperforms the baseline RAG pipeline even though the baseline uses a 17x more expensive LLM. This suggests that the LLM plays a much smaller role in end-to-end RAG system accuracy than the retrieval pipeline does.
+
+|                         | CCH+RSE (GPT-4o) | CCH+RSE (GPT-4o Mini) |
+|-------------------------|------------------|-----------------------|
+| AI Papers               | 7.9              | 7.0                   |
+| BVP Cloud               | 7.8              | 7.9                   |
+| Sourcegraph             | 9.4              | 8.5                   |
+| Supreme Court Opinions  | 8.5              | 8.4                   |
+| **Average**             | 8.42             | 7.95                  |
+
+Note: we did not use semantic sectioning for any of the configurations tested here. We'll evaluate that one separately once we finish some of the improvements we're working on for it. We also did not use AutoQuery, as the KITE questions are all suitable for direct use as search queries.
+
 # Tutorial
 
 #### Installation
@@ -98,12 +149,16 @@ The VectorDB component stores the embedding vectors, as well as a small amount o
 The currently available options are:
 - `BasicVectorDB`
 - `WeaviateVectorDB`
+- `ChromaDB`
+- `QdrantVectorDB`
+- `MilvusDB`
 
 #### ChunkDB
 The ChunkDB stores the content of text chunks in a nested dictionary format, keyed on `doc_id` and `chunk_index`. This is used by RSE to retrieve the full text associated with specific chunks.
 
 The currently available options are:
 - `BasicChunkDB`
+- `SQLiteDB`
 
 #### Embedding
 The Embedding component defines the embedding model.
@@ -155,9 +210,37 @@ rse_params
 - overall_max_length_extension: the maximum length of all segments combined will be increased by this amount for each additional query beyond the first
 - decay_rate
 - top_k_for_document_selection: the number of documents to consider
+- chunk_length_adjustment: bool, if True (default) then scale the chunk relevance values by their length before calculating segment relevance values
+
+## Metadata query filters
+Certain vector DBs support metadata filtering when running a query (currently only ChromaDB). This allows you to have more control over what document(s) get searched. A common use case for this would be asking questions over a single document in a knowledge base, in which case you would supply the `doc_id` as a metadata filter.
+
+The format of the metadata filtering is an object with the following keys:
+
+ - field: str, # The metadata field to filter by
+ - operator: str, # The operator for filtering. Must be one of: 'equals', 'not_equals', 'in', 'not_in', 'greater_than', 'less_than', 'greater_than_equals', 'less_than_equals'
+ - value: str | int | float | list # If the value is a list, every item in the list must be of the same type
+
+#### Example
+
+```python
+# Filter with the "equals" operator
+metadata_filter = {
+    "field": "doc_id",
+    "operator": "equals",
+    "value": "test_id_1"
+}
+
+# Filter with the "in" operator
+metadata_filter = {
+    "field": "doc_id",
+    "operator": "in",
+    "value": ["test_id_1", "test_id_2"]
+}
+```
 
 ## Document upload flow
-Documents -> semantic sectioning -> AutoContext -> chunking -> embedding -> chunk and vector database upsert
+Documents -> semantic sectioning -> chunking -> AutoContext -> embedding -> chunk and vector database upsert
 
 ## Query flow
 Queries -> vector database search -> reranking -> RSE -> results
@@ -166,3 +249,21 @@ Queries -> vector database search -> reranking -> RSE -> results
 You can join our [Discord](https://discord.gg/NTUVX9DmQ3) to ask questions, make suggestions, and discuss contributions.
 
 If you’re using (or planning to use) dsRAG in production, please fill out this short [form](https://forms.gle/RQ5qFVReonSHDcCu5) telling us about your use case. This helps us prioritize new features. In return I’ll give you my personal email address, which you can use for priority email support.
+
+# Private cloud deployment
+If you want to run dsRAG in production with minimal effort, reach out to us about our commercial offering, which is a managed private cloud deployment of dsRAG.
+
+Here are the high-level details of the offering:
+
+**Private cloud deployment (i.e. in your own AWS, Azure, or GCP account) of dsRAG.**
+- Deployed as a production-ready API with endpoints for adding and deleting documents, viewing upload status, querying, etc.
+- Unlimited number of KnowledgeBases. You can just pass in the kb_id with each API call to specify which one it’s for.
+- Document upload queue with configurable concurrency limits so you don’t have to worry about rate limiting document uploads in your application code.
+- VectorDB and ChunkDB are created and managed as part of the API, so you don’t have to set those up separately.
+- Could also be deployed directly into your customers’ cloud environments if needed.
+
+**Support**
+- We’ll help you customize the retrieval configuration and components for your use case and make sure everything runs smoothly and performs well.
+- Ongoing support and regular updates as needed.
+
+If this is something you’d like to learn more about, fill out this short [form](https://forms.gle/Z4n81qdwdpckqsct6) and we’ll reach out ASAP.
