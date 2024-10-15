@@ -139,7 +139,7 @@ google-auth==2.35.0
     # via kubernetes
 googleapis-common-protos==1.65.0
     # via opentelemetry-exporter-otlp-proto-grpc
-grpcio==1.66.2
+grpcio>=1.62.0,<1.67.0
     # via
     #   chromadb
     #   dsrag (pyproject.toml)
