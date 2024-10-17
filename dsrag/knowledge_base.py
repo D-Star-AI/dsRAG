@@ -4,13 +4,14 @@ import time
 import json
 from typing import Optional, Union, Dict
 import concurrent.futures
-from dsrag.auto_context import (
-    get_document_title,
-    get_document_summary,
-    get_section_summary,
-    get_chunk_header,
-    get_segment_header,
+from dsrag.add_document import (
+    parse_and_chunk, 
+    auto_context, 
+    get_embeddings, 
+    add_chunks_to_db, 
+    add_vectors_to_db,
 )
+from dsrag.auto_context import get_segment_header
 from dsrag.rse import (
     get_relevance_values,
     get_best_segments,
@@ -23,7 +24,6 @@ from dsrag.database.chunk import ChunkDB, BasicChunkDB
 from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
 from dsrag.llm import LLM, OpenAIChatAPI
-from dsrag.dsparse.parse_and_chunk import parse_and_chunk_vlm, parse_and_chunk_no_vlm
 
 
 class KnowledgeBase:
@@ -194,8 +194,8 @@ class KnowledgeBase:
             - document_summarization_guidance: str
             - get_section_summaries: bool - whether to get section summaries (default is False)
             - section_summarization_guidance: str
-        - file_parsing_config: a dictionary with configuration parameters for parsing the file (ignored if text is provided instead of a file_path)
-            - use_vlm: bool - whether to use VLM (visual language model) for parsing the file (default is False)
+        - file_parsing_config: a dictionary with configuration parameters for parsing the file
+            - use_vlm: bool - whether to use VLM (vision language model) for parsing the file (default is False)
             - vlm_config: a dictionary with configuration parameters for VLM (ignored if use_vlm is False)
                 - provider: the VLM provider to use - only "vertex_ai" is supported at the moment
                 - model: the VLM model to use
@@ -213,7 +213,6 @@ class KnowledgeBase:
         - supp_id: supplementary ID for the document (Can be any string you like. Useful for filtering documents later on.)
         - metadata: a dictionary of metadata to associate with the document - can use whatever keys you like
         """
-
         if text == "" and file_path == "":
             raise ValueError("Either text or file_path must be provided")
 
@@ -221,154 +220,47 @@ class KnowledgeBase:
         if doc_id in self.chunk_db.get_all_doc_ids():
             print(f"Document with ID {doc_id} already exists in the KB. Skipping...")
             return
-
-        # file parsing, semantic sectioning, and chunking
-        use_vlm = file_parsing_config.get("use_vlm", False)
-        if use_vlm:
-            # make sure a file_path is provided
-            if not file_path:
-                raise ValueError("VLM parsing requires a file_path, not text. Please provide a file_path instead.")
-            vlm_config = file_parsing_config.get("vlm_config", {})
-            sections, chunks = parse_and_chunk_vlm(
-                file_path=file_path,
-                vlm_config=vlm_config,
-                semantic_sectioning_config=semantic_sectioning_config,
-                chunking_config=chunking_config,
-            )
-        else:
-            if file_path:
-                sections, chunks = parse_and_chunk_no_vlm(
-                    semantic_sectioning_config=semantic_sectioning_config,
-                    chunking_config=chunking_config,
-                    file_path=file_path,
-                )
-            else:
-                sections, chunks = parse_and_chunk_no_vlm(
-                    semantic_sectioning_config=semantic_sectioning_config,
-                    chunking_config=chunking_config,
-                    text=text,
-                )
-
-        # AUTOCONTEXT: create contextual chunk headers   
-
-        # document title and summary
-        if not document_title and auto_context_config.get("use_generated_title", True):
-            document_title_guidance = auto_context_config.get(
-                "document_title_guidance", ""
-            )
-            document_title = get_document_title(
-                self.auto_context_model,
-                text,
-                document_title_guidance=document_title_guidance,
-                language=self.kb_metadata["language"]
-            )
-        elif not document_title:
-            document_title = doc_id
-
-        if auto_context_config.get("get_document_summary", True):
-            document_summarization_guidance = auto_context_config.get("document_summarization_guidance", "")
-            document_summary = get_document_summary(
-                self.auto_context_model,
-                text,
-                document_title=document_title,
-                document_summarization_guidance=document_summarization_guidance,
-                language=self.kb_metadata["language"]
-            )
-        else:
-            document_summary = ""
-
-        # get section summaries
-        for section in sections:
-            if auto_context_config.get("get_section_summaries", False):
-                section_summarization_guidance = auto_context_config.get("section_summarization_guidance", "")
-                section["summary"] = get_section_summary(
-                    auto_context_model=self.auto_context_model,
-                    section_text=section["content"],
-                    document_title=document_title,
-                    section_title=section["title"],
-                    section_summarization_guidance=section_summarization_guidance,
-                    language=self.kb_metadata["language"]
-                )
-            else:
-                section["summary"] = ""
-
-        # add document title, document summary, and section summaries to the chunks
-        for chunk in chunks:
-            chunk["document_title"] = document_title
-            chunk["document_summary"] = document_summary
-            section_index = chunk["section_index"]
-            if section_index is not None:
-                chunk["section_title"] = sections[section_index]["title"]
-                chunk["section_summary"] = sections[section_index]["summary"]
-
-        # ADD CHUNKS TO DATABASE
         
-        print(f"Adding {len(chunks)} chunks to the database")
-
-        # prepare the chunks for embedding by prepending the chunk headers
-        chunks_to_embed = []
-        for i, chunk in enumerate(chunks):
-            chunk_header = get_chunk_header(
-                document_title=chunk["document_title"],
-                document_summary=chunk["document_summary"],
-                section_title=chunk["section_title"],
-                section_summary=chunk["section_summary"],
-            )
-            chunk_to_embed = f"{chunk_header}\n\n{chunk['content']}"
-            chunks_to_embed.append(chunk_to_embed)
-
-        # embed the chunks - if the document is long, we need to get the embeddings in chunks
-        chunk_embeddings = []
-        for i in range(0, len(chunks), 50):
-            chunk_embeddings += self.get_embeddings(chunks_to_embed[i : i + 50], input_type="document")
-
-        # add the chunks to the chunk database
-        assert len(chunks) == len(chunk_embeddings) == len(chunks_to_embed)
-        self.chunk_db.add_document(
-            doc_id,
-            {
-                i: {
-                    "chunk_text": chunk["content"],
-                    "document_title": chunk["document_title"],
-                    "document_summary": chunk["document_summary"],
-                    "section_title": chunk["section_title"],
-                    "section_summary": chunk["section_summary"],
-                    "chunk_page_start": chunk.get("page_start", None),
-                    "chunk_page_end": chunk.get("page_end", None),
-                    "image_path": chunk.get("image_path", None),
-                }
-                for i, chunk in enumerate(chunks)
-            },
-            supp_id,
-            metadata
+        sections, chunks = parse_and_chunk(
+            file_path, 
+            text, 
+            file_parsing_config, 
+            semantic_sectioning_config, 
+            chunking_config,
+        )
+        chunks, chunks_to_embed = auto_context(
+            auto_context_model=self.auto_context_model, 
+            sections=sections, 
+            chunks=chunks, 
+            text=text, 
+            doc_id=doc_id, 
+            document_title=document_title, 
+            auto_context_config=auto_context_config, 
+            language=self.kb_metadata["language"],
+        )
+        chunk_embeddings = get_embeddings(
+            embedding_model=self.embedding_model,
+            chunks_to_embed=chunks_to_embed,
+        )
+        add_chunks_to_db(
+            chunk_db=self.chunk_db,
+            chunks=chunks,
+            chunks_to_embed=chunks_to_embed,
+            chunk_embeddings=chunk_embeddings,
+            metadata=metadata,
+            doc_id=doc_id,
+            supp_id=supp_id,
+        )
+        add_vectors_to_db(
+            vector_db=self.vector_db,
+            chunks=chunks,
+            chunk_embeddings=chunk_embeddings,
+            metadata=metadata,
+            doc_id=doc_id,
         )
 
-        # create metadata list to add to the vector database
-        vector_metadata = []
-        for i, chunk in enumerate(chunks):
-            vector_metadata.append(
-                {
-                    "doc_id": doc_id,
-                    "chunk_index": i,
-                    "chunk_text": chunk["content"],
-                    "chunk_header": get_chunk_header(
-                        document_title=chunk["document_title"],
-                        document_summary=chunk["document_summary"],
-                        section_title=chunk["section_title"],
-                        section_summary=chunk["section_summary"],
-                    ),
-                    "chunk_page_start": chunk.get("page_start", ""),
-                    "chunk_page_end": chunk.get("page_end", ""),
-                    "image_path": chunk.get("image_path", ""), # not sure if this needs to be added
-                    # Add the rest of the metadata to the vector metadata
-                    **metadata
-                }
-            )
-
-        # add the vectors and metadata to the vector database
-        self.vector_db.add_vectors(vectors=chunk_embeddings, metadata=vector_metadata)
-
         self.save()  # save to disk after adding a document
+
 
     def delete_document(self, doc_id: str):
         self.chunk_db.remove_document(doc_id)

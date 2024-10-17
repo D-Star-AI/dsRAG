@@ -1,4 +1,3 @@
-from dsrag.dsparse.bounding_box_retry import get_improved_bounding_box
 from dsrag.dsparse.vertex_ai import make_llm_call_gemini
 #from dsrag.dsparse.types import Element
 
@@ -74,7 +73,7 @@ response_schema = {
     },
 }
 
-def pdf_to_images(pdf_path: str, page_images_path: str, dpi=200) -> list[str]:
+def pdf_to_images(pdf_path: str, page_images_path: str, dpi=150) -> list[str]:
     """
     Convert a PDF to images and save them to a folder. Uses pdf2image (which relies on poppler).
 
