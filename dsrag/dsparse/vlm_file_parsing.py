@@ -1,4 +1,5 @@
 from dsrag.dsparse.vertex_ai import make_llm_call_gemini
+import concurrent.futures
 #from dsrag.dsparse.types import Element
 
 import os
@@ -169,15 +170,20 @@ def parse_page(page_image_path: str, page_number: int, save_path: str, vlm_confi
     - page_content: list of dictionaries, each containing information about an element on the page
     """
     if vlm_config["provider"] == "vertex_ai":
-        llm_output = make_llm_call_gemini(
-            image_path=page_image_path, 
-            system_message=SYSTEM_MESSAGE, 
-            model=vlm_config["model"], 
-            project_id=vlm_config["project_id"], 
-            location=vlm_config["location"],
-            response_schema=response_schema,
-            max_tokens=4000
-            )
+        try:
+            llm_output = make_llm_call_gemini(
+                image_path=page_image_path, 
+                system_message=SYSTEM_MESSAGE, 
+                model=vlm_config["model"], 
+                project_id=vlm_config["project_id"], 
+                location=vlm_config["location"],
+                response_schema=response_schema,
+                max_tokens=4000
+                )
+        except Exception as e:
+            if "429 Online prediction request quota exceeded" in str(e):
+                print (f"Error in make_llm_call_gemini: {e}")
+                return 429
     else:
         raise ValueError("Invalid provider specified in the VLM config. Only 'vertex_ai' is supported for now.")
     
@@ -221,34 +227,44 @@ def parse_page(page_image_path: str, page_number: int, save_path: str, vlm_confi
 def parse_file(pdf_path: str, save_path: str, vlm_config: dict) -> list[dict]:
     """
     Given a PDF file, extract the content of each page using a VLM model.
-
     Inputs
     - pdf_path: str, path to the PDF file
     - save_path: str, path to the base directory where everything is saved (i.e. {user_id}/{job_id})
-    - config: dict, configuration for the VLM model. For Gemini this should include project_id and location.
-
+    - vlm_config: dict, configuration for the VLM model. For Gemini this should include project_id and location.
     Outputs
     - all_page_content: list of dictionaries, each containing information about an element on a page, for all pages in the PDF, in order
     """
     page_images_path = f"{save_path}/page_images"
     image_file_paths = pdf_to_images(pdf_path, page_images_path)
-    all_page_content = []
-    for i, image_path in enumerate(image_file_paths):
-        print (f"Processing {image_path}")
-        try:
-            page_content = parse_page(image_path, page_number=i+1, save_path=save_path, vlm_config=vlm_config)
-        except:
-            try:
-                print(f"Error processing {image_path}. Sleeping for 60 seconds before retrying...")
-                time.sleep(60)
-                page_content = parse_page(image_path, page_number=i+1, save_path=save_path, vlm_config=vlm_config)
-            except:
-                print(f"Failed to process {image_path}")
-                page_content = []
-        all_page_content.extend(page_content)
-        time.sleep(5) # sleep for a few seconds to avoid rate limit issues with the API
+    all_page_content_dict = {}
 
-    # save the extracted content to a JSON file
+    def process_page(image_path, page_number):
+        tries = 0
+        while tries < 20:
+            content = parse_page(image_path, page_number=page_number, save_path=save_path, vlm_config=vlm_config)
+            if content == 429:
+                print(f"Rate limit exceeded. Sleeping for 10 seconds before retrying...")
+                time.sleep(10)
+                tries += 1
+                continue
+            else:
+                print ("Successfully processed page")
+                return page_number, content
+
+    # Use ThreadPoolExecutor to process pages in parallel
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = {executor.submit(process_page, image_path, i + 1): image_path for i, image_path in enumerate(image_file_paths)}
+        for future in concurrent.futures.as_completed(futures):
+            page_content = future.result()
+            # Add the page content to the dictionary, keyed on the page number
+            page_number, page_content = future.result()
+            all_page_content_dict[page_number] = page_content
+
+    all_page_content = []
+    for key in sorted(all_page_content_dict.keys()):
+        all_page_content.extend(all_page_content_dict[key])
+
+    # Save the extracted content to a JSON file
     output_file_path = f"{save_path}/elements.json"
     with open(output_file_path, "w") as f:
         json.dump(all_page_content, f, indent=2)
