@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from dsrag.dsparse.vlm_file_parsing import parse_file
 from dsrag.knowledge_base import KnowledgeBase
 
-"""
+
 class TestParsing(unittest.TestCase):
     def test__parse_and_chunk_vlm(self):
         # delete the directory where the images were saved
@@ -37,7 +37,7 @@ class TestParsing(unittest.TestCase):
 
         # delete the directory where the images were saved
         os.system("rm -rf ~/dsrag_test_mck_energy")
-"""
+
 
 class TestRetrieval(unittest.TestCase):
     def test__retrieval(self):
@@ -49,7 +49,7 @@ class TestRetrieval(unittest.TestCase):
         file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), file_path))
         print(file_path)
 
-        kb = KnowledgeBase(kb_id="mck_energy")
+        kb = KnowledgeBase(kb_id="mck_energy_test")
         kb.add_document(
             doc_id="mck_energy_report",
             file_path=file_path,
@@ -66,7 +66,7 @@ class TestRetrieval(unittest.TestCase):
             }
         )
 
-        kb = KnowledgeBase(kb_id="mck_energy")
+        kb = KnowledgeBase(kb_id="mck_energy_test")
         
         query = "People stacking boxes"
         rse_params = {
@@ -88,7 +88,7 @@ class TestRetrieval(unittest.TestCase):
         self.cleanup()
 
     def cleanup(self):
-        kb = KnowledgeBase(kb_id="mck_energy", exists_ok=True)
+        kb = KnowledgeBase(kb_id="mck_energy_test", exists_ok=True)
         kb.delete()
 
         # delete the directory where the images were saved
