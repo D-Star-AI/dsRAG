@@ -139,7 +139,7 @@ google-auth==2.35.0
     # via kubernetes
 googleapis-common-protos==1.65.0
     # via opentelemetry-exporter-otlp-proto-grpc
-grpcio==1.66.2
+grpcio>=1.62.0,<1.67.0
     # via
     #   chromadb
     #   dsrag (pyproject.toml)
@@ -288,7 +288,7 @@ openai==1.51.2
     # via
     #   dsrag (pyproject.toml)
     #   instructor
-opentelemetry-api==1.26.0
+opentelemetry-api<=1.26.0
     # via
     #   chromadb
     #   opentelemetry-exporter-otlp-proto-grpc
@@ -297,33 +297,33 @@ opentelemetry-api==1.26.0
     #   opentelemetry-instrumentation-fastapi
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-otlp-proto-common==1.26.0
+opentelemetry-exporter-otlp-proto-common<=1.26.0
     # via opentelemetry-exporter-otlp-proto-grpc
-opentelemetry-exporter-otlp-proto-grpc==1.26.0
+opentelemetry-exporter-otlp-proto-grpc<=1.26.0
     # via chromadb
-opentelemetry-instrumentation==0.47b0
+opentelemetry-instrumentation<=0.47b0
     # via
     #   opentelemetry-instrumentation-asgi
     #   opentelemetry-instrumentation-fastapi
-opentelemetry-instrumentation-asgi==0.47b0
+opentelemetry-instrumentation-asgi<=0.47b0
     # via opentelemetry-instrumentation-fastapi
-opentelemetry-instrumentation-fastapi==0.47b0
+opentelemetry-instrumentation-fastapi<=0.47b0
     # via chromadb
-opentelemetry-proto==1.26.0
+opentelemetry-proto<=1.26.0
     # via
     #   dsrag (pyproject.toml)
     #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-grpc
-opentelemetry-sdk==1.26.0
+opentelemetry-sdk<=1.26.0
     # via
     #   chromadb
     #   opentelemetry-exporter-otlp-proto-grpc
-opentelemetry-semantic-conventions==0.47b0
+opentelemetry-semantic-conventions<=0.47b0
     # via
     #   opentelemetry-instrumentation-asgi
     #   opentelemetry-instrumentation-fastapi
     #   opentelemetry-sdk
-opentelemetry-util-http==0.47b0
+opentelemetry-util-http<=0.47b0
     # via
     #   opentelemetry-instrumentation-asgi
     #   opentelemetry-instrumentation-fastapi
