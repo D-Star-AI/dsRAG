@@ -1,8 +1,38 @@
 # dsParse
-dsParse is a sub-module of dsRAG that does file parsing and chunking. You provide a file path and receive nice clean chunks.
+dsParse is a sub-module of dsRAG that does file parsing and chunking. You provide a file path (and some config params) and receive nice clean chunks.
 
 ```python
-sections, chunks = parse_and_chunk_vlm(file_path)
+sections, chunks = parse_and_chunk_vlm(
+    file_path,
+    vlm_config = {
+        "provider": "vertex_ai",
+        "model": "gemini-1.5-pro-002",
+        "project_id": os.environ["VERTEX_PROJECT_ID"],
+        "location": "us-central1",
+        "save_path": "~/dsrag_test_mck_energy"
+    }
+)
+```
+
+dsParse can be used on its own, as shown above, or in conjunction with a dsRAG knowledge base. To use it with dsRAG, you just use the `add_document` function like normal, but set `use_vlm` to True in the `file_parsing_config` dictionary, and include a `vlm_config`.
+
+```python
+kb = KnowledgeBase(kb_id="mck_energy_test")
+kb.add_document(
+    doc_id="mck_energy_report",
+    file_path=file_path,
+    document_title="McKinsey Energy Report",
+    file_parsing_config={
+        "use_vlm": True,
+        "vlm_config": {
+            "provider": "vertex_ai",
+            "model": "gemini-1.5-pro-002",
+            "project_id": os.environ["VERTEX_PROJECT_ID"],
+            "location": "us-central1",
+            "save_path": "~/dsrag_test_mck_energy"
+        }
+    }
+)
 ```
 
 ## File parsing
@@ -10,7 +40,7 @@ dsParse uses a vision language model (VLM) to parse documents.
 
 The default model, `gemini-1.5-pro-002`, is the only model that works reliably enough for this task right now. It can be accessed through the Gemini API or the Vertex API.
 
-#### Element types
+### Element types
 Page content is categorized into the following seven categories:
 - NarrativeText
     - This is the main text content of the page, including paragraphs, lists, titles, and any other text content that is not part of a header, footer, figure, table, or image.
@@ -29,10 +59,12 @@ Page content is categorized into the following seven categories:
 
 You can choose to exclude certain element types. By default, Header and Footer elements are excluded, as they rarely contain valuable information and they break up the flow between pages.
 
-`exclude_elements = ["Header", "Footer", "Footnote"]
+`exclude_elements = ["Header", "Footer", "Footnote"]`
 
-#### Bounding boxes for visual elements
+### Bounding boxes for visual elements
 For the two types of visual elements (Figure and Image) the VLM is required to include a bounding box for the image. This is what allows us to extract the image from the page.
+
+The VLM also generates a description of the figure/image. This description can be used in place of text content in the retrieval pipeline.
 
 ## Semantic sectioning and chunking
 Semantic sectioning uses an LLM to break a document into sections. It works by annotating the document with line numbers and then prompting an LLM to identify the starting lines for each “semantically cohesive section.” These sections should be anywhere from a few paragraphs to a few pages long. The sections then get broken into smaller chunks if needed. The LLM also generates descriptive titles for each section. These section titles get used in the contextual chunk headers created by AutoContext, which provides additional context to the ranking models (embeddings and reranker), enabling better retrieval.
@@ -43,10 +75,10 @@ The default model for semantic sectioning is `gpt-4o-mini`, but similarly strong
 An obvious concern with using a large model like `gemini-1.5-pro-002` to parse documents is the cost. Let's run the numbers:
 
 VLM file parsing cost calculation (`gemini-1.5-pro-002`)
-- image input: 1 image x $0.00032875 per image = $0.00032875
-- text input (prompt): 400 tokens x $1.25/10^6 per token = $0.000500
-- text output: 600 tokens x $5.00/10^6 per token = $0.003000
-Total: $0.00382875/page or **$3.83 per 1000 pages**
+- Image input: 1 image x $0.00032875 per image = $0.00032875
+- Text input (prompt): 400 tokens x $1.25/10^6 per token = $0.000500
+- Text output: 600 tokens x $5.00/10^6 per token = $0.003000
+- Total: $0.00382875/page or **$3.83 per 1000 pages**
 
 This is actually cheaper than many commercially available PDF parsing services. Unstructured, for example, costs $10 per 1000 pages.
 
@@ -55,8 +87,8 @@ What about latency and throughput? Since each page is processed independently, t
 Semantic sectioning uses a much cheaper model, and it also uses far fewer output tokens, so it ends up being far cheaper than the file parsing step.
 
 Semantic sectioning cost calculation (`gpt-4o-mini`)
-- input: 800 tokens x $0.15/10^6 per token = $0.00012
-- output: 50 tokens x $0.60/10^6 per token = $0.00003
-Total: $0.00015/page or **$0.15 per 1000 pages**
+- Input: 800 tokens x $0.15/10^6 per token = $0.00012
+- Output: 50 tokens x $0.60/10^6 per token = $0.00003
+- Total: $0.00015/page or **$0.15 per 1000 pages**
 
 Document text is processed in ~5000 token mega-chunks, which is roughly ten pages on average. But these mega-chunks have to be processed sequentially for each document. Processing each mega-chunk only takes a couple seconds, though, so even a large document of a few hundred pages will only take 20-60 seconds. Rate limits for the OpenAI API are heavily dependent on the usage tier you're in.
