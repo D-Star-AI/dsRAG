@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+
 from dsrag.dsparse.vlm_file_parsing import parse_file
 from dsrag.dsparse.non_vlm_file_parsing import parse_file_no_vlm
 from dsrag.dsparse.semantic_sectioning import get_sections_from_elements, get_sections_from_str, get_sections_from_pages
@@ -5,7 +9,6 @@ from dsrag.dsparse.chunking import chunk_document
 
 from typing import List, Dict, Tuple
 import json
-import os
 
 def parse_and_chunk_vlm(file_path: str, vlm_config: dict, semantic_sectioning_config: dict, chunking_config: dict) -> Tuple[List[Dict], List[Dict]]:
     """
@@ -200,7 +203,7 @@ def parse_and_chunk_no_vlm(semantic_sectioning_config: dict, chunking_config: di
 if __name__ == "__main__":
     user_id = "zmcc"
 
-    pdf_path = '/Users/zach/Code/dsRAG/tests/data/levels_of_agi.pdf'
+    pdf_path = "/Users/nickmccormick/Documents/D-Star-AI/dsRAG/tests/data/mck_energy_first_5_pages.pdf" # '/Users/zach/Code/dsRAG/tests/data/levels_of_agi.pdf'
     file_id = "levels_of_agi"
     
     #pdf_path = "/Users/zach/Code/mck_energy.pdf"
@@ -223,15 +226,15 @@ if __name__ == "__main__":
         "language": "en",
     }
     
-    """
+    
     chunks = parse_and_chunk_vlm(
         file_path=pdf_path,
         vlm_config=vlm_config,
-        semantic_sectioning_config=semantic_sectioning_config
+        semantic_sectioning_config=semantic_sectioning_config,
+        chunking_config={}
         )
-    """
         
-    chunks = parse_and_chunk_no_vlm(
+    """chunks = parse_and_chunk_no_vlm(
         file_path=pdf_path,
         semantic_sectioning_config=semantic_sectioning_config
-        )
+        )"""
