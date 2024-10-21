@@ -1,4 +1,4 @@
-from dsrag.dsparse.vertex_ai import make_llm_call_gemini
+from dsrag.dsparse.vlm import make_llm_call_gemini, make_llm_call_vertex
 import concurrent.futures
 #from dsrag.dsparse.types import Element
 
@@ -171,7 +171,7 @@ def parse_page(page_image_path: str, page_number: int, save_path: str, vlm_confi
     """
     if vlm_config["provider"] == "vertex_ai":
         try:
-            llm_output = make_llm_call_gemini(
+            llm_output = make_llm_call_vertex(
                 image_path=page_image_path, 
                 system_message=SYSTEM_MESSAGE, 
                 model=vlm_config["model"], 
@@ -179,11 +179,26 @@ def parse_page(page_image_path: str, page_number: int, save_path: str, vlm_confi
                 location=vlm_config["location"],
                 response_schema=response_schema,
                 max_tokens=4000
-                )
+            )
         except Exception as e:
             if "429 Online prediction request quota exceeded" in str(e):
                 print (f"Error in make_llm_call_gemini: {e}")
                 return 429
+    elif vlm_config["provider"] == "gemini":
+        try:
+            llm_output = make_llm_call_gemini(
+                image_path=page_image_path, 
+                system_message=SYSTEM_MESSAGE, 
+                model=vlm_config["model"],
+                response_schema=response_schema,
+                max_tokens=4000
+            )
+        except Exception as e:
+            if "429 Online prediction request quota exceeded" in str(e):
+                print (f"Error in make_llm_call_gemini: {e}")
+                return
+            else:
+                print (f"Error in make_llm_call_gemini: {e}")
     else:
         raise ValueError("Invalid provider specified in the VLM config. Only 'vertex_ai' is supported for now.")
     

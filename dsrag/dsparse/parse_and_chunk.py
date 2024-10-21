@@ -10,13 +10,13 @@ from dsrag.dsparse.chunking import chunk_document
 from typing import List, Dict, Tuple
 import json
 
-def parse_and_chunk_vlm(file_path: str, vlm_config: dict, semantic_sectioning_config: dict, chunking_config: dict) -> Tuple[List[Dict], List[Dict]]:
+def parse_and_chunk_vlm(file_path: str, vlm_config: dict, semantic_sectioning_config: dict, chunking_config: dict, testing_mode: bool = False) -> Tuple[List[Dict], List[Dict]]:
     """
     Inputs
     - file_path: the path to the file to parse and chunk
         - supported file types: .pdf
     - vlm_config: a dictionary containing the configuration for the VLM parser
-        - provider: the VLM provider to use - only "vertex_ai" is supported at the moment
+        - provider: the VLM provider to use - only "vertex_ai" and "gemini" are supported at the moment
         - model: the VLM model to use
         - project_id: the GCP project ID (required if provider is "vertex_ai")
         - location: the GCP location (required if provider is "vertex_ai")
@@ -40,8 +40,6 @@ def parse_and_chunk_vlm(file_path: str, vlm_config: dict, semantic_sectioning_co
         - page_end: int - the page number the chunk ends on (inclusive)
         - section_index: int - the index of the section this chunk belongs to
     """
-
-    testing_mode = True
 
     # Step 1: Parse the file
 
@@ -105,7 +103,7 @@ def parse_and_chunk_vlm(file_path: str, vlm_config: dict, semantic_sectioning_co
 
     return sections, chunks
 
-def parse_and_chunk_no_vlm(semantic_sectioning_config: dict, chunking_config: dict, file_path: str = "", text: str = "") -> List[Dict]:
+def parse_and_chunk_no_vlm(semantic_sectioning_config: dict, chunking_config: dict, file_path: str = "", text: str = "", testing_mode: bool = False) -> List[Dict]:
     """
     Inputs
     - semantic_sectioning_config: a dictionary containing the configuration for the semantic sectioning algorithm
@@ -126,8 +124,6 @@ def parse_and_chunk_no_vlm(semantic_sectioning_config: dict, chunking_config: di
     """
     if text == "" and file_path == "":
         raise ValueError("Either text or file_path must be provided")
-
-    testing_mode = True
 
     # Step 1: Parse the file
 
@@ -212,9 +208,9 @@ if __name__ == "__main__":
     save_path = f"{user_id}/{file_id}" # base directory to save the page images, pages with bounding boxes, and extracted images
 
     vlm_config = {
-        "provider": "vertex_ai",
+        "provider": "gemini",
         "model": "gemini-1.5-pro-002",
-        "project_id": os.environ["VERTEX_PROJECT_ID"],
+        #"project_id": os.environ["VERTEX_PROJECT_ID"],
         "location": "us-central1",
         "save_path": save_path,
         "exclude_elements": ["Header", "Footer"],
@@ -227,12 +223,12 @@ if __name__ == "__main__":
     }
     
     
-    chunks = parse_and_chunk_vlm(
+    """sections, chunks = parse_and_chunk_vlm(
         file_path=pdf_path,
         vlm_config=vlm_config,
         semantic_sectioning_config=semantic_sectioning_config,
         chunking_config={}
-        )
+    )"""
         
     """chunks = parse_and_chunk_no_vlm(
         file_path=pdf_path,

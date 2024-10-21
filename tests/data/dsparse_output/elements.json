@@ -1,0 +1,161 @@
+[
+  {
+    "bounding_box": [],
+    "content": "McKinsey\n& Company",
+    "description": "",
+    "type": "Header",
+    "page_number": 1
+  },
+  {
+    "bounding_box": [],
+    "content": "The State\nof Energy\nOrganizations\n2024",
+    "description": "",
+    "type": "NarrativeText",
+    "page_number": 1
+  },
+  {
+    "bounding_box": [
+      558,
+      36,
+      962,
+      900
+    ],
+    "content": "",
+    "description": "A stylized illustration depicts people interacting with a tall, abstract structure composed of various-sized blocks in shades of blue and gold. The structure resembles a precarious tower, with some blocks seemingly floating or unsupported.  People, depicted in simplified forms and bright colors, are engaged in different activities around the structure. Some appear to be building or adjusting it, while others are observing or transporting smaller blocks.  The scene is set against a backdrop of a green field, a light blue sky with stylized clouds, and a road on which a white SUV is driving. Two kite-like objects, carrying what appear to be data visualizations, float in the sky, connected by strings to individuals on the ground. The overall impression is one of dynamic activity and construction, possibly symbolizing the evolving nature of energy organizations.",
+    "type": "Image",
+    "page_number": 1,
+    "image_path": "/Users/nickmccormick/Documents/D-Star-AI/dsRAG/tests/data/dsparse_output/extracted_images/page_1_image_0.png"
+  },
+  {
+    "bounding_box": [],
+    "content": "Contents",
+    "description": "",
+    "type": "NarrativeText",
+    "page_number": 2
+  },
+  {
+    "bounding_box": [],
+    "content": "Energy organizations in transition\n3\nOperating model\n8\nNew energy businesses: The independence versus integration dilemma\n8\nFive features of operational excellence in oil and gas organizations\n18\nThe productivity prize in oil and gas: Lessons from top performers\n22\nTalent\n27\nTalent squeeze: Planning for the energy sector's talent transition\n27\nEmployee retention trends and challenges in the oil and gas industry\n36\nLeadership\n43\nPowering up new leadership for a changing energy environment\n43\nTransforming an oil and gas equipment leader: A case study\n54\nM&A\n59\nSuccess in the M&A rebound: Riding the coming wave of upstream deals\n59\nBeyond G&A: Maximizing synergy from oil and gas mergers\n65\nThe importance of cultural integration in M&A: The path to success\n73",
+    "description": "",
+    "type": "NarrativeText",
+    "page_number": 2
+  },
+  {
+    "bounding_box": [],
+    "content": "The State of Energy Organizations 2024\n2",
+    "description": "",
+    "type": "Footer",
+    "page_number": 2
+  },
+  {
+    "bounding_box": [],
+    "content": "Energy organizations in\ntransition",
+    "description": "",
+    "type": "NarrativeText",
+    "page_number": 3
+  },
+  {
+    "bounding_box": [],
+    "content": "Organizations in the energy sector are evolving in response to the\nenergy quadrilemma. With critical choices and challenges on the\nhorizon, making proactive moves now could determine future success.",
+    "description": "",
+    "type": "NarrativeText",
+    "page_number": 3
+  },
+  {
+    "bounding_box": [],
+    "content": "This article is a collaborative effort by Robert Belanger, Ignacio Fantaguzzi, Christopher\nHandscomb, Jesper Ludolph, and Phil Quadri, representing views from McKinsey's Global Energy &\nMaterials and People & Organizational Performance Practices.",
+    "description": "",
+    "type": "NarrativeText",
+    "page_number": 3
+  },
+  {
+    "bounding_box": [
+      0,
+      68,
+      310,
+      700
+    ],
+    "content": "",
+    "description": "A tall, abstract structure, resembling a stack of data reports and visualizations, dominates the image. Each level of the structure showcases different data representations, including bar graphs, line charts, pie charts, and text documents. The color scheme primarily uses shades of blue and gold/yellow for the structure itself.  Around this structure are several stylized figures of people, seemingly interacting with the data. Some are holding or manipulating parts of the structure as if assembling or analyzing it.  The figures are diverse in appearance and are depicted in a dynamic, almost animated style. The background features a simplified landscape with green hills and a winding path, suggesting a sense of progress or journey.",
+    "type": "Image",
+    "page_number": 3,
+    "image_path": "/Users/nickmccormick/Documents/D-Star-AI/dsRAG/tests/data/dsparse_output/extracted_images/page_3_image_0.png"
+  },
+  {
+    "bounding_box": [],
+    "content": "The State of Energy Organizations 2024\n3",
+    "description": "",
+    "type": "Footer",
+    "page_number": 3
+  },
+  {
+    "bounding_box": [],
+    "content": "The coming decade will be a defining moment for the\nglobal energy system. Institutional and public interest\nis at an all-time high, driven by the ever-increasing\nneed for affordable, reliable, secure, and competitive\nenergy. Companies must navigate the task of\nmaintaining a strong, high-return \"traditional\" core,\nwhile building businesses in the fast-moving, high-\ngrowth space of renewables, low-carbon solutions,\npower, and retail. This challenge demands bold\naction and innovative solutions, as we work toward a\nsustainable energy future that benefits our planet and\nour economies.\n\nFor the world, solving this energy quadrilemma\nwill require significant investment, technological\nadvancements, and a favorable operating\nenvironment. However, at the heart of this journey are\nenergy organizations and their leaders. Being fast,\nagile, and efficient will be essential as competition\nfor talent intensifies, integration of mergers and\nacquisitions becomes crucial for value creation, and\ngenerative Al (gen Al) changes the workplace as we\nknow it.\n\nIn this report, we build on our flagship cross-industry\nState of Organizations research and take a closer look\nat the State of Energy Organizations.1 We identify and\nexplore four key themes for energy companies in the\ncoming year: operating models, leadership, talent, and\nmergers and acquisitions, with reflective questions\nfor organizations to consider as they navigate through\n2024 and beyond.",
+    "description": "",
+    "type": "NarrativeText",
+    "page_number": 4
+  },
+  {
+    "bounding_box": [],
+    "content": "Choices to define the next decade",
+    "description": "",
+    "type": "NarrativeText",
+    "page_number": 4
+  },
+  {
+    "bounding_box": [],
+    "content": "Over the past 18 months we have seen several\nenergy companies announce strategic adjustments\nthat reemphasize the importance of their traditional\ncore businesses. This reflects the growing\nimportance of energy reliability and security, as\nwell as slower than expected cash flows from\nnew energy businesses. Against this backdrop,\ncompanies are recognizing that now is the time to\nmaximize value creation in the traditional business,\ngrow cash flows, and take advantage of the high\nreturns. However, as this momentum grows, an\nold question has resurfaced: business unit- or\nfunction-first for the traditional core business?",
+    "description": "",
+    "type": "NarrativeText",
+    "page_number": 4
+  },
+  {
+    "bounding_box": [],
+    "content": "What primary axis should be\nused for the traditional core?",
+    "description": "",
+    "type": "NarrativeText",
+    "page_number": 4
+  },
+  {
+    "bounding_box": [],
+    "content": "The choice between business unit (BU)\u2014whether\nasset, regional, or value chain\u2014or function-centric as\nthe primary organizational axis has been a hot topic\nfor several decades, with many companies switching\nbetween these models over time.\n\nThe choice of model essentially reflects a fundamental\nbelief about how a company creates distinctive value:\non the one hand, a functional model enables you to\noptimize across portfolios, and drive global scale,\nstandardization, and functional excellence. On the\nother, anchoring ownership in the BU incentivizes local\noptimization, aiming to capture value in each and every\nfacility, with the potential to move more quickly and\nunlock significant growth.\n\nOver the past year, we have seen an increasing\nnumber of companies begin to revisit this choice\nand we expect this to be a growing theme through\n2024. To contribute to this debate, we reviewed\nover 20 years of McKinsey proprietary performance\ndatasets to draw insights linking asset performance\nwith operating model choices. We found, on average,\nthat BU or asset-centric models have the edge in\nterms of operational performance, but that they can\ncompromise on consistency and produce a wider\nrange of outcomes on both operating cost and\nproduction efficiency.\n\nIrrespective of the choice made, companies can also\ngo back to basics by focusing on some fundamental\nstep changes across their operating model: radical\nsimplification, value-backed technology deployment,",
+    "description": "",
+    "type": "NarrativeText",
+    "page_number": 4
+  },
+  {
+    "bounding_box": [],
+    "content": "1 The state of organizations 2023: Ten shifts transforming organizations, McKinsey, April 26, 2023.",
+    "description": "",
+    "type": "Footnote",
+    "page_number": 4
+  },
+  {
+    "bounding_box": [],
+    "content": "4",
+    "description": "",
+    "type": "Footer",
+    "page_number": 4
+  },
+  {
+    "bounding_box": [],
+    "content": "delivery through agile teaming, and other efforts to\nclose the productivity gap.\nAdditionally, we are observing a trend of companies\ngoing even deeper into their operating model\u2014\nreimagining both technical and nontechnical support\nmodels. Naturally, gen AI and digital will play a leading\nrole, however, many companies are rethinking their\ngeographic footprint, tapping into large engineering\ntalent markets, and revisiting their operating models\nfor technology development and deployment to ride\nthe next technology S-curve.\nKey questions to consider\n\u2022 Do you have the right tension between a BU-\nand function-centric organization to deliver\nyour ambitions?\n\u2022 What are the big unlocks in 2024 that would\ndrive performance?\n\u2022 How could changes to your geographic\nfootprint or technology operating model enable\nstronger performance?\nShould new energy businesses\nbe integrated in or independent\nfrom the core?\nMost energy players have ambitions to grow new\nenergy businesses alongside enjoying continued\nsuccess in their existing core. These twin objectives\nrequire winning simultaneously in very different\nmarkets, with different drivers of success and,\ntherefore, different operating model needs. As a result,\nwe see energy companies around the world grappling\nwith profound questions over how to set up their\norganization to win in both worlds.\nFirst, the bad news. The data shows that most\ncorporate new business builds are not a great success.\nJust 16 percent of all new business builds in Fortune\n100 companies since 2000 have turned out to be\nblockbuster successes; the remainder were partial\nsuccesses at best.\u00b2\nOvercoming these odds will not be easy and\nthe fundamental question is how to harness the\nadvantages of being an incumbent while providing the\nfreedom to deliver with the agility of a start-up.\nThe answer is not the same for all; however, purposeful\ndecisions are needed sooner rather than later to\ndeliver on the growth promised to investors.\nKey questions to consider\n\u2022 At the strategic level (including capital allocation)\nhow autonomous should your new energy\nbusiness be?\n\u2022 What are the right key success factors that will\nenable your new energy business to grow?\n\u2022 What are the right architecture, corporate\nfunctions, technical support, midstream gas or\ntrading decisions that will set your new energy\nbusiness up for success?\nWhat are the talent and leadership\nneeds for a new era?\nThe focus over recent years has been to secure\nspecialist engineering, digital, and commercial talent\nto develop new businesses and capabilities. This\nchallenge remains alive, and competition for talent\ncontinues to be fierce.\nHowever, a new challenge of equal proportion is\nbubbling under the surface: the need to retain and\nrefresh the skill base to sustain the existing core\nbusiness. This challenge will grow in prominence\nagainst a backdrop of significant retirements, with\n400,000 oil and gas employees in the United States\napproaching retirement, and the increasingly negative\nperception of the traditional energy sector among\nyounger workers in some parts of the world. \u00b3",
+    "description": "",
+    "type": "NarrativeText",
+    "page_number": 5
+  },
+  {
+    "bounding_box": [],
+    "content": "\u00b2 Matt Banholzer, Markus Berger-de Le\u00f3n, Subu Narayanan, and Mark Patel, \"How industrial incumbents can create new businesses,\" McKinsey,\nNovember 13, 2019.\n\u00b3 \"Labor force statistics from the current population survey,\" U.S. Bureau of Labor Statistics, 2022.",
+    "description": "",
+    "type": "Footnote",
+    "page_number": 5
+  },
+  {
+    "bounding_box": [],
+    "content": "The State of Energy Organizations 2024\n5",
+    "description": "",
+    "type": "Footer",
+    "page_number": 5
+  }
+]
