@@ -27,6 +27,7 @@ class SQLiteDB(ChunkDB):
             {"name": "chunk_length", "type": "INT"},
             {"name": "chunk_page_start", "type": "INT"},
             {"name": "chunk_page_end", "type": "INT"},
+            {"name": "image_path", "type": "TEXT"},
             {"name": "created_on", "type": "TEXT"},
             {"name": "supp_id", "type": "TEXT"},
             {"name": "metadata", "type": "TEXT"},
@@ -76,9 +77,10 @@ class SQLiteDB(ChunkDB):
             chunk_text = chunk.get("chunk_text", "")
             chunk_page_start = chunk.get("chunk_page_start", None)
             chunk_page_end = chunk.get("chunk_page_end", None)
+            image_path = chunk.get("image_path", None)
             chunk_length = len(chunk_text)
             c.execute(
-                "INSERT INTO documents (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_page_start, chunk_page_end, chunk_index, chunk_length, created_on, supp_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO documents (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_page_start, chunk_page_end, image_path, chunk_index, chunk_length, created_on, supp_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     doc_id,
                     document_title,
@@ -88,6 +90,7 @@ class SQLiteDB(ChunkDB):
                     chunk_text,
                     chunk_page_start,
                     chunk_page_end,
+                    image_path,
                     chunk_index,
                     chunk_length,
                     created_on,
@@ -182,6 +185,19 @@ class SQLiteDB(ChunkDB):
         conn.close()
         if result:
             return result
+        return None
+    
+    def get_image_path(self, doc_id: str, chunk_index: int) -> Optional[str]:
+        # Retrieve the image path from the sqlite table
+        conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
+        c = conn.cursor()
+        c.execute(
+            f"SELECT image_path FROM documents WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}"
+        )
+        result = c.fetchone()
+        conn.close()
+        if result:
+            return result[0]
         return None
 
     def get_document_title(self, doc_id: str, chunk_index: int) -> Optional[str]:

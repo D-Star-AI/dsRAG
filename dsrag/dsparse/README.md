@@ -35,8 +35,14 @@ kb.add_document(
 )
 ```
 
-## File parsing
-dsParse uses a vision language model (VLM) to parse documents. 
+## Multimodal file parsing
+dsParse uses a vision language model (VLM) to parse documents. This has a few advantages:
+- It can provide descriptions and bounding boxes for visual elements, like images and figures.
+- It can parse documents that don't have extractable text (i.e. those that require OCR).
+- It can accurately parse documents with complex structures.
+- It can accurately categorize page content into element types.
+
+When it comes across an element on the page that can't be accurately represented with text alone, like an image or figure (chart, graph, diagram, etc.), it provides a text description of it as well as a bounding box for it. The bounding box is used to extract the image/figure from the page. 
 
 The default model, `gemini-1.5-pro-002`, is the only model that works reliably enough for this task right now. It can be accessed through the Gemini API or the Vertex API.
 
@@ -57,14 +63,14 @@ Page content is categorized into the following seven categories:
 - Footer
     - This is the footer of the page.
 
-You can choose to exclude certain element types. By default, Header and Footer elements are excluded, as they rarely contain valuable information and they break up the flow between pages.
-
-`exclude_elements = ["Header", "Footer", "Footnote"]`
+You can choose to exclude certain element types. By default, Header and Footer elements are excluded, as they rarely contain valuable information and they break up the flow between pages. For example, if you wanted to exclude footnotes, in addition to headers and footers, you would do: `exclude_elements = ["Header", "Footer", "Footnote"]`.
 
 ### Bounding boxes for visual elements
 For the two types of visual elements (Figure and Image) the VLM is required to include a bounding box for the image. This is what allows us to extract the image from the page.
 
 The VLM also generates a description of the figure/image. This description can be used in place of text content in the retrieval pipeline.
+
+At inference-time, whenever the search results include visual elements, you can swap out the text description for the actual image (assuming you're using a model that supports image inputs).
 
 ## Semantic sectioning and chunking
 Semantic sectioning uses an LLM to break a document into sections. It works by annotating the document with line numbers and then prompting an LLM to identify the starting lines for each “semantically cohesive section.” These sections should be anywhere from a few paragraphs to a few pages long. The sections then get broken into smaller chunks if needed. The LLM also generates descriptive titles for each section. These section titles get used in the contextual chunk headers created by AutoContext, which provides additional context to the ranking models (embeddings and reranker), enabling better retrieval.
