@@ -24,7 +24,7 @@ class Chunks(TypedDict):
     line_start: int
     line_end: int
     content: str
-    image_path: str
+    image_path: Optional[str]
     page_start: int
     page_end: int
     section_index: int
