@@ -1,6 +1,5 @@
 import PyPDF2
 import docx2txt
-from typing import List, Dict, Tuple
 
 def extract_text_from_pdf(file_path: str) -> tuple[str, list]:
     with open(file_path, 'rb') as file:

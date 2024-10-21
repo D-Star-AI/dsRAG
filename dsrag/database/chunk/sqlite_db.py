@@ -70,34 +70,33 @@ class SQLiteDB(ChunkDB):
 
         # Get the data from the dictionary
         for chunk_index, chunk in chunks.items():
-            document_title = chunk.get("document_title", "")
-            document_summary = chunk.get("document_summary", "")
-            section_title = chunk.get("section_title", "")
-            section_summary = chunk.get("section_summary", "")
             chunk_text = chunk.get("chunk_text", "")
-            chunk_page_start = chunk.get("chunk_page_start", None)
-            chunk_page_end = chunk.get("chunk_page_end", None)
-            image_path = chunk.get("image_path", None)
             chunk_length = len(chunk_text)
-            c.execute(
-                "INSERT INTO documents (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_page_start, chunk_page_end, image_path, chunk_index, chunk_length, created_on, supp_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    doc_id,
-                    document_title,
-                    document_summary,
-                    section_title,
-                    section_summary,
-                    chunk_text,
-                    chunk_page_start,
-                    chunk_page_end,
-                    image_path,
-                    chunk_index,
-                    chunk_length,
-                    created_on,
-                    supp_id,
-                    metadata
-                ),
-            )
+
+            values_dict = {
+                'doc_id': doc_id,
+                'document_title': chunk.get("document_title", ""),
+                'document_summary': chunk.get("document_summary", ""),
+                'section_title': chunk.get("section_title", ""),
+                'section_summary': chunk.get("section_summary", ""),
+                'chunk_text': chunk.get("chunk_text", ""),
+                'chunk_page_start': chunk.get("chunk_page_start", None),
+                'chunk_page_end': chunk.get("chunk_page_end", None),
+                'image_path': chunk.get("image_path", None),
+                'chunk_index': chunk_index,
+                'chunk_length': chunk_length,
+                'created_on': created_on,
+                'supp_id': supp_id,
+                'metadata': metadata
+            }
+
+            # Generate the column names and placeholders
+            columns = ', '.join(values_dict.keys())
+            placeholders = ', '.join(['?'] * len(values_dict))
+
+            sql = f"INSERT INTO documents ({columns}) VALUES ({placeholders})"
+
+            c.execute(sql, tuple(values_dict.values()))
 
         conn.commit()
         conn.close()

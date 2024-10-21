@@ -1,6 +1,6 @@
 from dsrag.dsparse.vlm import make_llm_call_gemini, make_llm_call_vertex
 import concurrent.futures
-#from dsrag.dsparse.types import Element
+from dsrag.dsparse.types import Element
 
 import os
 from pdf2image import convert_from_path
@@ -111,7 +111,7 @@ def encode_image(image_path):
   with open(image_path, "rb") as image_file:
     return base64.b64encode(image_file.read()).decode('utf-8')
 
-def extract_image(page_image_path: str, bounding_box: list[int], extracted_image_path: str, padding: int = 150):
+def extract_image(page_image_path: str, bounding_box: list[int], extracted_image_path: str, padding: int = 150) -> None:
     """
     Given a page image and a bounding box, extract the image from the bounding boxes by cropping the page image.
     - Leave a bit of extra padding around the provided bounding box to ensure that the entire content is captured.
@@ -157,7 +157,7 @@ def extract_image(page_image_path: str, bounding_box: list[int], extracted_image
         cropped_img.save(extracted_image_path)
         print(f"Cropped image saved to: {extracted_image_path}")
 
-def parse_page(page_image_path: str, page_number: int, save_path: str, vlm_config: dict) -> list[dict]:
+def parse_page(page_image_path: str, page_number: int, save_path: str, vlm_config: dict) -> list[Element]:
     """
     Given an image of a page, use LLM to extract the content of the page.
 
@@ -239,7 +239,7 @@ def parse_page(page_image_path: str, page_number: int, save_path: str, vlm_confi
 
     return page_content
 
-def parse_file(pdf_path: str, save_path: str, vlm_config: dict) -> list[dict]:
+def parse_file(pdf_path: str, save_path: str, vlm_config: dict) -> list[Element]:
     """
     Given a PDF file, extract the content of each page using a VLM model.
     Inputs
@@ -255,6 +255,7 @@ def parse_file(pdf_path: str, save_path: str, vlm_config: dict) -> list[dict]:
 
     def process_page(image_path, page_number):
         tries = 0
+        # 20 is kind of arbitrary, but it's a reasonable number of retries
         while tries < 20:
             content = parse_page(image_path, page_number=page_number, save_path=save_path, vlm_config=vlm_config)
             if content == 429:

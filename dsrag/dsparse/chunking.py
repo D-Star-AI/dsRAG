@@ -1,7 +1,8 @@
 from typing import List, Dict, Tuple
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from dsrag.dsparse.types import DocumentLines, Sections, Chunks
 
-def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size: int, min_length_for_chunking: int) -> List[Dict]:
+def chunk_document(sections: List[Sections], document_lines: List[DocumentLines], chunk_size: int, min_length_for_chunking: int) -> List[Chunks]:
     """
     Inputs
     - sections: a list of dictionaries, each containing the following keys:
@@ -25,6 +26,7 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
         - image_path: str - the path to the image file (if applicable)
         - page_start: int - the page number the chunk starts on (inclusive)
         - page_end: int - the page number the chunk ends on (inclusive)
+        - section_index: int - the index of the section this chunk belongs to
     """
 
     chunks = []
@@ -56,33 +58,33 @@ def chunk_document(sections: List[Dict], document_lines: List[Dict], chunk_size:
             # don't chunk images/figures or short sections
             if (line_start == line_end and document_lines[line_start]['element_type'] in ['Image', 'Figure']) or len(text) < min_length_for_chunking:
                 # add the sub-section as a single chunk
-                chunk = {
-                    'line_start': line_start,
-                    'line_end': line_end,
-                    'content': text,
-                    'image_path': document_lines[line_start].get('image_path', ''),
-                    'page_start': document_lines[line_start].get('page_number', None),
-                    'page_end': document_lines[line_end].get('page_number', None),
-                    'section_index': section_index
-                }
+                chunk = Chunks(
+                    line_start=line_start,
+                    line_end=line_end,
+                    content=text,
+                    image_path=document_lines[line_start].get('image_path', ''),
+                    page_start=document_lines[line_start].get('page_number', None),
+                    page_end=document_lines[line_end].get('page_number', None),
+                    section_index=section_index
+                )
                 chunks.append(chunk)
             else:
                 chunks_text, chunk_line_indices = chunk_sub_section(line_start, line_end, document_lines, chunk_size)
                 for chunk_text, (chunk_line_start, chunk_line_end) in zip(chunks_text, chunk_line_indices):
-                    chunk = {
-                        'line_start': chunk_line_start,
-                        'line_end': chunk_line_end,
-                        'content': chunk_text,
-                        'image_path': document_lines[chunk_line_start].get('image_path', ''),
-                        'page_start': document_lines[chunk_line_start].get('page_number', None),
-                        'page_end': document_lines[chunk_line_end].get('page_number', None),
-                        'section_index': section_index
-                    }
+                    chunk = Chunks(
+                        line_start=chunk_line_start,
+                        line_end=chunk_line_end,
+                        content=chunk_text,
+                        image_path=document_lines[chunk_line_start].get('image_path', ''),
+                        page_start=document_lines[chunk_line_start].get('page_number', None),
+                        page_end=document_lines[chunk_line_end].get('page_number', None),
+                        section_index=section_index
+                    )
                     chunks.append(chunk)
 
     return chunks
 
-def chunk_sub_section(line_start: int, line_end: int, document_lines: List[Dict], max_length: int) -> Tuple[List[str], List[Tuple[int, int]]]:
+def chunk_sub_section(line_start: int, line_end: int, document_lines: List[DocumentLines], max_length: int) -> Tuple[List[str], List[Tuple[str, int]]]:
     """
     A sub-section is a portion of a section that is separated by images or figures. 
     - If there are no images or figures then the entire section is considered a sub-section.
