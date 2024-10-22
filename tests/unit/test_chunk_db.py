@@ -277,14 +277,6 @@ class TestSQLiteDB(unittest.TestCase):
         summary = db.get_section_summary(doc_id, 0)
         self.assertEqual(summary, "Summary 1")
 
-    def test__get_image_path(self):
-        db = SQLiteDB(self.kb_id, self.storage_directory)
-        doc_id = "doc1"
-        chunks = {0: {"image_path": "path/to/image", "chunk_text": "Content of chunk 1"}}
-        db.add_document(doc_id, chunks)
-        image_path = db.get_image_path(doc_id, 0)
-        self.assertEqual(image_path, "path/to/image")
-
     def test__get_by_supp_id(self):
         db = SQLiteDB(self.kb_id, self.storage_directory)
         doc_id = "doc1"

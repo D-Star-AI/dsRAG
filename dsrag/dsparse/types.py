@@ -1,5 +1,10 @@
 from typing import Optional, TypedDict
 
+class ElementType(TypedDict):
+    name: str
+    instructions: str
+    is_visual: bool
+
 class Element(TypedDict):
     type: str
     content: str

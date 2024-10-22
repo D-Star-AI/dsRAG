@@ -45,11 +45,6 @@ class BasicChunkDB(ChunkDB):
                 self.data[doc_id][chunk_index].get("chunk_page_end", None),
             )
         return None
-    
-    def get_image_path(self, doc_id: str, chunk_index: int) -> Optional[str]:
-        if doc_id in self.data and chunk_index in self.data[doc_id]:
-            return self.data[doc_id][chunk_index].get("image_path", None)
-        return None
 
     def get_document(
         self, doc_id: str, include_content: bool = False

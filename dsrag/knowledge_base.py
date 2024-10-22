@@ -271,8 +271,7 @@ class KnowledgeBase:
     
     def get_chunk_content(self, doc_id: str, chunk_index: int) -> tuple[str, str]:
         chunk_text = self.chunk_db.get_chunk_text(doc_id, chunk_index)
-        image_path = self.chunk_db.get_image_path(doc_id, chunk_index)
-        return chunk_text, image_path
+        return chunk_text
 
     def get_segment_header(self, doc_id: str, chunk_index: int) -> str:
         document_title = self.chunk_db.get_document_title(doc_id, chunk_index) or ""
@@ -353,7 +352,7 @@ class KnowledgeBase:
             })
 
         for chunk_index in range(chunk_start, chunk_end):  # end index is non-inclusive
-            chunk_text, image_path = self.get_chunk_content(doc_id, chunk_index)
+            chunk_text = self.get_chunk_content(doc_id, chunk_index)
             if image_path:
                 segment.append({
                     "type": "image",

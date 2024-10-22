@@ -23,27 +23,14 @@ There are four types of text elements: NarrativeText, Header, Footnote, and Foot
 Every element on the page should be classified as one of these types. There should be no overlap between elements. You should use the smallest number of elements possible while still accurately representing the content on the page. For example, if the page contains a couple paragraphs of text, followed by a large figure, followed by a few more paragraphs of text, you should use three elements: NarrativeText, Figure, and NarrativeText.
 
 Here are detailed descriptions of the element types you can use:
-- NarrativeText
-    - This is the main text content of the page, including paragraphs, lists, titles, and any other text content that is not part of one of the other more specialized element types. Not all pages have narrative text, but most do. Be sure to use Markdown formatting for the text content. This includes using tags like # for headers, * for lists, etc. Make sure your header tags are properly nested and that your lists are properly formatted.
-- Figure
-    - This covers charts, graphs, diagrams, complex tables, etc. Associated titles, legends, axis titles, etc. should be considered to be part of the figure. Be sure your descriptions and bounding boxes fully capture these associated items, as they are essential for providing context to the figure. 
-- Image
-    - This is any visual content on the page that isn't a figure. This could include photos, illustrations, etc. Any title or captions associated with the image should be considered part of the image. Be sure your descriptions and bounding boxes fully capture these associated items, as they are essential for providing context to the image. Do not include background images or other images that don't convey any information.
-- Table
-    - If a table can be represented accurately using Markdown, then it should be included as a Table element. Proper Markdown formatting must be used for the content. If not, it should be included as a Figure element instead. Be especially careful with multi-column tables: it's critical that you use proper Markdown formatting to ensure the table is accurately represented.
-- Header
-    - This is the header of the page, which would be located at the very top of the page and may include things like a document titles and page number. You should never user more than one header element per page. Not all pages have a header. Note that headers are not the same as titles or subtitles within the main text content of the page. Those should be included in NarrativeText elements.
-- Footnote
-    - Footnotes should always be included as a separate element from the main text content as they aren't part of the main linear reading flow of the page. Not all pages have footnotes.
-- Footer
-    - This is the footer of the page, which would be located at the very bottom of the page. You should never user more than one footer element per page. Not all pages have a footer, but when they do it is always the very last element on the page.
+{element_description_block}
 
-For Image and Figure elements ONLY, you must provide a detailed description of the image or figure in the "content" field. Do not just transcribe the actual text contained in the image or figure. For all other element types, you must provide the text content of the element.
+For visual elements ({visual_elements_as_str}), you must provide a detailed description of the element in the "content" field. Do not just transcribe the actual text contained in the element. For all other element types, you must provide the exact text content of the element.
 
 Output format
 - Your output should be an ordered (from top to bottom) list of elements on the page, where each element is a dictionary with the following keys:
-    - type: str - the type of the element (e.g. "NarrativeText", "Figure", "Image", "Table", "Header", "Footnote", or "Footer")
-    - content: str - the content of the element. For "Figure" and "Image" elements, this should be a detailed description of the visual content, rather than a transcription of the actual text contained in the element. You can use Markdown formatting for text content. Always use Markdown for tables.
+    - type: str - the type of the element
+    - content: str - the content of the element. For visual elements, this should be a detailed description of the visual content, rather than a transcription of the actual text contained in the element. You can use Markdown formatting for text content.
 
 Complex and multi-part figures or images should be represented as a single element. For example, if a figure consists of a main chart and a smaller inset chart, these should be described together in a single Figure element. If there are two separate graphs side by side, these should be represented as a single Figure element with a bounding box that encompasses both graphs. DO NOT create separate elements for each part of a complex figure or image.
 """
