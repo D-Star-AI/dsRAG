@@ -15,18 +15,18 @@ brew install poppler
 """
 
 SYSTEM_MESSAGE = """
-You are a PDF parser. Your task is to analyze the provided PDF page (provided as an image) and return a structured JSON response containing all of the elements on the page.
+You are a PDF -> MD file parser. Your task is to analyze the provided PDF page (provided as an image) and return a structured JSON response containing all of the elements on the page. Each element must be represented using Markdown formatting.
 
 There are two categories of elements you need to identify: text elements and visual elements. Text elements are those that can be accurately represented using plain text. Visual elements are those that need to be represented as images to fully capture their content. For text elements, you must provide the full text content. For visual elements, you must provide a detailed description of the content and a bounding box around the content.
 
-There are two types of visual elements: Figure and Image.
-There are five types of text elements: NarrativeText, Table, Header, Footnote, and Footer.
+There are four types of visual elements: Figure, Image, Table, and Equation.
+There are four types of text elements: NarrativeText, Header, Footnote, and Footer.
 
 Every element on the page should be classified as one of these types. There should be no overlap between elements. You should use the smallest number of elements possible while still accurately representing the content on the page. For example, if the page contains a couple paragraphs of text, followed by a large figure, followed by a few more paragraphs of text, you should use three elements: NarrativeText, Figure, and NarrativeText.
 
 Here are detailed descriptions of the seven element types you can use:
 - NarrativeText
-    - This is the main text content of the page, including paragraphs, lists, titles, and any other text content that is not part of a header, footer, figure, table, or image. Not all pages have narrative text, but most do.
+    - This is the main text content of the page, including paragraphs, lists, titles, and any other text content that is not part of a header, footer, figure, table, or image. Not all pages have narrative text, but most do. Be sure to use Markdown formatting for the text content. This includes using tags like # for headers, * for lists, etc. Make sure your header tags are properly nested and that your lists are properly formatted.
 - Figure
     - This covers charts, graphs, diagrams, complex tables, etc. Associated titles, legends, axis titles, etc. should be considered to be part of the figure. Be sure your descriptions and bounding boxes fully capture these associated items, as they are essential for providing context to the figure. 
 - Image
@@ -48,11 +48,14 @@ Output format
     - content: str - the content of the element. For "Figure" and "Image" elements, this should be a detailed description of the visual content, rather than a transcription of the actual text contained in the element. You can use Markdown formatting for text content. Always use Markdown for tables.
     - bounding_box: list[int] (ONLY include when type is "Image" or "Figure". For other element types, just use an empty list here) - a bounding box around the image or figure, in the format [ymin, xmin, ymax, xmax]. Be sure the bounding box fully captures the content of the image or figure, including any associated titles, legends, axis titles, etc.
 
+Complex and multi-part figures or images should be represented as a single element. For example, if a figure consists of a main chart and a smaller inset chart, these should be described together in a single Figure element. If there are two separate graphs side by side, these should be represented as a single Figure element with a bounding box that encompasses both graphs. DO NOT create separate elements for each part of a complex figure or image.
+
 Additional instructions
 - Ignore background images or other images that don't convey any information.
 - The element types described above are the only ones you are allowed to use.
 - Be sure to include all page content in your response.
 - Image and Figure elements MUST have accurate bounding boxes.
+- For mathematical expressions and equations, you must use LaTeX formatting.
 """
 
 response_schema = {
@@ -66,9 +69,6 @@ response_schema = {
             "content": {
                 "type": "string",
             },
-            "description": {
-                "type": "string",
-            },
             "bounding_box": {
                 "type": "array",
                 "items": {
@@ -76,7 +76,7 @@ response_schema = {
                 },
             },
         },
-        "required": ["type", "content", "description", "bounding_box"],
+        "required": ["type", "content"],
     },
 }
 
@@ -272,3 +272,20 @@ def parse_file(pdf_path: str, save_path: str, vlm_config: dict) -> list[dict]:
         json.dump(all_page_content, f, indent=2)
 
     return all_page_content
+
+def elements_to_markdown(elements: list[dict]) -> str:
+    """
+    Given a list of elements extracted from a PDF, convert them to a markdown string.
+    Inputs
+    - elements: list of dictionaries, each containing information about an element on a page
+    Outputs
+    - markdown_string: str, a markdown string representing the elements
+    """
+    markdown_string = ""
+    for element in elements:
+        if element["type"] in ["Figure", "Image"]:
+            markdown_string += f"![Image {element['page_number']}](./{element['image_path']})\n\n"
+        else:
+            markdown_string += f"{element['content']}\n\n"
+
+    return markdown_string
