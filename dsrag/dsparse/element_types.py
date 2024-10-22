@@ -8,11 +8,23 @@ class ElementType(TypedDict):
 
 def get_visual_elements_as_str(elements: list[ElementType]) -> str:
     visual_elements = [element["name"] for element in elements if element["is_visual"]]
+    last_element = visual_elements[-1]
+    if len(visual_elements) > 1:
+        visual_elements[-1] = f"and {last_element}"
     return ", ".join(visual_elements)
 
 def get_non_visual_elements_as_str(elements: list[ElementType]) -> str:
     non_visual_elements = [element["name"] for element in elements if not element["is_visual"]]
+    last_element = non_visual_elements[-1]
+    if len(non_visual_elements) > 1:
+        non_visual_elements[-1] = f"and {last_element}"
     return ", ".join(non_visual_elements)
+
+def get_num_visual_elements(elements: list[ElementType]) -> int:
+    return len([element for element in elements if element["is_visual"]])
+
+def get_num_non_visual_elements(elements: list[ElementType]) -> int:
+    return len([element for element in elements if not element["is_visual"]])
 
 def get_element_description_block(elements: list[ElementType]) -> str:
     element_blocks = []
@@ -72,5 +84,11 @@ default_element_types = [
     }
 ]
 
-text = get_element_description_block(default_element_types)
-print(text)
+if __name__ == "__main__":
+    #text = get_element_description_block(default_element_types)
+    #text = get_visual_elements_as_str(default_element_types)
+    #text = get_non_visual_elements_as_str(default_element_types)
+    #text = get_num_visual_elements(default_element_types)
+    text = get_num_non_visual_elements(default_element_types)
+
+    print(text)
