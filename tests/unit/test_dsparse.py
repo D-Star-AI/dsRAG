@@ -6,7 +6,7 @@ import json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from dsrag.dsparse.chunking import find_lines_in_range, chunk_sub_section, chunk_document
-from dsrag.dsparse.types import Chunks
+from dsrag.dsparse.types import Chunk
 from dsrag.dsparse.semantic_sectioning import get_document_with_lines
 
 class TestDsParse(unittest.TestCase):
@@ -29,7 +29,7 @@ class TestDsParse(unittest.TestCase):
         )
 
         # Get the keys and types from the Chunks TypedDict
-        chunk_keys_and_types = Chunks.__annotations__.items()
+        chunk_keys_and_types = Chunk.__annotations__.items()
 
         # Check if the first element in chunks is a dictionary with the expected keys
         self.assertIsInstance(chunks[0], dict)

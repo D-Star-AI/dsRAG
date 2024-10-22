@@ -1,8 +1,8 @@
 from typing import List, Dict, Tuple
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from dsrag.dsparse.types import DocumentLines, Sections, Chunks
+from dsrag.dsparse.types import DocumentLines, Section, Chunk
 
-def chunk_document(sections: List[Sections], document_lines: List[DocumentLines], chunk_size: int, min_length_for_chunking: int) -> List[Chunks]:
+def chunk_document(sections: List[Section], document_lines: List[DocumentLines], chunk_size: int, min_length_for_chunking: int) -> List[Chunk]:
     """
     Inputs
     - sections: a list of dictionaries, each containing the following keys:
@@ -58,7 +58,7 @@ def chunk_document(sections: List[Sections], document_lines: List[DocumentLines]
             # don't chunk images/figures or short sections
             if (line_start == line_end and document_lines[line_start]['element_type'] in ['Image', 'Figure']) or len(text) < min_length_for_chunking:
                 # add the sub-section as a single chunk
-                chunk = Chunks(
+                chunk = Chunk(
                     line_start=line_start,
                     line_end=line_end,
                     content=text,
@@ -71,7 +71,7 @@ def chunk_document(sections: List[Sections], document_lines: List[DocumentLines]
             else:
                 chunks_text, chunk_line_indices = chunk_sub_section(line_start, line_end, document_lines, chunk_size)
                 for chunk_text, (chunk_line_start, chunk_line_end) in zip(chunks_text, chunk_line_indices):
-                    chunk = Chunks(
+                    chunk = Chunk(
                         line_start=chunk_line_start,
                         line_end=chunk_line_end,
                         content=chunk_text,

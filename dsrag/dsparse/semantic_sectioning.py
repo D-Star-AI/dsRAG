@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 from anthropic import Anthropic
 from openai import OpenAI
 import instructor
-from dsrag.dsparse.types import SemanticSectioningConfig, DocumentLines, Sections, Element
+from dsrag.dsparse.types import SemanticSectioningConfig, Line, Section, Element
 
 class Section(BaseModel):
     title: str = Field(description="main topic of this section of the document (very descriptive)")
@@ -27,7 +27,7 @@ Note: the document provided to you may just be an excerpt from a larger document
 LANGUAGE_ADDENDUM = "For your section titles, YOU MUST use the same language as the document. If the document is in English, your section titles should be in English. If the document is in another language, your section titles should be in that language."
 
 
-def get_document_with_lines(document_lines: List[DocumentLines], start_line: int, max_characters: int) -> tuple[str, int]:
+def get_document_with_lines(document_lines: List[Line], start_line: int, max_characters: int) -> tuple[str, int]:
     document_with_line_numbers = ""
     character_count = 0
     for i in range(start_line, len(document_lines)):
@@ -92,7 +92,7 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, ll
     else:
         raise ValueError("Invalid provider. Must be either 'anthropic' or 'openai'.")
 
-def get_sections_text(sections: List[Section], document_lines: List[DocumentLines]) -> List[Sections]:
+def get_sections_text(sections: List[Section], document_lines: List[Line]) -> List[Section]:
     """
     Takes in a list of Section objects and returns a list of dictionaries containing the attributes of each Section object plus the content of the section.
     """
@@ -105,7 +105,7 @@ def get_sections_text(sections: List[Section], document_lines: List[DocumentLine
         #contents = document_lines[s.start_index:end_index+1] # +1 because end_index is inclusive
         contents = [document_lines[j]["content"] for j in range(s.start_index, end_index+1)]
 
-        section_dicts.append(Sections(
+        section_dicts.append(Section(
             title=s.title,
             content="\n".join(contents),
             start=s.start_index,
@@ -120,7 +120,7 @@ def get_sections_text(sections: List[Section], document_lines: List[DocumentLine
     return section_dicts
 
 
-def get_sections(document_lines: List[DocumentLines], max_iterations: int, max_characters: int = 20000, llm_provider: str = "openai", model: str = "gpt-4o-mini", language: str = "en") -> List[Sections]:
+def get_sections(document_lines: List[Line], max_iterations: int, max_characters: int = 20000, llm_provider: str = "openai", model: str = "gpt-4o-mini", language: str = "en") -> List[Section]:
     """
     Inputs
     - document_lines: list[dict] - the text of the document
@@ -156,11 +156,11 @@ def get_sections(document_lines: List[DocumentLines], max_iterations: int, max_c
                 start_line = end_line + 1
 
     # get the section text
-    sections: Sections = get_sections_text(all_sections, document_lines)
+    sections: Section = get_sections_text(all_sections, document_lines)
 
     return sections
 
-def elements_to_lines(elements: List[Element], exclude_elements: List[str]) -> List[DocumentLines]:
+def elements_to_lines(elements: List[Element], exclude_elements: List[str]) -> List[Line]:
     """
     Inputs
     - elements: list[dict] - the elements of the document
@@ -191,7 +191,7 @@ def elements_to_lines(elements: List[Element], exclude_elements: List[str]) -> L
 
     return document_lines
 
-def str_to_lines(document: str) -> List[DocumentLines]:
+def str_to_lines(document: str) -> List[Line]:
     document_lines = []
     lines = document.split("\n")
     for line in lines:
@@ -204,7 +204,7 @@ def str_to_lines(document: str) -> List[DocumentLines]:
 
     return document_lines
 
-def pages_to_lines(pages: List[str]) -> List[DocumentLines]:
+def pages_to_lines(pages: List[str]) -> List[Line]:
     document_lines = []
     for i, page in enumerate(pages):
         lines = page.split("\n")
@@ -218,7 +218,7 @@ def pages_to_lines(pages: List[str]) -> List[DocumentLines]:
 
     return document_lines
 
-def no_semantic_sectioning(document: str, num_lines: int) -> List[Sections]:
+def no_semantic_sectioning(document: str, num_lines: int) -> List[Section]:
     # return the entire document as a single section
     sections = [{
         "title": "",
@@ -228,7 +228,7 @@ def no_semantic_sectioning(document: str, num_lines: int) -> List[Sections]:
     }]
     return sections
 
-def get_sections_from_elements(elements: List[Element], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}) -> tuple[List[Sections], List[DocumentLines]]:
+def get_sections_from_elements(elements: List[Element], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}) -> tuple[List[Section], List[Line]]:
     # get the semantic sectioning config params, using defaults if not provided
     use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
@@ -254,7 +254,7 @@ def get_sections_from_elements(elements: List[Element], exclude_elements: List[s
     
     return sections, document_lines
 
-def get_sections_from_str(document: str, max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}) -> tuple[List[Sections], List[DocumentLines]]:
+def get_sections_from_str(document: str, max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}) -> tuple[List[Section], List[Line]]:
     # get the semantic sectioning config params, using defaults if not provided
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
@@ -277,7 +277,7 @@ def get_sections_from_str(document: str, max_characters: int = 20000, semantic_s
         sections = no_semantic_sectioning(document=document, num_lines=len(document_lines))
     return sections, document_lines
 
-def get_sections_from_pages(pages: List[str], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}) -> tuple[List[Sections], List[DocumentLines]]:
+def get_sections_from_pages(pages: List[str], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}) -> tuple[List[Section], List[Line]]:
     # get the semantic sectioning config params, using defaults if not provided
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")

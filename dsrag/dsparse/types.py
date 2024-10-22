@@ -1,30 +1,25 @@
 from typing import Optional, TypedDict
 
 class Element(TypedDict):
-    bounding_box: list[int]
     type: str
-    content: Optional[str]
-    description: Optional[str]
+    content: str
     page_number: Optional[int]
-    image_path: Optional[str]
 
 class Line(TypedDict):
     content: str
     element_type: str
     page_number: Optional[int]
-    image_path: Optional[str]
 
-class Sections(TypedDict):
+class Section(TypedDict):
     title: str
     start: int
     end: int
     content: str
 
-class Chunks(TypedDict):
+class Chunk(TypedDict):
     line_start: int
     line_end: int
     content: str
-    image_path: Optional[str]
     page_start: int
     page_end: int
     section_index: int
@@ -51,9 +46,3 @@ class FileParsingConfig(TypedDict):
     vlm_config: VLMConfig
     semantic_sectioning_config: SemanticSectioningConfig
     chunking_config: ChunkingConfig
-
-class DocumentLines(TypedDict):
-    element_type: str
-    content: str
-    page_number: Optional[int]
-    image_path: Optional[str]

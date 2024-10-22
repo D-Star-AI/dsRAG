@@ -2,16 +2,16 @@ import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from dsrag.dsparse.vlm_file_parsing import parse_file
+from dsrag.dsparse.vlm_file_parsing_flash import parse_file
 from dsrag.dsparse.non_vlm_file_parsing import parse_file_no_vlm
 from dsrag.dsparse.semantic_sectioning import get_sections_from_elements, get_sections_from_str, get_sections_from_pages
 from dsrag.dsparse.chunking import chunk_document
-from dsrag.dsparse.types import VLMConfig, SemanticSectioningConfig, ChunkingConfig, Sections, Chunks
+from dsrag.dsparse.types import VLMConfig, SemanticSectioningConfig, ChunkingConfig, Section, Chunk
 
 from typing import List, Tuple
 import json
 
-def parse_and_chunk_vlm(file_path: str, vlm_config: VLMConfig, semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, testing_mode: bool = False) -> Tuple[List[Sections], List[Chunks]]:
+def parse_and_chunk_vlm(file_path: str, vlm_config: VLMConfig, semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, testing_mode: bool = False) -> Tuple[List[Section], List[Chunk]]:
     """
     Inputs
     - file_path: the path to the file to parse and chunk
@@ -104,7 +104,7 @@ def parse_and_chunk_vlm(file_path: str, vlm_config: VLMConfig, semantic_sectioni
 
     return sections, chunks
 
-def parse_and_chunk_no_vlm(semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, file_path: str = "", text: str = "", testing_mode: bool = False) -> tuple[List[Sections], List[Chunks]]:
+def parse_and_chunk_no_vlm(semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, file_path: str = "", text: str = "", testing_mode: bool = False) -> tuple[List[Section], List[Chunk]]:
     """
     Inputs
     - semantic_sectioning_config: a dictionary containing the configuration for the semantic sectioning algorithm
@@ -223,7 +223,7 @@ if __name__ == "__main__":
         "language": "en",
     }
     
-    section_keys = Sections.__annotations__.keys()
+    section_keys = Section.__annotations__.keys()
     print (section_keys)
     
     """sections, chunks = parse_and_chunk_vlm(

@@ -6,7 +6,7 @@ import shutil
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from dsrag.dsparse.parse_and_chunk import parse_and_chunk_vlm
-from dsrag.dsparse.types import Chunks, Sections
+from dsrag.dsparse.types import Chunk, Section
 
 
 class TestDsParse(unittest.TestCase):
@@ -45,10 +45,10 @@ class TestDsParse(unittest.TestCase):
         self.assertEqual(type(sections), list)
         self.assertEqual(type(chunks), list)
         
-        for key, expected_type in Sections.__annotations__.items():
+        for key, expected_type in Section.__annotations__.items():
             self.assertIsInstance(sections[0][key], expected_type)
         
-        for key, expected_type in Chunks.__annotations__.items():
+        for key, expected_type in Chunk.__annotations__.items():
             self.assertIsInstance(chunks[0][key], expected_type)
 
         self.assertTrue(len(sections[0]["title"]) > 0)
