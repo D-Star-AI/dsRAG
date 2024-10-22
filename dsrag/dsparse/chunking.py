@@ -1,8 +1,8 @@
 from typing import List, Dict, Tuple
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from dsrag.dsparse.types import DocumentLines, Section, Chunk
+from dsrag.dsparse.types import Line, Section, Chunk
 
-def chunk_document(sections: List[Section], document_lines: List[DocumentLines], chunk_size: int, min_length_for_chunking: int) -> List[Chunk]:
+def chunk_document(sections: List[Section], document_lines: List[Line], chunk_size: int, min_length_for_chunking: int) -> List[Chunk]:
     """
     Inputs
     - sections: a list of dictionaries, each containing the following keys:
@@ -23,10 +23,10 @@ def chunk_document(sections: List[Section], document_lines: List[DocumentLines],
         - line_start: int - line number where the chunk begins (inclusive)
         - line_end: int - line number where the chunk ends (inclusive)
         - content: str - the text of the chunk (or a description of the image if applicable)
-        - image_path: str - the path to the image file (if applicable)
         - page_start: int - the page number the chunk starts on (inclusive)
         - page_end: int - the page number the chunk ends on (inclusive)
         - section_index: int - the index of the section this chunk belongs to
+        - is_visual: bool - whether the chunk is a visual element (image, figure, etc.)
     """
 
     chunks = []
@@ -35,11 +35,11 @@ def chunk_document(sections: List[Section], document_lines: List[DocumentLines],
         line_start = section['start']
         line_end = section['end']
 
-        image_indices = [i for i in range(line_start, line_end+1) if document_lines[i]['element_type'] in ['Image', 'Figure']]
+        visual_line_indices = [i for i in range(line_start, line_end+1) if document_lines[i]['is_visual']]
 
         # get the sub-section indices
         prev_line = line_start
-        for idx in sorted(image_indices):
+        for idx in sorted(visual_line_indices):
             if prev_line < idx:
                 # Add text sub-section before the image
                 section_chunk_line_indices.append((prev_line, idx - 1))
@@ -55,17 +55,29 @@ def chunk_document(sections: List[Section], document_lines: List[DocumentLines],
         for line_start, line_end in section_chunk_line_indices:
             text = "\n".join([document_lines[i]['content'] for i in range(line_start, line_end+1)])
             
-            # don't chunk images/figures or short sections
-            if (line_start == line_end and document_lines[line_start]['element_type'] in ['Image', 'Figure']) or len(text) < min_length_for_chunking:
+            # don't chunk visual elements
+            if document_lines[line_start]['is_visual']:
                 # add the sub-section as a single chunk
                 chunk = Chunk(
                     line_start=line_start,
                     line_end=line_end,
                     content=text,
-                    image_path=document_lines[line_start].get('image_path', ''),
                     page_start=document_lines[line_start].get('page_number', None),
                     page_end=document_lines[line_end].get('page_number', None),
-                    section_index=section_index
+                    section_index=section_index,
+                    is_visual=True,
+                )
+                chunks.append(chunk)
+            elif len(text) < min_length_for_chunking:
+                # add the sub-section as a single chunk
+                chunk = Chunk(
+                    line_start=line_start,
+                    line_end=line_end,
+                    content=text,
+                    page_start=document_lines[line_start].get('page_number', None),
+                    page_end=document_lines[line_end].get('page_number', None),
+                    section_index=section_index,
+                    is_visual=False,
                 )
                 chunks.append(chunk)
             else:
@@ -75,16 +87,16 @@ def chunk_document(sections: List[Section], document_lines: List[DocumentLines],
                         line_start=chunk_line_start,
                         line_end=chunk_line_end,
                         content=chunk_text,
-                        image_path=document_lines[chunk_line_start].get('image_path', ''),
                         page_start=document_lines[chunk_line_start].get('page_number', None),
                         page_end=document_lines[chunk_line_end].get('page_number', None),
-                        section_index=section_index
+                        section_index=section_index,
+                        is_visual=False,
                     )
                     chunks.append(chunk)
 
     return chunks
 
-def chunk_sub_section(line_start: int, line_end: int, document_lines: List[DocumentLines], max_length: int) -> Tuple[List[str], List[Tuple[str, int]]]:
+def chunk_sub_section(line_start: int, line_end: int, document_lines: List[Line], max_length: int) -> Tuple[List[str], List[Tuple[str, int]]]:
     """
     A sub-section is a portion of a section that is separated by images or figures. 
     - If there are no images or figures then the entire section is considered a sub-section.

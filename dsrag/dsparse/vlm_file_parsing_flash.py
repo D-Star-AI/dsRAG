@@ -27,7 +27,7 @@ There are two categories of elements you need to identify: text elements and vis
 There are {num_visual_elements} types of visual elements: {visual_elements_as_str}.
 There are {num_non_visual_elements} types of text elements: {non_visual_elements_as_str}.
 
-Every element on the page should be classified as one of these types. There should be no overlap between elements. You should use the smallest number of elements possible while still accurately representing the content on the page. For example, if the page contains a couple paragraphs of text, followed by a large figure, followed by a few more paragraphs of text, you should use three elements: NarrativeText, Figure, and NarrativeText.
+Every element on the page should be classified as one of these types. There should be no overlap between elements. You should use the smallest number of elements possible while still accurately representing and categorizing the content on the page. For example, if the page contains a couple paragraphs of text, followed by a large figure, followed by a few more paragraphs of text, you should use three elements: NarrativeText, Figure, and NarrativeText. With that said, you should never combine two different types of elements into a single element.
 
 Here are detailed descriptions of the element types you can use:
 {element_description_block}
@@ -91,7 +91,7 @@ def pdf_to_images(pdf_path: str, page_images_path: str, dpi=150) -> list[str]:
     print(f"Converted {len(images)} pages to images in {page_images_path}")
     return image_file_paths
 
-def parse_page(page_image_path: str, vlm_config: VLMConfig, element_types: list[ElementType]) -> list[Element]:
+def parse_page(page_image_path: str, page_number: int, vlm_config: VLMConfig, element_types: list[ElementType]) -> list[Element]:
     """
     Given an image of a page, use LLM to extract the content of the page.
 
@@ -112,8 +112,6 @@ def parse_page(page_image_path: str, vlm_config: VLMConfig, element_types: list[
         non_visual_elements_as_str=get_non_visual_elements_as_str(element_types),
         element_description_block=get_element_description_block(element_types)
     )
-
-    print(f"System message: {system_message}")
 
     if vlm_config["provider"] == "vertex_ai":
         try:
@@ -146,7 +144,7 @@ def parse_page(page_image_path: str, vlm_config: VLMConfig, element_types: list[
             else:
                 print (f"Error in make_llm_call_gemini: {e}")
     else:
-        raise ValueError("Invalid provider specified in the VLM config. Only 'vertex_ai' is supported for now.")
+        raise ValueError("Invalid provider specified in the VLM config. Only 'vertex_ai' and 'gemini' are supported for now.")
     
     try:
         page_content = json.loads(llm_output)
@@ -155,16 +153,20 @@ def parse_page(page_image_path: str, vlm_config: VLMConfig, element_types: list[
         print(llm_output)
         page_content = []
 
+    # add page number to each element
+    for element in page_content:
+        element["page_number"] = page_number
+
     return page_content
 
-def parse_file(pdf_path: str, save_path: str, vlm_config: VLMConfig, element_types: list[ElementType] = default_element_types) -> list[Element]:
+def parse_file(pdf_path: str, save_path: str, vlm_config: VLMConfig) -> list[Element]:
     """
     Given a PDF file, extract the content of each page using a VLM model.
     
     Inputs
     - pdf_path: str, path to the PDF file
     - save_path: str, path to the base directory where everything is saved (i.e. {user_id}/{job_id})
-    - vlm_config: dict, configuration for the VLM model. For Gemini this should include project_id and location.
+    - vlm_config: dict, configuration for the VLM model. For Vertex this should include project_id and location.
     
     Outputs
     - all_page_content: list of Elements
@@ -173,10 +175,19 @@ def parse_file(pdf_path: str, save_path: str, vlm_config: VLMConfig, element_typ
     image_file_paths = pdf_to_images(pdf_path, page_images_path)
     all_page_content_dict = {}
 
+    element_types = vlm_config.get("element_types", default_element_types)
+    if len(element_types) == 0:
+        element_types = default_element_types
+
     def process_page(image_path, page_number):
         tries = 0
         while tries < 20:
-            content = parse_page(page_image_path=image_path, vlm_config=vlm_config, element_types=element_types)
+            content = parse_page(
+                page_image_path=image_path, 
+                page_number=page_number,
+                vlm_config=vlm_config, 
+                element_types=element_types
+            )
             if content == 429:
                 print(f"Rate limit exceeded. Sleeping for 10 seconds before retrying...")
                 time.sleep(10)

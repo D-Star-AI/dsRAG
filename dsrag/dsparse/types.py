@@ -14,6 +14,7 @@ class Line(TypedDict):
     content: str
     element_type: str
     page_number: Optional[int]
+    is_visual: Optional[bool]
 
 class Section(TypedDict):
     title: str
@@ -28,6 +29,7 @@ class Chunk(TypedDict):
     page_start: int
     page_end: int
     section_index: int
+    is_visual: bool
 
 class VLMConfig(TypedDict):
     provider: str
@@ -35,7 +37,8 @@ class VLMConfig(TypedDict):
     project_id: Optional[str]
     location: Optional[str]
     save_path: str
-    exclude_elements: list[str]
+    exclude_elements: Optional[list[str]]
+    element_types: Optional[list[ElementType]]
 
 class SemanticSectioningConfig(TypedDict):
     use_semantic_sectioning: bool

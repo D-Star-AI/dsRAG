@@ -4,15 +4,15 @@ from typing import List, Dict, Any
 from anthropic import Anthropic
 from openai import OpenAI
 import instructor
-from dsrag.dsparse.types import SemanticSectioningConfig, Line, Section, Element
+from dsrag.dsparse.types import SemanticSectioningConfig, Line, Section, Element, ElementType
 
-class Section(BaseModel):
+class DocumentSection(BaseModel):
     title: str = Field(description="main topic of this section of the document (very descriptive)")
     start_index: int = Field(description="line number where the section begins (inclusive)")
 
 class StructuredDocument(BaseModel):
     """obtains meaningful sections, each centered around a single concept/topic"""
-    sections: List[Section] = Field(description="a list of sections of the document")
+    sections: List[DocumentSection] = Field(description="a list of sections of the document")
 
 
 SYSTEM_PROMPT = """
@@ -92,9 +92,9 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, ll
     else:
         raise ValueError("Invalid provider. Must be either 'anthropic' or 'openai'.")
 
-def get_sections_text(sections: List[Section], document_lines: List[Line]) -> List[Section]:
+def get_sections_text(sections: List[DocumentSection], document_lines: List[Line]) -> List[Section]:
     """
-    Takes in a list of Section objects and returns a list of dictionaries containing the attributes of each Section object plus the content of the section.
+    Takes in a list of DocumentSection objects and returns a list of dictionaries containing the attributes of each Section object plus the content of the section.
     """
     section_dicts = []
     for i,s in enumerate(sections):
@@ -102,7 +102,6 @@ def get_sections_text(sections: List[Section], document_lines: List[Line]) -> Li
             end_index = len(document_lines) - 1
         else:
             end_index = sections[i+1].start_index - 1
-        #contents = document_lines[s.start_index:end_index+1] # +1 because end_index is inclusive
         contents = [document_lines[j]["content"] for j in range(s.start_index, end_index+1)]
 
         section_dicts.append(Section(
@@ -111,12 +110,6 @@ def get_sections_text(sections: List[Section], document_lines: List[Line]) -> Li
             start=s.start_index,
             end=end_index
         ))
-        """section_dicts.append({
-            "title": s.title,
-            "content": "\n".join(contents),
-            "start": s.start_index,
-            "end": end_index
-        })"""
     return section_dicts
 
 
@@ -142,7 +135,7 @@ def get_sections(document_lines: List[Line], max_iterations: int, max_characters
     for _ in range(max_iterations):
         document_with_line_numbers, end_line = get_document_with_lines(document_lines, start_line, max_characters)
         structured_doc = get_structured_document(document_with_line_numbers, start_line, llm_provider=llm_provider, model=model, language=language)
-        new_sections: Section = structured_doc.sections
+        new_sections = structured_doc.sections
         all_sections.extend(new_sections)
         
         if end_line >= len(document_lines) - 1:
@@ -156,28 +149,28 @@ def get_sections(document_lines: List[Line], max_iterations: int, max_characters
                 start_line = end_line + 1
 
     # get the section text
-    sections: Section = get_sections_text(all_sections, document_lines)
+    sections = get_sections_text(all_sections, document_lines)
 
     return sections
 
-def elements_to_lines(elements: List[Element], exclude_elements: List[str]) -> List[Line]:
+def elements_to_lines(elements: List[Element], exclude_elements: List[str], visual_elements: List[str]) -> List[Line]:
     """
     Inputs
     - elements: list[dict] - the elements of the document
     - exclude_elements: list[str] - the types of elements to exclude
+    - visual_elements: list[str] - the types of elements that are visual and therefore should not be split
     """
     document_lines = []
     for element in elements:
         if element["type"] in exclude_elements:
             continue
-        elif element["type"] in ["Image", "Figure"]:
-            # strip newlines from description to avoid confusing the semantic sectioning LLM
-            description = element["description"].replace("\n", " ")
+        elif element["type"] in visual_elements:
+            # don't split visual elements
             document_lines.append({
-                "content": description,
+                "content": element["content"],
                 "element_type": element["type"],
                 "page_number": element.get("page_number", None),
-                "image_path": element.get("image_path", None)
+                "is_visual": True,
             })
         else:
             lines = element["content"].split("\n")
@@ -186,7 +179,7 @@ def elements_to_lines(elements: List[Element], exclude_elements: List[str]) -> L
                     "content": line,
                     "element_type": element["type"],
                     "page_number": element.get("page_number", None),
-                    "image_path": element.get("image_path", None)
+                    "is_visual": False,
                 })
 
     return document_lines
@@ -228,14 +221,16 @@ def no_semantic_sectioning(document: str, num_lines: int) -> List[Section]:
     }]
     return sections
 
-def get_sections_from_elements(elements: List[Element], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}) -> tuple[List[Section], List[Line]]:
+def get_sections_from_elements(elements: List[Element], element_types: List[ElementType], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}) -> tuple[List[Section], List[Line]]:
     # get the semantic sectioning config params, using defaults if not provided
     use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
 
-    document_lines = elements_to_lines(elements=elements, exclude_elements=exclude_elements)
+    visual_elements = [e["name"] for e in element_types if e["is_visual"]]
+
+    document_lines = elements_to_lines(elements=elements, exclude_elements=exclude_elements, visual_elements=visual_elements)
     document_lines_str = [line["content"] for line in document_lines]
     document_str = "\n".join(document_lines_str)
     

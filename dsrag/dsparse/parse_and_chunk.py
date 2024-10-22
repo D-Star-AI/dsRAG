@@ -7,6 +7,7 @@ from dsrag.dsparse.non_vlm_file_parsing import parse_file_no_vlm
 from dsrag.dsparse.semantic_sectioning import get_sections_from_elements, get_sections_from_str, get_sections_from_pages
 from dsrag.dsparse.chunking import chunk_document
 from dsrag.dsparse.types import VLMConfig, SemanticSectioningConfig, ChunkingConfig, Section, Chunk
+from dsrag.dsparse.element_types import default_element_types
 
 from typing import List, Tuple
 import json
@@ -23,6 +24,8 @@ def parse_and_chunk_vlm(file_path: str, vlm_config: VLMConfig, semantic_sectioni
         - location: the GCP location (required if provider is "vertex_ai")
         - save_path: the path to save intermediate files created during VLM processing
         - exclude_elements: a list of element types to exclude from the parsed text. Default is ["Header", "Footer"].
+        - element_types: a list of dictionaries, each containing 'name', 'instructions', and 'is_visual' keys
+            - default (defined in element_types.py) will be used if not provided
     - semantic_sectioning_config: a dictionary containing the configuration for the semantic sectioning algorithm
     - chunking_config: a dictionary containing the configuration for the chunking algorithm
 
@@ -62,9 +65,11 @@ def parse_and_chunk_vlm(file_path: str, vlm_config: VLMConfig, semantic_sectioni
 
     # get the exclude_elements from the vlm_config
     exclude_elements = vlm_config.get('exclude_elements', ["Header", "Footer"])
+    element_types = vlm_config.get("element_types", default_element_types)
     
     sections, document_lines = get_sections_from_elements(
         elements=elements,
+        element_types=element_types,
         exclude_elements=exclude_elements,
         max_characters=20000,
         semantic_sectioning_config=semantic_sectioning_config
@@ -200,7 +205,8 @@ def parse_and_chunk_no_vlm(semantic_sectioning_config: SemanticSectioningConfig,
 if __name__ == "__main__":
     user_id = "zmcc"
 
-    pdf_path = "/Users/nickmccormick/Documents/D-Star-AI/dsRAG/tests/data/mck_energy_first_5_pages.pdf" # '/Users/zach/Code/dsRAG/tests/data/levels_of_agi.pdf'
+    #pdf_path = "/Users/nickmccormick/Documents/D-Star-AI/dsRAG/tests/data/mck_energy_first_5_pages.pdf"
+    pdf_path = '/Users/zach/Code/dsRAG/tests/data/levels_of_agi.pdf'
     file_id = "levels_of_agi"
     
     #pdf_path = "/Users/zach/Code/mck_energy.pdf"
@@ -209,9 +215,9 @@ if __name__ == "__main__":
     save_path = f"{user_id}/{file_id}" # base directory to save the page images, pages with bounding boxes, and extracted images
 
     vlm_config = {
-        "provider": "gemini",
-        "model": "gemini-1.5-pro-002",
-        #"project_id": os.environ["VERTEX_PROJECT_ID"],
+        "provider": "vertex_ai",
+        "model": "gemini-1.5-flash-002",
+        "project_id": os.environ["VERTEX_PROJECT_ID"],
         "location": "us-central1",
         "save_path": save_path,
         "exclude_elements": ["Header", "Footer"],
@@ -223,15 +229,16 @@ if __name__ == "__main__":
         "language": "en",
     }
     
-    section_keys = Section.__annotations__.keys()
-    print (section_keys)
+    #section_keys = Section.__annotations__.keys()
+    #print (section_keys)
     
-    """sections, chunks = parse_and_chunk_vlm(
+    sections, chunks = parse_and_chunk_vlm(
         file_path=pdf_path,
         vlm_config=vlm_config,
         semantic_sectioning_config=semantic_sectioning_config,
-        chunking_config={}
-    )"""
+        chunking_config={},
+        testing_mode=True
+    )
         
     """chunks = parse_and_chunk_no_vlm(
         file_path=pdf_path,
