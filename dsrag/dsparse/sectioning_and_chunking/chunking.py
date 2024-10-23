@@ -1,6 +1,6 @@
 from typing import List, Dict, Tuple
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from dsrag.dsparse.types import Line, Section, Chunk
+from dsparse.types import Line, Section, Chunk
 
 def chunk_document(sections: List[Section], document_lines: List[Line], chunk_size: int, min_length_for_chunking: int) -> List[Chunk]:
     """

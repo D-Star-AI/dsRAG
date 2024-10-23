@@ -1,4 +1,5 @@
 from typing import Optional, TypedDict
+from dsparse.file_parsing.file_system import FileSystem
 
 class ElementType(TypedDict):
     name: str
@@ -51,6 +52,6 @@ class ChunkingConfig(TypedDict):
     min_length_for_chunking: int
 
 class FileParsingConfig(TypedDict):
-    vlm_config: VLMConfig
-    semantic_sectioning_config: SemanticSectioningConfig
-    chunking_config: ChunkingConfig
+    use_vlm: bool
+    vlm_config: Optional[VLMConfig]
+    file_system: FileSystem

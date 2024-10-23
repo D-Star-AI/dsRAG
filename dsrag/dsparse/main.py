@@ -2,17 +2,54 @@ import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from dsrag.dsparse.vlm_file_parsing_flash import parse_file
-from dsrag.dsparse.non_vlm_file_parsing import parse_file_no_vlm
-from dsrag.dsparse.semantic_sectioning import get_sections_from_elements, get_sections_from_str, get_sections_from_pages
-from dsrag.dsparse.chunking import chunk_document
-from dsrag.dsparse.types import VLMConfig, SemanticSectioningConfig, ChunkingConfig, Section, Chunk
-from dsrag.dsparse.element_types import default_element_types
+from file_parsing.vlm_file_parsing import parse_file
+from file_parsing.non_vlm_file_parsing import parse_file_no_vlm
+from file_parsing.element_types import default_element_types
+from sectioning_and_chunking.semantic_sectioning import get_sections_from_elements, get_sections_from_str, get_sections_from_pages
+from sectioning_and_chunking.chunking import chunk_document
+from .types import FileParsingConfig, VLMConfig, SemanticSectioningConfig, ChunkingConfig, Section, Chunk
+from file_parsing.file_system import FileSystem
 
 from typing import List, Tuple
 import json
 
-def parse_and_chunk_vlm(file_path: str, vlm_config: VLMConfig, semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, testing_mode: bool = False) -> Tuple[List[Section], List[Chunk]]:
+
+
+def parse_and_chunk(kb_id: str, doc_id: str, file_parsing_config: FileParsingConfig, semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, file_path: str = None, text: str = None) -> Tuple[List[Section], List[Chunk]]:
+    # file parsing, semantic sectioning, and chunking
+    use_vlm = file_parsing_config.get("use_vlm", False)
+    if use_vlm:
+        # make sure a file_path is provided
+        if not file_path:
+            raise ValueError("VLM parsing requires a file_path, not text. Please provide a file_path instead.")
+        vlm_config = file_parsing_config.get("vlm_config", {})
+        sections, chunks = parse_and_chunk_vlm(
+            file_path=file_path,
+            kb_id=kb_id,
+            doc_id=doc_id,
+            file_system=file_parsing_config["file_system"],
+            vlm_config=vlm_config,
+            semantic_sectioning_config=semantic_sectioning_config,
+            chunking_config=chunking_config,
+        )
+    else:
+        if file_path:
+            sections, chunks = parse_and_chunk_no_vlm(
+                semantic_sectioning_config=semantic_sectioning_config,
+                chunking_config=chunking_config,
+                file_path=file_path,
+            )
+        else:
+            sections, chunks = parse_and_chunk_no_vlm(
+                semantic_sectioning_config=semantic_sectioning_config,
+                chunking_config=chunking_config,
+                text=text,
+            )
+
+    return sections, chunks
+
+
+def parse_and_chunk_vlm(file_path: str, kb_id: str, doc_id: str, file_system: FileSystem, vlm_config: VLMConfig, semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, testing_mode: bool = False) -> Tuple[List[Section], List[Chunk]]:
     """
     Inputs
     - file_path: the path to the file to parse and chunk
@@ -47,8 +84,8 @@ def parse_and_chunk_vlm(file_path: str, vlm_config: VLMConfig, semantic_sectioni
 
     # Step 1: Parse the file
 
-    save_path = vlm_config["save_path"]
-    elements = parse_file(pdf_path=file_path, save_path=save_path, vlm_config=vlm_config)
+    #save_path = vlm_config["save_path"]
+    elements = parse_file(pdf_path=file_path, kb_id=kb_id, doc_id=doc_id, vlm_config=vlm_config, file_system=file_system)
     
     if testing_mode:
         # dump to json for testing
@@ -200,47 +237,3 @@ def parse_and_chunk_no_vlm(semantic_sectioning_config: SemanticSectioningConfig,
 
     return sections, chunks
 
-
-# Test the function
-if __name__ == "__main__":
-    user_id = "zmcc"
-
-    #pdf_path = "/Users/nickmccormick/Documents/D-Star-AI/dsRAG/tests/data/mck_energy_first_5_pages.pdf"
-    pdf_path = '/Users/zach/Code/dsRAG/tests/data/levels_of_agi.pdf'
-    file_id = "levels_of_agi"
-    
-    #pdf_path = "/Users/zach/Code/mck_energy.pdf"
-    #file_id = "mck_energy"
-
-    save_path = f"{user_id}/{file_id}" # base directory to save the page images, pages with bounding boxes, and extracted images
-
-    vlm_config = {
-        "provider": "vertex_ai",
-        "model": "gemini-1.5-flash-002",
-        "project_id": os.environ["VERTEX_PROJECT_ID"],
-        "location": "us-central1",
-        "save_path": save_path,
-        "exclude_elements": ["Header", "Footer"],
-    }
-
-    semantic_sectioning_config = {
-        "llm_provider": "openai",
-        "model": "gpt-4o-mini",
-        "language": "en",
-    }
-    
-    #section_keys = Section.__annotations__.keys()
-    #print (section_keys)
-    
-    sections, chunks = parse_and_chunk_vlm(
-        file_path=pdf_path,
-        vlm_config=vlm_config,
-        semantic_sectioning_config=semantic_sectioning_config,
-        chunking_config={},
-        testing_mode=True
-    )
-        
-    """chunks = parse_and_chunk_no_vlm(
-        file_path=pdf_path,
-        semantic_sectioning_config=semantic_sectioning_config
-        )"""

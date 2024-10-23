@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 from anthropic import Anthropic
 from openai import OpenAI
 import instructor
-from dsrag.dsparse.types import SemanticSectioningConfig, Line, Section, Element, ElementType
+from dsparse.types import SemanticSectioningConfig, Line, Section, Element, ElementType
 
 class DocumentSection(BaseModel):
     title: str = Field(description="main topic of this section of the document (very descriptive)")

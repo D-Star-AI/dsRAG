@@ -1,10 +1,5 @@
-#from dsrag.dsparse.types import ElementType
+from dsparse.types import ElementType
 
-from typing import TypedDict
-class ElementType(TypedDict):
-    name: str
-    instructions: str
-    is_visual: bool
 
 def get_visual_elements_as_str(elements: list[ElementType]) -> str:
     visual_elements = [element["name"] for element in elements if element["is_visual"]]
@@ -84,11 +79,3 @@ default_element_types = [
     }
 ]
 
-if __name__ == "__main__":
-    #text = get_element_description_block(default_element_types)
-    #text = get_visual_elements_as_str(default_element_types)
-    #text = get_non_visual_elements_as_str(default_element_types)
-    #text = get_num_visual_elements(default_element_types)
-    text = get_num_non_visual_elements(default_element_types)
-
-    print(text)
