@@ -28,7 +28,7 @@ class FileSystem(ABC):
         pass
 
     @abstractmethod
-    def get_files(self, kb_id: str, doc_id: str, page_start: int, page_end: int):
+    def get_files(self, kb_id: str, doc_id: str, page_start: int, page_end: int) -> List[str]:
         pass
 
 
@@ -68,19 +68,6 @@ class LocalFileSystem(FileSystem):
         file_path = os.path.join(self.base_path, kb_id, doc_id, file_name)
         with open(file_path, "w") as f:
             json.dump(file, f, indent=2)
-
-        """_, file_extension = os.path.splitext(file_name)
-        file_path = os.path.join(self.base_path, kb_id, doc_id, file_name)
-        # Handle different file types based on the file extension
-        if file_extension.lower() == '.json':
-            # Assume `file` is a dictionary or list to be saved as JSON
-            with open(file_path, "w") as f:
-                json.dump(file, f, indent=2)
-        elif file_extension.lower() in ['.png', '.jpg', '.jpeg']:
-            # Assume `file` is a file-like object (e.g., an image)
-            file.save(file_path, 'PNG')
-        else:
-            raise ValueError(f"Unsupported file type: {file_extension}")"""
         
     def save_image(self, kb_id: str, doc_id: str, file_name: str, image: any) -> None:
         """
@@ -99,6 +86,9 @@ class LocalFileSystem(FileSystem):
         image_file_paths = []
         for i in range(page_start, page_end + 1):
             image_file_path = os.path.join(page_images_path, f'page_{i}.png')
+            # Make sure the file exists
+            if not os.path.exists(image_file_path):
+                continue
             image_file_paths.append(image_file_path)
         return image_file_paths
 
@@ -126,7 +116,7 @@ class S3FileSystem(FileSystem):
         """
         pass
 
-    def delete_directory(self, kb_id: str, doc_id: str) -> None:
+    def delete_directory(self, kb_id: str, doc_id: str) -> List[dict]:
         """
         Delete the directory in S3
         """
@@ -147,6 +137,9 @@ class S3FileSystem(FileSystem):
             print(f"Deleted all objects in {prefix} from {self.bucket_name}.")
         else:
             print(f"No objects found in {prefix}.")
+            objects_to_delete = []
+
+        return objects_to_delete
 
 
     def save_json(self, kb_id: str, doc_id: str, file_name: str, file: dict) -> None:
@@ -192,7 +185,7 @@ class S3FileSystem(FileSystem):
             raise RuntimeError(f"Failed to upload image to S3.") from e
 
 
-    def get_files(self, kb_id: str, doc_id: str, page_start: int, page_end: int):
+    def get_files(self, kb_id: str, doc_id: str, page_start: int, page_end: int) -> List[str]:
         """
         Get the file from S3
         - page_start: int - the starting page number
