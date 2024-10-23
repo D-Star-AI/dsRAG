@@ -2,13 +2,13 @@ import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from file_parsing.vlm_file_parsing import parse_file
-from file_parsing.non_vlm_file_parsing import parse_file_no_vlm
-from file_parsing.element_types import default_element_types
-from sectioning_and_chunking.semantic_sectioning import get_sections_from_elements, get_sections_from_str, get_sections_from_pages
-from sectioning_and_chunking.chunking import chunk_document
+from .file_parsing.vlm_file_parsing import parse_file
+from .file_parsing.non_vlm_file_parsing import parse_file_no_vlm
+from .file_parsing.element_types import default_element_types
+from .sectioning_and_chunking.semantic_sectioning import get_sections_from_elements, get_sections_from_str, get_sections_from_pages
+from .sectioning_and_chunking.chunking import chunk_document
 from .types import FileParsingConfig, VLMConfig, SemanticSectioningConfig, ChunkingConfig, Section, Chunk
-from file_parsing.file_system import FileSystem
+from .file_parsing.file_system import FileSystem
 
 from typing import List, Tuple
 import json

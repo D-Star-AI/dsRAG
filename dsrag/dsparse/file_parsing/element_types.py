@@ -1,4 +1,4 @@
-from dsparse.types import ElementType
+from ..types import ElementType
 
 
 def get_visual_elements_as_str(elements: list[ElementType]) -> str:

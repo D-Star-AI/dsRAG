@@ -1,6 +1,6 @@
 from .vlm import make_llm_call_gemini, make_llm_call_vertex
-from dsparse.types import ElementType, Element, VLMConfig
-from file_parsing.file_system import FileSystem
+from ..types import ElementType, Element, VLMConfig
+from .file_system import FileSystem
 from .element_types import (
     get_visual_elements_as_str, 
     get_non_visual_elements_as_str, 
@@ -69,14 +69,8 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
     Returns:
     - image_file_paths: list[str] - a list of the paths to the saved images.
     """
-    # Delete the folder if it already exists
-    """if os.path.exists(page_images_path):
-        for file in os.listdir(page_images_path):
-            os.remove(os.path.join(page_images_path, file))
-        os.rmdir(page_images_path)
-
+    
     # Create the folder
-    os.makedirs(page_images_path, exist_ok=False)"""
     file_system.create_directory(kb_id, doc_id)
 
     # Convert PDF to images
@@ -176,7 +170,6 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     Outputs
     - all_page_content: list of Elements
     """
-    #page_images_path = os.path.join(save_path, 'page_images')
     image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system)
     all_page_content_dict = {}
 
@@ -206,7 +199,6 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
 
     # Use ThreadPoolExecutor to process pages in parallel
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        #futures = {executor.submit(process_page, i + 1): image_path for i, image_path in enumerate(image_file_paths)}
         futures = {executor.submit(process_page, i + 1): i for i in range(len(image_file_paths))}
         for future in concurrent.futures.as_completed(futures):
             page_content = future.result()
@@ -219,9 +211,6 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
         all_page_content.extend(all_page_content_dict[key])
 
     # Save the extracted content to a JSON file
-    """output_file_path = os.path.join(save_path, 'elements.json')
-    with open(output_file_path, "w") as f:
-        json.dump(all_page_content, f, indent=2)"""
     file_system.save_json(kb_id, doc_id, 'elements.json', all_page_content)
 
     return all_page_content

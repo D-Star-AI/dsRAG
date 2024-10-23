@@ -2,7 +2,6 @@
 Split up the add_document function into smaller functions in a separate file
 """
 
-from dsrag.dsparse.parse_and_chunk import parse_and_chunk_vlm, parse_and_chunk_no_vlm
 from dsrag.auto_context import (
     get_document_title,
     get_document_summary,
@@ -14,35 +13,6 @@ from dsrag.embedding import Embedding
 from dsrag.database.chunk import ChunkDB
 from dsrag.database.vector import VectorDB
 
-def parse_and_chunk(file_path: str, text: str, file_parsing_config: dict, semantic_sectioning_config: dict, chunking_config: dict):
-    # file parsing, semantic sectioning, and chunking
-    use_vlm = file_parsing_config.get("use_vlm", False)
-    if use_vlm:
-        # make sure a file_path is provided
-        if not file_path:
-            raise ValueError("VLM parsing requires a file_path, not text. Please provide a file_path instead.")
-        vlm_config = file_parsing_config.get("vlm_config", {})
-        sections, chunks = parse_and_chunk_vlm(
-            file_path=file_path,
-            vlm_config=vlm_config,
-            semantic_sectioning_config=semantic_sectioning_config,
-            chunking_config=chunking_config,
-        )
-    else:
-        if file_path:
-            sections, chunks = parse_and_chunk_no_vlm(
-                semantic_sectioning_config=semantic_sectioning_config,
-                chunking_config=chunking_config,
-                file_path=file_path,
-            )
-        else:
-            sections, chunks = parse_and_chunk_no_vlm(
-                semantic_sectioning_config=semantic_sectioning_config,
-                chunking_config=chunking_config,
-                text=text,
-            )
-
-    return sections, chunks
 
 def auto_context(auto_context_model: LLM, sections, chunks, text, doc_id, document_title, auto_context_config, language):
     # document title and summary

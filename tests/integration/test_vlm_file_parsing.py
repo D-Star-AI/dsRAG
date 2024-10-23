@@ -3,7 +3,8 @@ import sys
 import unittest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-from dsrag.dsparse.vlm_file_parsing import parse_file
+from dsrag.dsparse.file_parsing.vlm_file_parsing import parse_file
+from dsrag.dsparse.file_parsing.file_system import LocalFileSystem
 from dsrag.knowledge_base import KnowledgeBase
 
 
@@ -24,9 +25,7 @@ class TestParsing(unittest.TestCase):
 
         vlm_config = {
             "provider": "vertex_ai",
-            "model": "gemini-1.5-pro-002",
-            "project_id": os.environ["VERTEX_PROJECT_ID"],
-            "location": "us-central1"
+            "model": "gemini-1.5-flash-002",
         }
         
         all_page_content = parse_file(pdf_path, save_path, vlm_config)
@@ -49,21 +48,25 @@ class TestRetrieval(unittest.TestCase):
         file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), file_path))
         print(file_path)
 
+        save_path = "~/dsrag_test_mck_energy"
+
+        file_system = LocalFileSystem(base_path=save_path)
+        vlm_config = {
+            "provider": "gemini",
+            "model": "gemini-1.5-flash-002",
+        }
+        file_parsing_config = {
+            "use_vlm": True,
+            "vlm_config": vlm_config,
+            "file_system": file_system,
+        }
+
         kb = KnowledgeBase(kb_id="mck_energy_test")
         kb.add_document(
             doc_id="mck_energy_report",
             file_path=file_path,
             document_title="McKinsey Energy Report",
-            file_parsing_config={
-                "use_vlm": True,
-                "vlm_config": {
-                    "provider": "vertex_ai",
-                    "model": "gemini-1.5-pro-002",
-                    "project_id": os.environ["VERTEX_PROJECT_ID"],
-                    "location": "us-central1",
-                    "save_path": "~/dsrag_test_mck_energy"
-                }
-            }
+            file_parsing_config=file_parsing_config
         )
 
         kb = KnowledgeBase(kb_id="mck_energy_test")

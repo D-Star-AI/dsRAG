@@ -4,8 +4,8 @@ import time
 import json
 from typing import Optional, Union, Dict
 import concurrent.futures
+from dsrag.dsparse.main import parse_and_chunk
 from dsrag.add_document import (
-    parse_and_chunk, 
     auto_context, 
     get_embeddings, 
     add_chunks_to_db, 
@@ -222,11 +222,13 @@ class KnowledgeBase:
             return
         
         sections, chunks = parse_and_chunk(
-            file_path, 
-            text, 
-            file_parsing_config, 
-            semantic_sectioning_config, 
-            chunking_config,
+            kb_id=self.kb_id,
+            doc_id=doc_id,
+            file_path=file_path, 
+            text=text, 
+            file_parsing_config=file_parsing_config, 
+            semantic_sectioning_config=semantic_sectioning_config, 
+            chunking_config=chunking_config,
         )
         chunks, chunks_to_embed = auto_context(
             auto_context_model=self.auto_context_model, 
