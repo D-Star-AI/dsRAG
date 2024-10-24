@@ -252,6 +252,6 @@ class S3FileSystem(FileSystem):
             "bucket_name": self.bucket_name,
             "region_name": self.region_name,
             "access_key": self.access_key,
-            "access_secret": self.secret_key
+            "secret_key": self.secret_key
         })
         return base_dict
