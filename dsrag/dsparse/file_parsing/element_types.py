@@ -1,4 +1,4 @@
-from ..types import ElementType
+from ..models.types import ElementType
 
 
 def get_visual_elements_as_str(elements: list[ElementType]) -> str:

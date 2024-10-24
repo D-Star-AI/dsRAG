@@ -1,5 +1,5 @@
 from typing import Optional, TypedDict
-from .file_parsing.file_system import FileSystem
+from ..file_parsing.file_system import FileSystem
 
 class ElementType(TypedDict):
     name: str

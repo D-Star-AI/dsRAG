@@ -1,5 +1,5 @@
 from .vlm import make_llm_call_gemini, make_llm_call_vertex
-from ..types import ElementType, Element, VLMConfig
+from ..models.types import ElementType, Element, VLMConfig
 from .file_system import FileSystem
 from .element_types import (
     get_visual_elements_as_str, 

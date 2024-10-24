@@ -6,7 +6,7 @@ import shutil
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from dsparse.main import parse_and_chunk
-from dsparse.types import Chunk, Section
+from dsparse.models.types import Chunk, Section
 from dsparse.file_parsing.file_system import LocalFileSystem
 
 

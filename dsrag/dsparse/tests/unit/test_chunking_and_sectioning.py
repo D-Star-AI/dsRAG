@@ -6,7 +6,7 @@ import json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from dsparse.sectioning_and_chunking.chunking import find_lines_in_range, chunk_sub_section, chunk_document
-from dsparse.types import Chunk
+from dsparse.models.types import Chunk
 from dsparse.sectioning_and_chunking.semantic_sectioning import get_document_with_lines
 
 class TestDsParse(unittest.TestCase):

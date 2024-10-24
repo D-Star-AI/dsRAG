@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dsparse"
+version = "0.0.1"
+description = "Multi-modal file parsing and chunking"
+readme = "README.md"
+authors = [{ name = "Zach McCormick", email = "zach@d-star.ai" }, { name = "Nick McCormick", email = "nick@d-star.ai" }]
+license = { file = "LICENSE" }
+classifiers=[
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+requires-python = ">=3.9"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[project.optional-dependencies]
+s3 = ["boto3>=1.34.142", "botocore>=1.34.142"]
+vertexai = ["vertexai>=1.70.0"]
+
+[project.urls]
+Homepage = "https://github.com/D-Star-AI/dsRAG/blob/main/dsrag/dsparse/README.md"
+Documentation = "https://github.com/D-Star-AI/dsRAG/blob/main/dsrag/dsparse/README.md"
+Contact = "https://github.com/D-Star-AI/dsRAG/blob/main/dsrag/dsparse/README.md"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dsparse"]

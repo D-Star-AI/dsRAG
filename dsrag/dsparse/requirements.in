@@ -1,0 +1,10 @@
+anthropic>=0.30.1
+docx2txt>=0.8
+google-generativeai>=0.8.3
+instructor>=1.3.4
+langchain-text-splitters>=0.2.2
+openai>=1.35.12
+pdf2image>=1.17.0
+pillow>=11.0.0
+pydantic>=2.8.2
+PyPDF2>=3.0.1
