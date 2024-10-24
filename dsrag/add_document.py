@@ -103,7 +103,7 @@ def add_chunks_to_db(chunk_db: ChunkDB, chunks, chunks_to_embed, chunk_embedding
                 "section_summary": chunk["section_summary"],
                 "chunk_page_start": chunk.get("page_start", None),
                 "chunk_page_end": chunk.get("page_end", None),
-                "image_path": chunk.get("image_path", None),
+                "is_visual": chunk.get("is_visual", False),
             }
             for i, chunk in enumerate(chunks)
         },
@@ -128,7 +128,6 @@ def add_vectors_to_db(vector_db: VectorDB, chunks, chunk_embeddings, metadata, d
                 ),
                 "chunk_page_start": chunk.get("page_start", ""),
                 "chunk_page_end": chunk.get("page_end", ""),
-                "image_path": chunk.get("image_path", ""), # not sure if this needs to be added
                 # Add the rest of the metadata to the vector metadata
                 **metadata
             }

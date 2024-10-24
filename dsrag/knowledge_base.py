@@ -271,6 +271,9 @@ class KnowledgeBase:
     def get_chunk_text(self, doc_id: str, chunk_index: int) -> Optional[str]:
         return self.chunk_db.get_chunk_text(doc_id, chunk_index)
     
+    def get_is_visual(self, doc_id: str, chunk_index: int) -> bool:
+        return self.chunk_db.get_is_visual(doc_id, chunk_index)
+    
     def get_chunk_content(self, doc_id: str, chunk_index: int) -> tuple[str, str]:
         chunk_text = self.chunk_db.get_chunk_text(doc_id, chunk_index)
         return chunk_text
@@ -324,55 +327,40 @@ class KnowledgeBase:
         start_page_number, _ = self.chunk_db.get_chunk_page_numbers(doc_id, chunk_start)
         _, end_page_number = self.chunk_db.get_chunk_page_numbers(doc_id, chunk_end - 1)
         return start_page_number, end_page_number
-
-    def get_segment_text_from_database(self, doc_id: str, chunk_start: int, chunk_end: int) -> str:
-        segment = f"{self.get_segment_header(doc_id=doc_id, chunk_index=chunk_start)}\n\n"  # initialize the segment with the segment header
-        for chunk_index in range(chunk_start, chunk_end):  # end index is non-inclusive
-            chunk_text = self.get_chunk_text(doc_id, chunk_index) or ""
-            segment += chunk_text
-        return segment.strip()
     
-    def get_segment_content_from_database(self, doc_id: str, chunk_start: int, chunk_end: int) -> list[dict]:
+    def get_segment_content_from_database(self, doc_id: str, chunk_start: int, chunk_end: int, return_mode: str) -> list[dict]:
         """
-        Instead of returning a single string, like get_segment_text_from_database, this function returns a list of dictionaries, which enables
-        the return of image paths when available. For adjacent chunks that are text, the text is concatenated into a single dictionary. If there 
-        are no images in the segment, then the list will just contain a single dictionary with the type "text" and the content as the entire segment text.
-        The segment header is treated just like any other text chunk and will be combined with the first chunk if it is text.
-
-        Returns a list of dictionaries, where each dictionary has the following keys: `type` and `content`
-        - `type` is either "text" or "image"
-        - `content` is the text content (if 'type' is "text") or image path (if 'type' is "image")
+        - return_mode: "text", "page_images", "dynamic"
+            - whether to return the segment as text, a list of page images, or to dynamically determine the return mode based on the content of the segment
         """
-        segment = []
+        assert return_mode in ["text", "page_images", "dynamic"]
 
-        # Retrieve and add the segment header as the initial text content
-        header_text = self.get_segment_header(doc_id=doc_id, chunk_index=chunk_start)
-        if header_text:
-            segment.append({
-                "type": "text",
-                "content": header_text + "\n\n"
-            })
+        if return_mode == "dynamic":
+            # loop through the chunks in the segment to see if any of them are visual
+            segment_is_visual = False
+            for chunk_index in range(chunk_start, chunk_end):
+                is_visual = self.get_is_visual(doc_id, chunk_index)
+                if is_visual:
+                    segment_is_visual = True
+                    break
 
-        for chunk_index in range(chunk_start, chunk_end):  # end index is non-inclusive
-            chunk_text = self.get_chunk_content(doc_id, chunk_index)
-            if image_path:
-                segment.append({
-                    "type": "image",
-                    "content": image_path
-                })
+            # set the return mode based on whether the segment contains visual content or not
+            if segment_is_visual:
+                return_mode = "page_images"
             else:
-                # If current chunk is text, concatenate it with the previous text chunk if possible
-                if segment and segment[-1]["type"] == "text":
-                    # Concatenate the text
-                    segment[-1]["content"] += chunk_text
-                else:
-                    # Append as a new text dictionary
-                    segment.append({
-                        "type": "text",
-                        "content": chunk_text
-                    })
+                return_mode = "text"
 
-        return segment
+        if return_mode == "text":
+            segment_text = f"{self.get_segment_header(doc_id=doc_id, chunk_index=chunk_start)}\n\n"  # initialize the segment with the segment header
+            for chunk_index in range(chunk_start, chunk_end):
+                chunk_text = self.get_chunk_text(doc_id, chunk_index) or ""
+                segment_text += chunk_text
+            return segment_text.strip()
+        else:
+            # get the page numbers that the segment starts and ends on
+            start_page_number, end_page_number = self.get_segment_page_numbers(doc_id, chunk_start, chunk_end)
+            page_image_paths = self.file_system.get_files(kb_id=self.kb_id, doc_id=doc_id, page_start=start_page_number, page_end=end_page_number)
+            return page_image_paths
 
     def query(
         self,
@@ -380,7 +368,7 @@ class KnowledgeBase:
         rse_params: Union[Dict, str] = "balanced",
         latency_profiling: bool = False,
         metadata_filter: Optional[MetadataFilter] = None,
-        return_images: bool = False, # whether to return image paths when available
+        return_mode: str = "text",
     ) -> list[dict]:
         """
         Inputs:
@@ -395,17 +383,17 @@ class KnowledgeBase:
             - top_k_for_document_selection: the number of documents to consider
         - latency_profiling: whether to print latency profiling information
         - metadata_filter: metadata filter to apply to the search results
-        - return_images: whether to return image paths when available
+        - return_mode: "text", "page_images", "dynamic"
+            - whether to return segments as text, a list of page images, or to dynamically determine the return mode based on the content of each segment
 
         Returns relevant_segment_info, a list of segment_info dictionaries, ordered by relevance, that each contain:
         - doc_id: the document ID of the document that the segment is from
         - chunk_start: the start index of the segment in the document
         - chunk_end: the (non-inclusive) end index of the segment in the document
-        - text OR content: 
-            if return_images is False, text: a string that contains the full text of the segment
-            if return_images is True, content: a list of dictionaries, where each dictionary has the following keys: `type` and `content`
-                - `type` is either "text" or "image"
-                - `content` is the text content (if 'type' is "text") or image path (if 'type' is "image")
+        - content: the content of the segment
+            - if return_mode is "text", this will be a string of text
+            - if return_mode is "page_images", this will be a list of page image paths
+            - if return_mode is "dynamic", this will be either a string of text or a list of page image paths
         - segment_page_start: the page number that the segment starts on
         - segment_page_end: the page number that the segment ends on
         """
@@ -500,35 +488,20 @@ class KnowledgeBase:
             score = scores[segment_index]
             relevant_segment_info[-1]["score"] = score
 
-        if return_images:
-            # retrieve the text and image paths (including segment header) for each of the segments
-            for segment_info in relevant_segment_info:
-                segment_info["content"] = self.get_segment_content_from_database(
-                    segment_info["doc_id"],
-                    segment_info["chunk_start"],
-                    segment_info["chunk_end"],
-                )
-                start_page_number, end_page_number = self.get_segment_page_numbers(
-                    segment_info["doc_id"],
-                    segment_info["chunk_start"],
-                    segment_info["chunk_end"]
-                )
-                segment_info["segment_page_start"] = start_page_number
-                segment_info["segment_page_end"] = end_page_number
-        else:
-            # retrieve the text (including segment header) for each of the segments
-            for segment_info in relevant_segment_info:
-                segment_info["text"] = self.get_segment_text_from_database(
-                    segment_info["doc_id"],
-                    segment_info["chunk_start"],
-                    segment_info["chunk_end"],
-                )
-                start_page_number, end_page_number = self.get_segment_page_numbers(
-                    segment_info["doc_id"],
-                    segment_info["chunk_start"],
-                    segment_info["chunk_end"]
-                )
-                segment_info["segment_page_start"] = start_page_number
-                segment_info["segment_page_end"] = end_page_number
+        # retrieve the content for each of the segments
+        for segment_info in relevant_segment_info:
+            segment_info["content"] = self.get_segment_content_from_database(
+                segment_info["doc_id"],
+                segment_info["chunk_start"],
+                segment_info["chunk_end"],
+                return_mode=return_mode,
+            )
+            start_page_number, end_page_number = self.get_segment_page_numbers(
+                segment_info["doc_id"],
+                segment_info["chunk_start"],
+                segment_info["chunk_end"]
+            )
+            segment_info["segment_page_start"] = start_page_number
+            segment_info["segment_page_end"] = end_page_number
 
         return relevant_segment_info

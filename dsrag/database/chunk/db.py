@@ -49,6 +49,13 @@ class ChunkDB(ABC):
         pass
 
     @abstractmethod
+    def get_is_visual(self, doc_id: str, chunk_index: int) -> Optional[bool]:
+        """
+        Retrieve the is_visual flag of a specific chunk from a given document ID.
+        """
+        pass
+
+    @abstractmethod
     def get_chunk_page_numbers(self, doc_id: str, chunk_index: int) -> Optional[tuple[int, int]]:
         """
         Retrieve the page numbers of a specific chunk from a given document ID.
