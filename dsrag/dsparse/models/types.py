@@ -54,4 +54,3 @@ class ChunkingConfig(TypedDict):
 class FileParsingConfig(TypedDict):
     use_vlm: bool
     vlm_config: Optional[VLMConfig]
-    file_system: FileSystem

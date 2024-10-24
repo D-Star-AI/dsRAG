@@ -15,7 +15,7 @@ import json
 
 
 
-def parse_and_chunk(kb_id: str, doc_id: str, file_parsing_config: FileParsingConfig, semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, file_path: str = None, text: str = None) -> Tuple[List[Section], List[Chunk]]:
+def parse_and_chunk(kb_id: str, doc_id: str, file_parsing_config: FileParsingConfig, semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, file_system: FileSystem, file_path: str = None, text: str = None) -> Tuple[List[Section], List[Chunk]]:
     # file parsing, semantic sectioning, and chunking
     use_vlm = file_parsing_config.get("use_vlm", False)
     if use_vlm:
@@ -27,7 +27,7 @@ def parse_and_chunk(kb_id: str, doc_id: str, file_parsing_config: FileParsingCon
             file_path=file_path,
             kb_id=kb_id,
             doc_id=doc_id,
-            file_system=file_parsing_config["file_system"],
+            file_system=file_system,
             vlm_config=vlm_config,
             semantic_sectioning_config=semantic_sectioning_config,
             chunking_config=chunking_config,

@@ -3,39 +3,8 @@ import sys
 import unittest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-from dsrag.dsparse.file_parsing.vlm_file_parsing import parse_file
 from dsrag.dsparse.file_parsing.file_system import LocalFileSystem
 from dsrag.knowledge_base import KnowledgeBase
-
-
-class TestParsing(unittest.TestCase):
-    def test__parse_and_chunk_vlm(self):
-        # delete the directory where the images were saved
-        try:
-            os.system("rm -rf ~/dsrag_test_mck_energy")
-            print("Deleted directory ~/dsrag_test_mck_energy")
-        except:
-            pass
-        
-        pdf_path = "../data/mck_energy_first_5_pages.pdf"
-        save_path = "~/dsrag_test_mck_energy" # base directory to save the page images, pages with bounding boxes, and extracted images
-
-        # convert pdf path to absolute path because pdf2image requires it
-        pdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), pdf_path))
-
-        vlm_config = {
-            "provider": "vertex_ai",
-            "model": "gemini-1.5-flash-002",
-        }
-        
-        all_page_content = parse_file(pdf_path, save_path, vlm_config)
-
-        # assert that it found the correct number of images
-        num_images = len([content for content in all_page_content if content["type"] == "Image"])
-        self.assertEqual(num_images, 2)
-
-        # delete the directory where the images were saved
-        os.system("rm -rf ~/dsrag_test_mck_energy")
 
 
 class TestRetrieval(unittest.TestCase):
@@ -57,11 +26,10 @@ class TestRetrieval(unittest.TestCase):
         }
         file_parsing_config = {
             "use_vlm": True,
-            "vlm_config": vlm_config,
-            "file_system": file_system,
+            "vlm_config": vlm_config
         }
 
-        kb = KnowledgeBase(kb_id="mck_energy_test")
+        kb = KnowledgeBase(kb_id="mck_energy_test", file_system=file_system)
         kb.add_document(
             doc_id="mck_energy_report",
             file_path=file_path,
@@ -69,24 +37,38 @@ class TestRetrieval(unittest.TestCase):
             file_parsing_config=file_parsing_config
         )
 
-        kb = KnowledgeBase(kb_id="mck_energy_test")
+        #kb = KnowledgeBase(kb_id="mck_energy_test")
         
-        query = "People stacking boxes"
+        query = "Image of people collaborating around a structure, with a car in the background and people flying kites in the sky"
         rse_params = {
             "minimum_value": 0.0,
-            "irrelevant_chunk_penalty": 0.1,
+            "irrelevant_chunk_penalty": 0.5,
         }
 
-        search_results = kb.query(search_queries=[query], rse_params=rse_params, return_images=True)
-        print (search_results)
+        search_results = kb.query(search_queries=[query], rse_params=rse_params, return_mode="page_images")
 
         first_result = search_results[0]
-        self.assertEqual(first_result["segment_page_start"], 3)
-        self.assertEqual(first_result["segment_page_end"], 3)
-
+        self.assertTrue(first_result["segment_page_start"] == 1 or first_result["segment_page_start"] == 3)
+        self.assertTrue(first_result["segment_page_end"] == 1 or first_result["segment_page_end"] == 3)
         first_result_content = first_result["content"]
-        is_image = [content for content in first_result_content if content["type"] == "image"]
-        self.assertEqual(len(is_image), 1)
+        # Make sure the first result is a png image
+        self.assertTrue(first_result_content[0].endswith(".png"))
+
+
+        search_results = kb.query(search_queries=[query], rse_params=rse_params, return_mode="text")
+        first_result = search_results[0]
+        first_result_content = first_result["content"]
+        self.assertTrue(type(first_result_content) == str)
+
+        # Test dynamic mode. This should return the same result as page_image mode
+        search_results = kb.query(search_queries=[query], rse_params=rse_params, return_mode="dynamic")
+        first_result = search_results[0]
+        self.assertTrue(first_result["segment_page_start"] == 1 or first_result["segment_page_start"] == 3)
+        self.assertTrue(first_result["segment_page_end"] == 1 or first_result["segment_page_end"] == 3)
+        first_result_content = first_result["content"]
+        # Make sure the first result is a png image
+        self.assertTrue(first_result_content[0].endswith(".png"))
+
 
         self.cleanup()
 

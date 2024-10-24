@@ -10,7 +10,7 @@ from dsparse.models.types import Chunk, Section
 from dsparse.file_parsing.file_system import LocalFileSystem
 
 
-class TestDsParse(unittest.TestCase):
+class TestVLMFileParsing(unittest.TestCase):
     
     @classmethod
     def setUpClass(self):
@@ -38,7 +38,6 @@ class TestDsParse(unittest.TestCase):
         file_parsing_config = {
             "use_vlm": True,
             "vlm_config": vlm_config,
-            "file_system": self.file_system,
         }
         sections, chunks = parse_and_chunk(
             kb_id=self.kb_id,
@@ -46,7 +45,8 @@ class TestDsParse(unittest.TestCase):
             file_path=self.test_data_path,
             file_parsing_config=file_parsing_config,
             semantic_sectioning_config=semantic_sectioning_config,
-            chunking_config={}
+            chunking_config={},
+            file_system=self.file_system,
         )
 
         # Make sure the sections and chunks were created, and are the correct types

@@ -233,6 +233,7 @@ class KnowledgeBase:
             file_parsing_config=file_parsing_config, 
             semantic_sectioning_config=semantic_sectioning_config, 
             chunking_config=chunking_config,
+            file_system=self.file_system,
         )
         chunks, chunks_to_embed = auto_context(
             auto_context_model=self.auto_context_model, 
@@ -364,6 +365,9 @@ class KnowledgeBase:
             # get the page numbers that the segment starts and ends on
             start_page_number, end_page_number = self.get_segment_page_numbers(doc_id, chunk_start, chunk_end)
             page_image_paths = self.file_system.get_files(kb_id=self.kb_id, doc_id=doc_id, page_start=start_page_number, page_end=end_page_number)
+            # If there are no page images, fallback to using text mode
+            if page_image_paths == []:
+                page_image_paths = self.get_segment_content_from_database(doc_id, chunk_start, chunk_end, return_mode="text")
             return page_image_paths
 
     def query(
