@@ -110,7 +110,7 @@ def parse_and_chunk_vlm(file_path: str, kb_id: str, doc_id: str, file_system: Fi
         exclude_elements=exclude_elements,
         max_characters=20000,
         semantic_sectioning_config=semantic_sectioning_config
-        )
+    )
     
     if testing_mode:
         # dump to json for testing
@@ -137,7 +137,7 @@ def parse_and_chunk_vlm(file_path: str, kb_id: str, doc_id: str, file_system: Fi
         document_lines=document_lines, 
         chunk_size=chunk_size, 
         min_length_for_chunking=min_length_for_chunking
-        )
+    )
     
     if testing_mode:
         # dump to json for testing
@@ -195,13 +195,13 @@ def parse_and_chunk_no_vlm(semantic_sectioning_config: SemanticSectioningConfig,
             pages=pdf_pages,
             max_characters=20000,
             semantic_sectioning_config=semantic_sectioning_config
-            )
+        )
     else:
         sections, document_lines = get_sections_from_str(
             document=text,
             max_characters=20000,
             semantic_sectioning_config=semantic_sectioning_config
-            )
+        )
     
     if testing_mode:
         # dump to json for testing
@@ -228,7 +228,7 @@ def parse_and_chunk_no_vlm(semantic_sectioning_config: SemanticSectioningConfig,
         document_lines=document_lines, 
         chunk_size=chunk_size, 
         min_length_for_chunking=min_length_for_chunking
-        )
+    )
     
     if testing_mode:
         # dump to json for testing
@@ -236,4 +236,3 @@ def parse_and_chunk_no_vlm(semantic_sectioning_config: SemanticSectioningConfig,
             json.dump(chunks, f, indent=4)
 
     return sections, chunks
-

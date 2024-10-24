@@ -38,6 +38,11 @@ class BasicChunkDB(ChunkDB):
             return self.data[doc_id][chunk_index]["chunk_text"]
         return None
     
+    def get_is_visual(self, doc_id: str, chunk_index: int) -> Optional[bool]:
+        if doc_id in self.data and chunk_index in self.data[doc_id]:
+            return self.data[doc_id][chunk_index].get("is_visual", False) # default to False for backwards compatibility
+        return None
+    
     def get_chunk_page_numbers(self, doc_id: str, chunk_index: int) -> Optional[tuple[int, int]]:
         if doc_id in self.data and chunk_index in self.data[doc_id]:
             return (
