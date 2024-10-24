@@ -24,6 +24,7 @@ from dsrag.database.chunk import ChunkDB, BasicChunkDB
 from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
 from dsrag.llm import LLM, OpenAIChatAPI
+from dsrag.dsparse.file_parsing.file_system import FileSystem, LocalFileSystem
 
 
 class KnowledgeBase:
@@ -40,6 +41,7 @@ class KnowledgeBase:
         auto_context_model: Optional[LLM] = None,
         vector_db: Optional[VectorDB] = None,
         chunk_db: Optional[ChunkDB] = None,
+        file_system: Optional[FileSystem] = None,
         exists_ok: bool = True,
         save_metadata_to_disk: bool = True,
     ):
@@ -69,7 +71,7 @@ class KnowledgeBase:
                     "created_on": created_time,
                 }
                 self.initialize_components(
-                    embedding_model, reranker, auto_context_model, vector_db, chunk_db
+                    embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system
                 )
                 self.save()  # save the config for the KB to disk
         else:
@@ -80,7 +82,7 @@ class KnowledgeBase:
                 "supp_id": supp_id,
             }
             self.initialize_components(
-                embedding_model, reranker, auto_context_model, vector_db, chunk_db
+                embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system
             )
 
     def get_metadata_path(self):
@@ -93,6 +95,7 @@ class KnowledgeBase:
         auto_context_model: Optional[LLM],
         vector_db: Optional[VectorDB],
         chunk_db: Optional[ChunkDB],
+        file_system: Optional[FileSystem],
     ):
         self.embedding_model = embedding_model if embedding_model else OpenAIEmbedding()
         self.reranker = reranker if reranker else CohereReranker()
@@ -107,6 +110,7 @@ class KnowledgeBase:
         self.chunk_db = (
             chunk_db if chunk_db else BasicChunkDB(self.kb_id, self.storage_directory)
         )
+        self.file_system = file_system if file_system else LocalFileSystem(base_path=self.storage_directory)
         self.vector_dimension = self.embedding_model.dimension
 
     def save(self):
