@@ -106,6 +106,8 @@ class LocalFileSystem(FileSystem):
         - page_start: int - the starting page number
         - page_end: int - the ending page number (inclusive)
         """
+        if page_start is None or page_end is None:
+            return []
         page_images_path = os.path.join(self.base_path, kb_id, doc_id)
         image_file_paths = []
         for i in range(page_start, page_end + 1):
@@ -215,6 +217,8 @@ class S3FileSystem(FileSystem):
         - page_start: int - the starting page number
         - page_end: int - the ending page number (inclusive)
         """
+        if page_start is None or page_end is None:
+            return []
         filenames = [f"{kb_id}/{doc_id}/page_{i}.png" for i in range(page_start, page_end + 1)]
         s3_client = self.create_s3_client()
         file_paths = []
