@@ -55,6 +55,7 @@ class KnowledgeBase:
                 self.load(
                     auto_context_model, reranker, file_system
                 )  # allow the user to override the auto_context_model and reranker
+                self.save()
             elif os.path.exists(metadata_path) and not exists_ok:
                 raise ValueError(
                     f"Knowledge Base with ID {kb_id} already exists. Use exists_ok=True to load it."
