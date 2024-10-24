@@ -192,7 +192,7 @@ def str_to_lines(document: str) -> List[Line]:
             "content": line,
             "element_type": "NarrativeText",
             "page_number": None,
-            "image_path": None
+            "is_visual": False,
         })
 
     return document_lines
@@ -206,7 +206,7 @@ def pages_to_lines(pages: List[str]) -> List[Line]:
                 "content": line,
                 "element_type": "NarrativeText",
                 "page_number": i+1, # page numbers are 1-indexed
-                "image_path": None
+                "is_visual": False,
             })
 
     return document_lines
