@@ -6,10 +6,33 @@ import json
 from abc import ABC, abstractmethod
 from typing import List
 
+
 class FileSystem(ABC):
+    subclasses = {}
 
     def __init__(self, base_path: str):
         self.base_path = base_path
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.subclasses[cls.__name__] = cls
+
+    def to_dict(self):
+        return {
+            "subclass_name": self.__class__.__name__,
+            "base_path": self.base_path
+        }
+
+    @classmethod
+    def from_dict(cls, config):
+        subclass_name = config.pop(
+            "subclass_name", None
+        )  # Remove subclass_name from config
+        subclass = cls.subclasses.get(subclass_name)
+        if subclass:
+            return subclass(**config)  # Pass the modified config without subclass_name
+        else:
+            raise ValueError(f"Unknown subclass: {subclass_name}")
 
     @abstractmethod
     def create_directory(self, kb_id: str, doc_id: str) -> None:
@@ -30,6 +53,7 @@ class FileSystem(ABC):
     @abstractmethod
     def get_files(self, kb_id: str, doc_id: str, page_start: int, page_end: int) -> List[str]:
         pass
+
 
 
 class LocalFileSystem(FileSystem):
@@ -216,3 +240,14 @@ class S3FileSystem(FileSystem):
                 print ("Error downloading file:", e)
             
         return file_paths
+    
+
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update({
+            "bucket_name": self.bucket_name,
+            "region_name": self.region_name,
+            "access_key": self.access_key,
+            "access_secret": self.secret_key
+        })
+        return base_dict

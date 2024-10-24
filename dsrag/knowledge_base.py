@@ -53,7 +53,7 @@ class KnowledgeBase:
             metadata_path = self.get_metadata_path()
             if os.path.exists(metadata_path) and exists_ok:
                 self.load(
-                    auto_context_model, reranker
+                    auto_context_model, reranker, file_system
                 )  # allow the user to override the auto_context_model and reranker
             elif os.path.exists(metadata_path) and not exists_ok:
                 raise ValueError(
@@ -121,6 +121,7 @@ class KnowledgeBase:
             "auto_context_model": self.auto_context_model.to_dict(),
             "vector_db": self.vector_db.to_dict(),
             "chunk_db": self.chunk_db.to_dict(),
+            "file_system": self.file_system.to_dict(),
         }
         # Combine metadata and components
         full_data = {**self.kb_metadata, "components": components}
@@ -132,7 +133,7 @@ class KnowledgeBase:
         with open(self.get_metadata_path(), "w") as f:
             json.dump(full_data, f, indent=4)
 
-    def load(self, auto_context_model=None, reranker=None):
+    def load(self, auto_context_model=None, reranker=None, file_system=None):
         """
         Note: auto_context_model and reranker can be passed in to override the models in the metadata file. The other components are not overridable because that would break things.
         """
@@ -158,6 +159,19 @@ class KnowledgeBase:
             )
             self.vector_db = VectorDB.from_dict(components.get("vector_db", {}))
             self.chunk_db = ChunkDB.from_dict(components.get("chunk_db", {}))
+
+            file_system_dict = components.get("file_system", None)
+
+            if file_system_dict is not None:
+                # If the file system dict exists, use it
+                self.file_system = FileSystem.from_dict(file_system_dict)
+            elif file_system is not None:
+                # If the file system does not exist but is provided, use the provided file system
+                self.file_system = file_system
+            else:
+                # If the file system does not exist and is not provided, default to LocalFileSystem
+                self.file_system = LocalFileSystem(base_path=self.storage_directory)
+
             self.vector_dimension = self.embedding_model.dimension
 
     def delete(self):
