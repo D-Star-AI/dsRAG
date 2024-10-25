@@ -38,6 +38,7 @@ class TestVLMFileParsing(unittest.TestCase):
         file_parsing_config = {
             "use_vlm": True,
             "vlm_config": vlm_config,
+            "always_save_page_images": True
         }
         sections, chunks = parse_and_chunk(
             kb_id=self.kb_id,
@@ -82,7 +83,8 @@ class TestVLMFileParsing(unittest.TestCase):
             "language": "en",
         }
         file_parsing_config = {
-            "use_vlm": False
+            "use_vlm": False,
+            "always_save_page_images": True,
         }
         sections, chunks = parse_and_chunk(
             kb_id=self.kb_id,

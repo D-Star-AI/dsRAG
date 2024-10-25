@@ -54,3 +54,4 @@ class ChunkingConfig(TypedDict):
 class FileParsingConfig(TypedDict):
     use_vlm: bool
     vlm_config: Optional[VLMConfig]
+    always_save_page_images: bool

@@ -87,6 +87,7 @@ class TestRetrieval(unittest.TestCase):
         file_system = LocalFileSystem(base_path=save_path)
         file_parsing_config = {
             "use_vlm": False,
+            "always_save_page_images": True
         }
 
         kb = KnowledgeBase(kb_id="mck_energy_test", file_system=file_system)
