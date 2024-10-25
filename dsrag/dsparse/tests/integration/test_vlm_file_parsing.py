@@ -74,6 +74,42 @@ class TestVLMFileParsing(unittest.TestCase):
             pass
 
 
+    def test_non_vlm_file_parsing(self):
+
+        semantic_sectioning_config = {
+            "llm_provider": "openai",
+            "model": "gpt-4o-mini",
+            "language": "en",
+        }
+        file_parsing_config = {
+            "use_vlm": False
+        }
+        sections, chunks = parse_and_chunk(
+            kb_id=self.kb_id,
+            doc_id=self.doc_id,
+            file_path=self.test_data_path,
+            file_parsing_config=file_parsing_config,
+            semantic_sectioning_config=semantic_sectioning_config,
+            chunking_config={},
+            file_system=self.file_system,
+        )
+        
+        # Make sure the sections and chunks were created, and are the correct types
+        self.assertTrue(len(sections) > 0)
+        self.assertTrue(len(chunks) > 0)
+        self.assertEqual(type(sections), list)
+        self.assertEqual(type(chunks), list)
+        
+        for key, expected_type in Section.__annotations__.items():
+            self.assertIsInstance(sections[0][key], expected_type)
+        
+        for key, expected_type in Chunk.__annotations__.items():
+            self.assertIsInstance(chunks[0][key], expected_type)
+
+        self.assertTrue(len(sections[0]["title"]) > 0)
+        self.assertTrue(len(sections[0]["content"]) > 0)
+
+
     @classmethod
     def tearDownClass(self):
         # Delete the save path

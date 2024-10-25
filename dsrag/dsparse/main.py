@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from .file_parsing.vlm_file_parsing import parse_file
+from .file_parsing.vlm_file_parsing import parse_file, pdf_to_images
 from .file_parsing.non_vlm_file_parsing import parse_file_no_vlm
 from .file_parsing.element_types import default_element_types
 from .sectioning_and_chunking.semantic_sectioning import get_sections_from_elements, get_sections_from_str, get_sections_from_pages
@@ -18,6 +18,11 @@ import json
 def parse_and_chunk(kb_id: str, doc_id: str, file_parsing_config: FileParsingConfig, semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, file_system: FileSystem, file_path: str = None, text: str = None) -> Tuple[List[Section], List[Chunk]]:
     # file parsing, semantic sectioning, and chunking
     use_vlm = file_parsing_config.get("use_vlm", False)
+
+    # We can only run VLM file parsing on .pdf files
+    if use_vlm and file_path and not file_path.endswith(".pdf"):
+        raise ValueError("VLM parsing requires a .pdf file. Please provide a .pdf file_path.")
+    
     if use_vlm:
         # make sure a file_path is provided
         if not file_path:
@@ -37,12 +42,17 @@ def parse_and_chunk(kb_id: str, doc_id: str, file_parsing_config: FileParsingCon
             sections, chunks = parse_and_chunk_no_vlm(
                 semantic_sectioning_config=semantic_sectioning_config,
                 chunking_config=chunking_config,
+                kb_id=kb_id,
+                doc_id=doc_id,
                 file_path=file_path,
+                file_system=file_system,
             )
         else:
             sections, chunks = parse_and_chunk_no_vlm(
                 semantic_sectioning_config=semantic_sectioning_config,
                 chunking_config=chunking_config,
+                kb_id=kb_id,
+                doc_id=doc_id,
                 text=text,
             )
 
@@ -146,7 +156,7 @@ def parse_and_chunk_vlm(file_path: str, kb_id: str, doc_id: str, file_system: Fi
 
     return sections, chunks
 
-def parse_and_chunk_no_vlm(semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, file_path: str = "", text: str = "", testing_mode: bool = False) -> tuple[List[Section], List[Chunk]]:
+def parse_and_chunk_no_vlm(semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, kb_id: str, doc_id: str, file_path: str = "", text: str = "", file_system: FileSystem = None, testing_mode: bool = False) -> tuple[List[Section], List[Chunk]]:
     """
     Inputs
     - semantic_sectioning_config: a dictionary containing the configuration for the semantic sectioning algorithm
@@ -175,6 +185,10 @@ def parse_and_chunk_no_vlm(semantic_sectioning_config: SemanticSectioningConfig,
     else:
         pdf_pages = None
         # text is already provided
+
+    if pdf_pages:
+        # If the PDF pages exists, convert each page to an image
+        pdf_to_images(file_path, kb_id, doc_id, file_system, dpi=150)
     
     if testing_mode:
         # dump to txt file for testing
