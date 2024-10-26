@@ -101,6 +101,15 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
     - page_content: list of Elements
     """
 
+    # use default vlm_provider and model if not provided
+    if "provider" not in vlm_config:
+        vlm_config["provider"] = "gemini"
+    if "model" not in vlm_config:
+        if vlm_config["provider"] == "gemini":
+            vlm_config["model"] = "gemini-1.5-flash-002"
+        else:
+            raise ValueError("Non-default VLM provider specified without specifying model")
+
     # format system message
     system_message = SYSTEM_MESSAGE.format(
         num_visual_elements=get_num_visual_elements(element_types),
