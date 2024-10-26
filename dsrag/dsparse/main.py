@@ -25,15 +25,15 @@ def parse_and_chunk(kb_id: str, doc_id: str, file_parsing_config: FileParsingCon
             - model: the VLM model to use
             - project_id: the GCP project ID (required if provider is "vertex_ai")
             - location: the GCP location (required if provider is "vertex_ai")
-            - save_path: the path to save intermediate files created during VLM processing
             - exclude_elements: a list of element types to exclude from the parsed text. Default is ["Header", "Footer"].
             - element_types: a list of dictionaries, each containing 'name', 'instructions', and 'is_visual' keys
                 - default (defined in element_types.py) will be used if not provided
         - always_save_page_images: bool - whether to save page images even if VLM is not used (default is False)
     - semantic_sectioning_config: a dictionary with configuration for the semantic sectioning model (defaults will be used if not provided)
+        - use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
         - llm_provider: the LLM provider to use for semantic sectioning - only "openai" and "anthropic" are supported at the moment
         - model: the LLM model to use for semantic sectioning
-        - use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
+        - language: the language of the document - used for prompting the LLM model to generate section titles in the correct language
     - chunking_config: a dictionary with configuration for chunking the document/sections into smaller pieces (defaults will be used if not provided)
         - chunk_size: the maximum number of characters to include in each chunk
         - min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk. If semantic sectioning is used, this parameter will be applied to each section. Setting this to a higher value than the chunk_size can help avoid unnecessary chunking of short documents or sections.

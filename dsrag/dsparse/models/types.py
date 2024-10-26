@@ -37,7 +37,6 @@ class VLMConfig(TypedDict):
     model: str
     project_id: Optional[str]
     location: Optional[str]
-    save_path: str
     exclude_elements: Optional[list[str]]
     element_types: Optional[list[ElementType]]
 
