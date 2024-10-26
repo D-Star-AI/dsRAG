@@ -8,12 +8,21 @@ from .file_parsing.element_types import default_element_types
 from .sectioning_and_chunking.semantic_sectioning import get_sections_from_elements, get_sections_from_str, get_sections_from_pages
 from .sectioning_and_chunking.chunking import chunk_document
 from .models.types import FileParsingConfig, VLMConfig, SemanticSectioningConfig, ChunkingConfig, Section, Chunk
-from .file_parsing.file_system import FileSystem
+from .file_parsing.file_system import FileSystem, LocalFileSystem
 
 from typing import List, Tuple
 import json
 
-def parse_and_chunk(kb_id: str, doc_id: str, file_parsing_config: FileParsingConfig, semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, file_system: FileSystem, file_path: str = None, text: str = None) -> Tuple[List[Section], List[Chunk]]:
+def parse_and_chunk(
+    kb_id: str, 
+    doc_id: str, 
+    file_parsing_config: FileParsingConfig = {}, 
+    semantic_sectioning_config: SemanticSectioningConfig = {}, 
+    chunking_config: ChunkingConfig = {}, 
+    file_system: FileSystem = {}, 
+    file_path: str = None, 
+    text: str = None,
+) -> Tuple[List[Section], List[Chunk]]:
     """
     Inputs
     - kb_id: a knowledge base / collection identifier for the document - used to determine location to store page images
@@ -37,7 +46,7 @@ def parse_and_chunk(kb_id: str, doc_id: str, file_parsing_config: FileParsingCon
     - chunking_config: a dictionary with configuration for chunking the document/sections into smaller pieces (defaults will be used if not provided)
         - chunk_size: the maximum number of characters to include in each chunk
         - min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk. If semantic sectioning is used, this parameter will be applied to each section. Setting this to a higher value than the chunk_size can help avoid unnecessary chunking of short documents or sections.
-    - file_system: a FileSystem object for defining where to store page images (required if either use_vlm or always_save_page_images is True)
+    - file_system: a FileSystem object for defining where to store page images (used if either use_vlm or always_save_page_images is True; defaults to local storage)
     - file_path: the path to the file to parse and chunk
         - supported file types: .pdf, .docx, .txt, .md
     - text: the text to parse and chunk
@@ -65,6 +74,10 @@ def parse_and_chunk(kb_id: str, doc_id: str, file_parsing_config: FileParsingCon
     # We can only run VLM file parsing on .pdf files
     if use_vlm and file_path and not file_path.endswith(".pdf"):
         raise ValueError("VLM parsing requires a .pdf file. Please provide a .pdf file_path.")
+    
+    # Create a FileSystem object if not provided
+    if not file_system:
+        file_system = LocalFileSystem(base_path=os.path.expanduser("~/dsParse"))
     
     if use_vlm:
         # make sure a file_path is provided
