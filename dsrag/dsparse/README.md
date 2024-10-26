@@ -1,16 +1,18 @@
 # dsParse
-dsParse is a sub-module of dsRAG that does file parsing and chunking. You provide a file path (and some config params) and receive nice clean chunks.
+dsParse is a sub-module of dsRAG that does multimodal file parsing, semantic sectioning, and chunking. You provide a file path (and some config params) and receive nice clean chunks.
 
 ```python
-sections, chunks = parse_and_chunk_vlm(
-    file_path,
-    vlm_config = {
-        "provider": "vertex_ai",
-        "model": "gemini-1.5-pro-002",
-        "project_id": os.environ["VERTEX_PROJECT_ID"],
-        "location": "us-central1",
-        "save_path": "~/dsrag_test_mck_energy"
+sections, chunks = parse_and_chunk(
+    kb_id = "sample_kb",
+    doc_id = "sample_doc",
+    file_parsing_config={
+        "use_vlm": True,
+        "vlm_config": {
+            "provider": "gemini",
+            "model": "gemini-1.5-pro-002",
+        }
     }
+    file_path="path/to/file.pdf",
 )
 ```
 
@@ -29,7 +31,6 @@ kb.add_document(
             "model": "gemini-1.5-pro-002",
             "project_id": os.environ["VERTEX_PROJECT_ID"],
             "location": "us-central1",
-            "save_path": "~/dsrag_test_mck_energy"
         }
     }
 )
@@ -37,45 +38,39 @@ kb.add_document(
 
 ## Multimodal file parsing
 dsParse uses a vision language model (VLM) to parse documents. This has a few advantages:
-- It can provide descriptions and bounding boxes for visual elements, like images and figures.
+- It can provide descriptions for visual elements, like images and figures.
 - It can parse documents that don't have extractable text (i.e. those that require OCR).
 - It can accurately parse documents with complex structures.
 - It can accurately categorize page content into element types.
 
-When it comes across an element on the page that can't be accurately represented with text alone, like an image or figure (chart, graph, diagram, etc.), it provides a text description of it as well as a bounding box for it. The bounding box is used to extract the image/figure from the page. 
+When it comes across an element on the page that can't be accurately represented with text alone, like an image or figure (chart, graph, diagram, etc.), it provides a text description of it. This can then be used in the embedding and retrieval pipeline. 
 
-The default model, `gemini-1.5-pro-002`, is the only model that works reliably enough for this task right now. It can be accessed through the Gemini API or the Vertex API.
+The default model, `gemini-1.5-flash-002`, is a fast and cost-effective option. `gemini-1.5-pro-002` is also supported, and works extremely well, but at a higher cost. These models can be accessed through either the Gemini API or the Vertex API.
 
 ### Element types
-Page content is categorized into the following seven categories:
+Page content is categorized into the following eight categories by default:
 - NarrativeText
-    - This is the main text content of the page, including paragraphs, lists, titles, and any other text content that is not part of a header, footer, figure, table, or image.
 - Figure
-    - This covers charts, graphs, diagrams, etc. Associated titles, legends, axis titles, etc. are also included.
 - Image
-    - This is any visual content on the page that isn't a figure.
 - Table
-    - This is a table on the page. If the table can be represented accurately using Markdown, then it should be included as a Table element. If not, it should be included as an Image element to ensure accuracy.
 - Header
-    - This is the header of the page.
 - Footnote
-    - This is a footnote on the page. Footnotes should always be included as a separate element from the main text content as they aren't part of the main linear reading flow of the page.
 - Footer
-    - This is the footer of the page.
+- Equation
+
+You can also choose to define your own categories and the VLM will be prompted accordingly.
 
 You can choose to exclude certain element types. By default, Header and Footer elements are excluded, as they rarely contain valuable information and they break up the flow between pages. For example, if you wanted to exclude footnotes, in addition to headers and footers, you would do: `exclude_elements = ["Header", "Footer", "Footnote"]`.
 
-### Bounding boxes for visual elements
-For the two types of visual elements (Figure and Image) the VLM is required to include a bounding box for the image. This is what allows us to extract the image from the page.
+## Using page images for full multimodal RAG functionality
+While modern VLMs, like Gemini and Claude 3.5, are now better than traditional OCR and bounding box extraction methods at converting visual elements on a page to text or bounding boxes, they still aren’t perfect. For fully visual elements, like images or charts, getting an accurate bounding box that includes all necessary surrounding context, like legends and axis titles, is only about 90% reliable with even the best VLM models. For semi-visual content, like tables and equations, converting to plain text is also not quite perfect yet. The problem with errors at the file parsing stage is that they propagate all the way to the generation stage.
 
-The VLM also generates a description of the figure/image. This description can be used in place of text content in the retrieval pipeline.
-
-At inference-time, whenever the search results include visual elements, you can swap out the text description for the actual image (assuming you're using a model that supports image inputs).
+For all of these element types, it’s more reliable to just send in the original page images to the generative model as context. That ensures that no context is lost, and that OCR and other parsing errors don’t propagate to the final response generated by the model. Images are no more expensive to process than extracted text (with the exception of a few models, like GPT-4o Mini, with weird image input pricing). In fact, for pages with dense text, a full page image might actually be cheaper than using the text itself.
 
 ## Semantic sectioning and chunking
-Semantic sectioning uses an LLM to break a document into sections. It works by annotating the document with line numbers and then prompting an LLM to identify the starting lines for each “semantically cohesive section.” These sections should be anywhere from a few paragraphs to a few pages long. The sections then get broken into smaller chunks if needed. The LLM also generates descriptive titles for each section. These section titles get used in the contextual chunk headers created by AutoContext, which provides additional context to the ranking models (embeddings and reranker), enabling better retrieval.
+Semantic sectioning uses an LLM to break a document into sections. It works by annotating the document with line numbers and then prompting an LLM to identify the starting lines for each “semantically cohesive section.” These sections should be anywhere from a few paragraphs to a few pages long. The sections then get broken into smaller chunks if needed. The LLM also generates descriptive titles for each section. When using dsParse with a dsRAG knowledge base, these section titles get used in the contextual chunk headers created by AutoContext, which provides additional context to the ranking models (embeddings and reranker), enabling better retrieval.
 
-The default model for semantic sectioning is `gpt-4o-mini`, but similarly strong models like `gemini-1.5-flash-002` will also work well. Less powerful models, like Claude 3 Haiku, don't work as well.
+The default model for semantic sectioning is `gpt-4o-mini`, but similarly strong models like `gemini-1.5-flash-002` will also work well.
 
 ## Cost and latency/throughput estimation
 An obvious concern with using a large model like `gemini-1.5-pro-002` to parse documents is the cost. Let's run the numbers:
@@ -88,7 +83,7 @@ VLM file parsing cost calculation (`gemini-1.5-pro-002`)
 
 This is actually cheaper than many commercially available PDF parsing services. Unstructured, for example, costs $10 per 1000 pages.
 
-What about latency and throughput? Since each page is processed independently, this is a highly parallelizable problem. The main limiting factor then is the rate limits imposed by the VLM provider. The current rate limit for `gemini-1.5-pro-002` is 1000 requests per minute. Since dsParse uses one request per page, and processing a single page takes less than a minute, that means the limit is 1000 pages per minute. Processing a single page takes around 15-20 seconds, so that's the minimum latency for processing a document.
+What about latency and throughput? Since each page is processed independently, this is a highly parallelizable problem. The main limiting factor then is the rate limits imposed by the VLM provider. The current rate limit for `gemini-1.5-pro-002` is 1000 requests per minute. Since dsParse uses one request per page, that means the limit is 1000 pages per minute. Processing a single page takes around 15-20 seconds, so that's the minimum latency for processing a document.
 
 Semantic sectioning uses a much cheaper model, and it also uses far fewer output tokens, so it ends up being far cheaper than the file parsing step.
 
