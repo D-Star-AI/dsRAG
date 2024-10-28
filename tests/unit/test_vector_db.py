@@ -11,6 +11,7 @@ from dsrag.database.vector import (
     WeaviateVectorDB,
     ChromaDB,
     QdrantVectorDB,
+    PostgresVectorDB
 )
 from dsrag.database.vector.types import ChunkMetadata
 
@@ -271,7 +272,7 @@ class TestChromaDB(unittest.TestCase):
         ]
 
         db.add_vectors(vectors, metadata)
-        query_vector = np.array([[1, 0]])
+        query_vector = np.array([1, 0])
         results = db.search(query_vector, top_k=1)
 
         self.assertEqual(len(results), 1)
@@ -315,7 +316,7 @@ class TestChromaDB(unittest.TestCase):
 
         db.add_vectors(vectors, metadata)
 
-        query_vector = np.array([[1, 0]])
+        query_vector = np.array([1, 0])
         metadata_filter = {"field": "doc_id", "operator": "equals", "value": "1"}
         results = db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
 
@@ -657,6 +658,166 @@ class TestQdrantDB(unittest.TestCase):
             "Error in add_vectors: the number of vectors and metadata items must be the same."
             in str(context.exception)
         )
+
+
+
+class TestPostgresVectorDB(unittest.TestCase):
+    def setUp(self):
+        self.kb_id = "test_kb"
+        self.host = "localhost"
+        self.port = 5432
+        self.username = os.environ.get("POSTGRES_USER")
+        self.password = os.environ.get("POSTGRES_PASSWORD")
+        self.database = os.environ.get("POSTGRES_DB")
+        self.vector_dimension = 2
+
+        self.db = PostgresVectorDB(
+            kb_id=self.kb_id,
+            username=self.username,
+            password=self.password,
+            database=self.database,
+            host=self.host,
+            port=self.port,
+            vector_dimension=self.vector_dimension,
+        )
+
+    def tearDown(self):
+        # delete test data from ChromaDB
+        self.db.delete()
+
+    def test__add_vectors_and_search(self):
+        vectors = [np.array([1, 0]), np.array([0, 1])]
+        metadata: Sequence[ChunkMetadata] = [
+            {
+                "doc_id": "1",
+                "chunk_index": 0,
+                "chunk_header": "Header1",
+                "chunk_text": "Text1",
+            },
+            {
+                "doc_id": "2",
+                "chunk_index": 1,
+                "chunk_header": "Header2",
+                "chunk_text": "Text2",
+            },
+        ]
+
+        self.db.add_vectors(vectors, metadata)
+        query_vector = np.array([1, 0])
+        results = self.db.search(query_vector, top_k=1)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["metadata"]["doc_id"], "1")
+        self.assertGreaterEqual(results[0]["similarity"], 0.99)
+
+    """def test__search_with_metadata_filter(self):
+        db = ChromaDB(kb_id=self.kb_id)
+        vectors = [
+            np.array([1, 0]),
+            np.array([1, 0]),
+            np.array([0, 1]),
+            np.array([1, 0]),
+        ]
+        metadata: Sequence[ChunkMetadata] = [
+            {
+                "doc_id": "1",
+                "chunk_index": 0,
+                "chunk_header": "Header1",
+                "chunk_text": "Text1",
+            },
+            {
+                "doc_id": "2",
+                "chunk_index": 0,
+                "chunk_header": "Header1",
+                "chunk_text": "Text1",
+            },
+            {
+                "doc_id": "3",
+                "chunk_index": 1,
+                "chunk_header": "Header2",
+                "chunk_text": "Text2",
+            },
+            {
+                "doc_id": "4",
+                "chunk_index": 1,
+                "chunk_header": "Header2",
+                "chunk_text": "Text2",
+            },
+        ]
+
+        db.add_vectors(vectors, metadata)
+
+        query_vector = np.array([[1, 0]])
+        metadata_filter = {"field": "doc_id", "operator": "equals", "value": "1"}
+        results = db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["metadata"]["doc_id"], "1")
+
+        # Test with the 'in' operator
+        metadata_filter = {"field": "doc_id", "operator": "in", "value": ["1", "4"]}
+        results = db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]["metadata"]["doc_id"], "1")
+        self.assertEqual(results[1]["metadata"]["doc_id"], "4")
+
+    def test__remove_document(self):
+        db = ChromaDB(kb_id=self.kb_id)
+        vectors = [np.array([1, 0]), np.array([0, 1])]
+        metadata: Sequence[ChunkMetadata] = [
+            {
+                "doc_id": "1",
+                "chunk_index": 0,
+                "chunk_header": "Header1",
+                "chunk_text": "Text1",
+            },
+            {
+                "doc_id": "2",
+                "chunk_index": 1,
+                "chunk_header": "Header2",
+                "chunk_text": "Text2",
+            },
+        ]
+
+        db.add_vectors(vectors, metadata)
+        db.remove_document("1")
+
+        num_vectors = db.get_num_vectors()
+        self.assertEqual(num_vectors, 1)
+
+    def test__empty_search(self):
+        db = ChromaDB(kb_id="test_chroma_db_2")
+        query_vector = np.array([1, 0])
+        results = db.search(query_vector)
+
+        self.assertEqual(len(results), 0)
+        db.delete()
+
+    def test__assertion_error_on_mismatched_input_lengths(self):
+        db = ChromaDB(kb_id=self.kb_id)
+        vectors = [np.array([1, 0])]
+        metadata: Sequence[ChunkMetadata] = [
+            {
+                "doc_id": "1",
+                "chunk_index": 0,
+                "chunk_header": "Header1",
+                "chunk_text": "Text1",
+            },
+            {
+                "doc_id": "2",
+                "chunk_index": 1,
+                "chunk_header": "Header2",
+                "chunk_text": "Text2",
+            },
+        ]
+
+        with self.assertRaises(ValueError) as context:
+            db.add_vectors(vectors, metadata)
+        self.assertTrue(
+            "Error in add_vectors: the number of vectors and metadata items must be the same."
+            in str(context.exception)
+        )"""
+
 
 
 if __name__ == "__main__":
