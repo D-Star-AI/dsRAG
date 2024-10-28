@@ -136,6 +136,8 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
             if "429 Online prediction request quota exceeded" in str(e):
                 print (f"Error in make_llm_call_gemini: {e}")
                 return 429
+            else:
+                print (f"Error in make_llm_call_gemini: {e}")
     elif vlm_config["provider"] == "gemini":
         try:
             llm_output = make_llm_call_gemini(
