@@ -59,6 +59,20 @@ class TestLocalFileSystem(unittest.TestCase):
         # Check if the directory was deleted
         self.assertFalse(os.path.exists(os.path.join(self.base_path, self.kb_id, self.doc_id)))
 
+    def test__006_delete_kb(self):
+        self.file_system.create_directory(self.kb_id, self.doc_id)
+
+        # Add a file to the directory
+        pdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../tests/data/mck_energy_first_5_pages.pdf'))
+        images = convert_from_path(pdf_path, dpi=150)
+        
+        file_name = "page_0.png"
+        self.file_system.save_image(self.kb_id, self.doc_id, file_name, images[0])
+
+        self.file_system.delete_kb(self.kb_id)
+        # Check if the directory was deleted
+        self.assertFalse(os.path.exists(os.path.join(self.base_path, self.kb_id)))
+
     @classmethod
     def tearDownClass(self):
         try:
@@ -111,20 +125,38 @@ class TestS3FileSystem(unittest.TestCase):
         # Make sure the file was saved locally to the base path
         self.assertTrue(os.path.exists(os.path.join(self.base_path, self.kb_id, self.doc_id, "page_0.png")))
 
+        # Try it again with the file already saved locally (Shouldn't cause any issues)
+        files = self.s3_file_system.get_files(self.kb_id, self.doc_id, page_start=0, page_end=0)
+        self.assertTrue(len(files) == 1)
+
         # Test for a page that doesn't exist
         files = self.s3_file_system.get_files(self.kb_id, self.doc_id, page_start=1, page_end=1)
         self.assertTrue(len(files) == 0)
 
     def test__005_delete_directory(self):
 
-        objects_to_delete = self.s3_file_system.delete_directory(self.kb_id, self.doc_id)
-        self.assertTrue(len(objects_to_delete) == 2)
-        self.assertTrue(objects_to_delete[0]["Key"] == f"{self.kb_id}/{self.doc_id}/elements.json")
-        self.assertTrue(objects_to_delete[1]["Key"] == f"{self.kb_id}/{self.doc_id}/page_0.png")
+        objects_deleted = self.s3_file_system.delete_directory(self.kb_id, self.doc_id)
+        self.assertTrue(len(objects_deleted) == 2)
+        self.assertTrue(objects_deleted[0]["Key"] == f"{self.kb_id}/{self.doc_id}/elements.json")
+        self.assertTrue(objects_deleted[1]["Key"] == f"{self.kb_id}/{self.doc_id}/page_0.png")
 
         # Try to delete a directory that doesn't exist
-        objects_to_delete = self.s3_file_system.delete_directory(self.kb_id, self.doc_id)
-        self.assertTrue(len(objects_to_delete) == 0)
+        objects_deleted = self.s3_file_system.delete_directory(self.kb_id, self.doc_id)
+        self.assertTrue(len(objects_deleted) == 0)
+
+    def test__006_delete_kb(self):
+        self.s3_file_system.create_directory(self.kb_id, self.doc_id)
+
+        # Add a file to the directory
+        pdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../tests/data/mck_energy_first_5_pages.pdf'))
+        images = convert_from_path(pdf_path, dpi=150)
+        
+        file_name = "page_0.png"
+        self.s3_file_system.save_image(self.kb_id, self.doc_id, file_name, images[0])
+
+        objects_deleted = self.s3_file_system.delete_kb(self.kb_id)
+        self.assertTrue(len(objects_deleted) == 1)
+        self.assertTrue(objects_deleted[0]["Key"] == f"{self.kb_id}/{self.doc_id}/page_0.png")
         
 
     @classmethod

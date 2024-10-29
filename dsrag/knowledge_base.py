@@ -183,6 +183,7 @@ class KnowledgeBase:
 
         self.chunk_db.delete()
         self.vector_db.delete()
+        self.file_system.delete_kb(self.kb_id)
 
         # delete the metadata file
         os.remove(self.get_metadata_path())
@@ -301,6 +302,7 @@ class KnowledgeBase:
     def delete_document(self, doc_id: str):
         self.chunk_db.remove_document(doc_id)
         self.vector_db.remove_document(doc_id)
+        self.file_system.delete_directory(self.kb_id, doc_id)
 
     def get_chunk_text(self, doc_id: str, chunk_index: int) -> Optional[str]:
         return self.chunk_db.get_chunk_text(doc_id, chunk_index)

@@ -43,6 +43,10 @@ class FileSystem(ABC):
         pass
 
     @abstractmethod
+    def delete_kb(self, kb_id: str) -> None:
+        pass
+
+    @abstractmethod
     def save_json(self, kb_id: str, doc_id: str, file_name: str, file: dict) -> None:
         pass
 
@@ -83,6 +87,16 @@ class LocalFileSystem(FileSystem):
             for file in os.listdir(page_images_path):
                 os.remove(os.path.join(page_images_path, file))
             os.rmdir(page_images_path)
+
+    def delete_kb(self, kb_id: str) -> None:
+        """
+        Delete the knowledge base
+        """
+        kb_path = os.path.join(self.base_path, kb_id)
+        if os.path.exists(kb_path):
+            for doc_id in os.listdir(kb_path):
+                self.delete_directory(kb_id, doc_id)
+            os.rmdir(kb_path)
 
     def save_json(self, kb_id: str, doc_id: str, file_name: str, file: dict) -> None:
         """
@@ -144,7 +158,7 @@ class S3FileSystem(FileSystem):
 
     def delete_directory(self, kb_id: str, doc_id: str) -> List[dict]:
         """
-        Delete the directory in S3
+        Delete the directory in S3. Used when deleting a document.
         """
         
         s3_client = self.create_s3_client()
@@ -165,6 +179,30 @@ class S3FileSystem(FileSystem):
             print(f"No objects found in {prefix}.")
             objects_to_delete = []
 
+        return objects_to_delete
+    
+
+    def delete_kb(self, kb_id: str) -> None:
+        """
+        Delete the knowledge base
+        """
+        s3_client = self.create_s3_client()
+        prefix = f"{kb_id}/"
+
+        # List all objects with the specified prefix
+        response = s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=prefix)
+        # Check if there are any objects to delete
+        if 'Contents' in response:
+            # Prepare a list of object keys to delete
+            objects_to_delete = [{'Key': obj['Key']} for obj in response['Contents']]
+
+            # Delete the objects
+            s3_client.delete_objects(Bucket=self.bucket_name, Delete={'Objects': objects_to_delete})
+            print(f"Deleted all objects in {prefix} from {self.bucket_name}.")
+        else:
+            print(f"No objects found in {prefix}.")
+            objects_to_delete = []
+        
         return objects_to_delete
 
 
@@ -231,7 +269,6 @@ class S3FileSystem(FileSystem):
                     # Since this function can be called in parallel, the folder may have been created by another process
                     pass
             output_filepath = os.path.join(self.base_path, filename)
-            print ("filename", filename)
             try:
                 s3_client.download_file(
                     self.bucket_name,

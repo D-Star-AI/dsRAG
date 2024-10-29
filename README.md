@@ -140,6 +140,7 @@ There are five key components that define the configuration of a KnowledgeBase, 
 3. Embedding
 4. Reranker
 5. LLM
+6. FileSystem
 
 There are defaults for each of these components, as well as alternative options included in the repo. You can also define fully custom components by subclassing the base classes and passing in an instance of that subclass to the KnowledgeBase constructor. 
 
@@ -183,6 +184,26 @@ The currently available options are:
 - `OpenAIChatAPI`
 - `AnthropicChatAPI`
 - `OllamaChatAPI`
+
+#### FileSystem
+This defines the file system to be used for saving PDF images.
+
+For backwards compatibility, if an existing `KnowledgeBase` is loaded in, a `LocalFileSystem` will be created by default using the `storage_directory`. This is also the behavior if no `FileSystem` is defined when creating a new `KnowledgeBase`.
+
+The currently available options are:
+- `LocalFileSystem`
+- `S3FileSystem`
+
+Usage:
+For the `LocalFileSystem`, only a `base_path` needs to be passed in. This defines where the files will be stored on the system
+For the `S3FileSystem`, the following parameters are needed:
+- `base_path`
+- `bucket_name`
+- `region_name`
+- `access_key`
+- `access_secret`
+
+The `base_path` is used when downloading files from S3. The files have to be stored locally in order to be used in the retrieval system. 
 
 ## Config dictionaries
 Since there are a lot of configuration parameters available, they're organized into a few config dictionaries. There are four config dictionaries that can be passed in to `add_document` (`auto_context_config`, `file_parsing_config`, `semantic_sectioning_config`, and `chunking_config`) and one that can be passed in to `query` (`rse_params`).
