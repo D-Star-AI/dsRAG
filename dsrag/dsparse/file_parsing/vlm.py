@@ -47,4 +47,5 @@ def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gem
         ],
         generation_config=generation_config
     )
+    image.close()
     return response.text
