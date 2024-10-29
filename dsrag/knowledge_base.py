@@ -241,6 +241,10 @@ class KnowledgeBase:
             print(f"Document with ID {doc_id} already exists in the KB. Skipping...")
             return
         
+        # verify the doc_id is valid
+        if "/" in doc_id:
+            raise ValueError("doc_id cannot contain '/' characters")
+        
         sections, chunks = parse_and_chunk(
             kb_id=self.kb_id,
             doc_id=doc_id,
