@@ -197,6 +197,8 @@ class KnowledgeBase:
         file_parsing_config: dict = {},
         semantic_sectioning_config: dict = {},
         chunking_config: dict = {},
+        chunk_size: int = None,
+        min_length_for_chunking: int = None,
         supp_id: str = "",
         metadata: dict = {},
     ):
@@ -233,6 +235,13 @@ class KnowledgeBase:
         - supp_id: supplementary ID for the document (Can be any string you like. Useful for filtering documents later on.)
         - metadata: a dictionary of metadata to associate with the document - can use whatever keys you like
         """
+
+        # Handle the backwards compatibility for chunk_size and min_length_for_chunking
+        if chunk_size is not None:
+            chunking_config["chunk_size"] = chunk_size
+        if min_length_for_chunking is not None:
+            chunking_config["min_length_for_chunking"] = min_length_for_chunking
+        
         if text == "" and file_path == "":
             raise ValueError("Either text or file_path must be provided")
 

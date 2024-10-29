@@ -115,6 +115,13 @@ def add_vectors_to_db(vector_db: VectorDB, chunks, chunk_embeddings, metadata, d
     # create metadata list to add to the vector database
     vector_metadata = []
     for i, chunk in enumerate(chunks):
+        chunk_page_start = chunk.get("page_start", "")
+        chunk_page_end = chunk.get("page_end", "")
+        # Some vector dbs don't accept None as a value, so we need to convert it to an empty string
+        if chunk_page_start is None:
+            chunk_page_start = ""
+        if chunk_page_end is None:
+            chunk_page_end = ""
         vector_metadata.append(
             {
                 "doc_id": doc_id,
@@ -126,8 +133,8 @@ def add_vectors_to_db(vector_db: VectorDB, chunks, chunk_embeddings, metadata, d
                     section_title=chunk["section_title"],
                     section_summary=chunk["section_summary"],
                 ),
-                "chunk_page_start": chunk.get("page_start", ""),
-                "chunk_page_end": chunk.get("page_end", ""),
+                "chunk_page_start": chunk_page_start,
+                "chunk_page_end": chunk_page_end,
                 # Add the rest of the metadata to the vector metadata
                 **metadata
             }
