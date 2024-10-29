@@ -101,6 +101,15 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
     - page_content: list of Elements
     """
 
+    # use default vlm_provider and model if not provided
+    if "provider" not in vlm_config:
+        vlm_config["provider"] = "gemini"
+    if "model" not in vlm_config:
+        if vlm_config["provider"] == "gemini":
+            vlm_config["model"] = "gemini-1.5-flash-002"
+        else:
+            raise ValueError("Non-default VLM provider specified without specifying model")
+
     # format system message
     system_message = SYSTEM_MESSAGE.format(
         num_visual_elements=get_num_visual_elements(element_types),
@@ -127,6 +136,8 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
             if "429 Online prediction request quota exceeded" in str(e):
                 print (f"Error in make_llm_call_gemini: {e}")
                 return 429
+            else:
+                print (f"Error in make_llm_call_gemini: {e}")
     elif vlm_config["provider"] == "gemini":
         try:
             llm_output = make_llm_call_gemini(

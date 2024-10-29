@@ -33,25 +33,24 @@ class Chunk(TypedDict):
     is_visual: bool
 
 class VLMConfig(TypedDict):
-    provider: str
-    model: str
+    provider: Optional[str]
+    model: Optional[str]
     project_id: Optional[str]
     location: Optional[str]
-    save_path: str
     exclude_elements: Optional[list[str]]
     element_types: Optional[list[ElementType]]
 
 class SemanticSectioningConfig(TypedDict):
-    use_semantic_sectioning: bool
-    llm_provider: str
-    model: str
-    language: str
+    use_semantic_sectioning: Optional[bool]
+    llm_provider: Optional[str]
+    model: Optional[str]
+    language: Optional[str]
 
 class ChunkingConfig(TypedDict):
-    chunk_size: int
-    min_length_for_chunking: int
+    chunk_size: Optional[int]
+    min_length_for_chunking: Optional[int]
 
 class FileParsingConfig(TypedDict):
-    use_vlm: bool
+    use_vlm: Optional[bool]
     vlm_config: Optional[VLMConfig]
-    always_save_page_images: bool
+    always_save_page_images: Optional[bool]
