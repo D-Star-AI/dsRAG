@@ -144,7 +144,7 @@ def adjust_relevance_values_for_chunk_length(relevance_values: list[float], chun
     assert len(relevance_values) == len(chunk_lengths), "The length of relevance_values and chunk_lengths must be the same"
     adjusted_relevance_values = []
     for relevance_value, chunk_length in zip(relevance_values, chunk_lengths):
-        bounded_chunk_length = max(chunk_length, 350) # don't adjust relevance values down too much for very short chunks
+        bounded_chunk_length = max(chunk_length, reference_length) # only adjust relevance values for chunks that are longer than the reference length
         adjusted_relevance_values.append(relevance_value * (bounded_chunk_length / reference_length))
     return adjusted_relevance_values
 
