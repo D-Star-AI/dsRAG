@@ -99,7 +99,6 @@ class LocalFileSystem(FileSystem):
             for doc_id in os.listdir(kb_path):
                 self.delete_directory(kb_id, doc_id)
             self.delete_directory(kb_id, "")
-            os.rmdir(kb_path)
 
     def save_json(self, kb_id: str, doc_id: str, file_name: str, file: dict) -> None:
         """

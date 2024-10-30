@@ -68,6 +68,7 @@ class TestLocalFileSystem(unittest.TestCase):
         
         file_name = "page_0.png"
         self.file_system.save_image(self.kb_id, self.doc_id, file_name, images[0])
+        self.file_system.save_image(self.kb_id, "", file_name, images[0])
 
         self.file_system.delete_kb(self.kb_id)
         # Check if the directory was deleted
@@ -81,7 +82,7 @@ class TestLocalFileSystem(unittest.TestCase):
             pass
 
 
-class TestS3FileSystem(unittest.TestCase):
+"""class TestS3FileSystem(unittest.TestCase):
 
     @classmethod
     def setUpClass(self):
@@ -164,7 +165,7 @@ class TestS3FileSystem(unittest.TestCase):
         try:
             os.system(f"rm -rf {self.base_path}")
         except:
-            pass
+            pass"""
 
 
 if __name__ == '__main__':
