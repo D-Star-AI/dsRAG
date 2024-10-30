@@ -58,11 +58,12 @@ def get_response(user_input: str, search_results: List[Dict], model_name: str = 
 
 
 # create or load KB
-kb_id = "mck_energy"
-file_path = "/Users/zach/Code/test_docs/mck_energy.pdf"
-document_title = "McKinsey Energy Report"
-#kb = create_kb_and_add_document(kb_id=kb_id, file_path=file_path, document_title=document_title)
+kb_id = "state_of_ai"
+file_path = "/Users/zach/Code/test_docs/state_of_ai_report_2024.pdf"
+document_title = "State of AI Report 2024"
+kb = create_kb_and_add_document(kb_id=kb_id, file_path=file_path, document_title=document_title)
 
+"""
 kb = KnowledgeBase(kb_id=kb_id, exists_ok=True)
 
 # print the number of chunks in the KB
@@ -83,3 +84,4 @@ search_results = kb.query(search_queries=[query], rse_params=rse_params, return_
 
 response = get_response(user_input=query, search_results=search_results)
 print(response)
+"""

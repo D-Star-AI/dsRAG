@@ -158,9 +158,8 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
     
     try:
         page_content = json.loads(llm_output)
-    except json.JSONDecodeError:
-        print(f"Error decoding JSON response from LLM for {page_image_path}")
-        print(llm_output)
+    except:
+        print(f"Error for {page_image_path}")
         page_content = []
 
     # add page number to each element
