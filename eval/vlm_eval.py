@@ -48,7 +48,8 @@ def get_response(user_input: str, search_results: List[Dict], model_name: str = 
             all_image_paths += search_result["content"]
 
     images = [PIL.Image.open(image_path) for image_path in all_image_paths]
-    generation_input = images + [user_input] # user input is the last element
+    system_message = "Please cite the page number of the document used to answer the question."
+    generation_input = images + [user_input, system_message] # user input is the last element
     response = model.generate_content(
         contents=generation_input,
         generation_config=generation_config

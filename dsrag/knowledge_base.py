@@ -111,7 +111,7 @@ class KnowledgeBase:
         self.chunk_db = (
             chunk_db if chunk_db else BasicChunkDB(self.kb_id, self.storage_directory)
         )
-        self.file_system = file_system if file_system else LocalFileSystem(base_path=self.storage_directory)
+        self.file_system = file_system if file_system else LocalFileSystem(base_path=os.path.join(self.storage_directory, "page_images"))
         self.vector_dimension = self.embedding_model.dimension
 
     def save(self):
