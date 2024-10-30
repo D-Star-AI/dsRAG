@@ -57,13 +57,14 @@ def get_response(user_input: str, search_results: List[Dict], model_name: str = 
     return response.text
 
 
-kb_id = "state_of_ai"
+kb_id = "state_of_ai_300"
 
 """
 # create or load KB
 file_path = "/Users/zach/Code/test_docs/state_of_ai_report_2024.pdf"
 document_title = "State of AI Report 2024"
 kb = create_kb_and_add_document(kb_id=kb_id, file_path=file_path, document_title=document_title)
+
 """
 
 kb = KnowledgeBase(kb_id=kb_id, exists_ok=True)
@@ -71,10 +72,11 @@ kb = KnowledgeBase(kb_id=kb_id, exists_ok=True)
 #query = "What is the McKinsey Energy Report about?"
 #query = "How does the oil and gas industry compare to other industries in terms of its value prop to employees?"
 
-#query = "Who is Nathan Benaich?"
-#query = "Which country had the most AI publications in 2024?"
-#query = "Did frontier labs increase or decrease publications in 2024? By how much?"
-query = "Who has the most H100s? How many do they have?"
+#query = "Who is Nathan Benaich?" # page 2
+#query = "Which country had the most AI publications in 2024?" # page 84
+#query = "Did frontier labs increase or decrease publications in 2024? By how much?" # page 84
+#query = "Who has the most H100s? How many do they have?" # page 92
+query = "How many H100s does Lambda have?" # page 92
 
 rse_params = {
     "minimum_value": 0.5,
@@ -82,7 +84,7 @@ rse_params = {
 }
 
 search_results = kb.query(search_queries=[query], rse_params=rse_params, return_mode="page_images")
-#print (search_results)
+print (search_results)
 
 response = get_response(user_input=query, search_results=search_results)
 print(response)
