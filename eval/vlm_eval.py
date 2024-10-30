@@ -21,7 +21,7 @@ def create_kb_and_add_document(kb_id: str, file_path: str, document_title: str):
             "use_vlm": True,
             "vlm_config": {
                 "provider": "gemini",
-                "model": "gemini-1.5-pro-002",
+                "model": "gemini-1.5-flash-002",
             }
         }
     )
@@ -58,7 +58,7 @@ def get_response(user_input: str, search_results: List[Dict], model_name: str = 
     return response.text
 
 
-kb_id = "state_of_ai_300"
+kb_id = "state_of_ai_flash"
 
 """
 # create or load KB
@@ -73,11 +73,11 @@ kb = KnowledgeBase(kb_id=kb_id, exists_ok=True)
 #query = "What is the McKinsey Energy Report about?"
 #query = "How does the oil and gas industry compare to other industries in terms of its value prop to employees?"
 
-#query = "Who is Nathan Benaich?" # page 2
+query = "Who is Nathan Benaich?" # page 2
 #query = "Which country had the most AI publications in 2024?" # page 84
 #query = "Did frontier labs increase or decrease publications in 2024? By how much?" # page 84
 #query = "Who has the most H100s? How many do they have?" # page 92
-query = "How many H100s does Lambda have?" # page 92
+#query = "How many H100s does Lambda have?" # page 92
 
 rse_params = {
     "minimum_value": 0.5,
