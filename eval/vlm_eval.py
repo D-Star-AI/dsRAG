@@ -57,22 +57,24 @@ def get_response(user_input: str, search_results: List[Dict], model_name: str = 
     return response.text
 
 
-# create or load KB
 kb_id = "state_of_ai"
+
+"""
+# create or load KB
 file_path = "/Users/zach/Code/test_docs/state_of_ai_report_2024.pdf"
 document_title = "State of AI Report 2024"
 kb = create_kb_and_add_document(kb_id=kb_id, file_path=file_path, document_title=document_title)
-
 """
+
 kb = KnowledgeBase(kb_id=kb_id, exists_ok=True)
 
-# print the number of chunks in the KB
-doc_id = "test_doc_1"
-num_chunks = len(kb.chunk_db.data[doc_id])
-print(f"Number of chunks in the KB: {num_chunks}")
-
 #query = "What is the McKinsey Energy Report about?"
-query = "How does the oil and gas industry compare to other industries in terms of its value prop to employees?"
+#query = "How does the oil and gas industry compare to other industries in terms of its value prop to employees?"
+
+#query = "Who is Nathan Benaich?"
+#query = "Which country had the most AI publications in 2024?"
+#query = "Did frontier labs increase or decrease publications in 2024? By how much?"
+query = "Who has the most H100s? How many do they have?"
 
 rse_params = {
     "minimum_value": 0.5,
@@ -84,4 +86,3 @@ search_results = kb.query(search_queries=[query], rse_params=rse_params, return_
 
 response = get_response(user_input=query, search_results=search_results)
 print(response)
-"""

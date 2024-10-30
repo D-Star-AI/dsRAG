@@ -83,7 +83,9 @@ class LocalFileSystem(FileSystem):
         Delete the directory
         """
         page_images_path = os.path.join(self.base_path, kb_id, doc_id)
-        if os.path.exists(page_images_path):
+
+        # make sure the path exists and is a directory
+        if os.path.exists(page_images_path) and os.path.isdir(page_images_path):
             for file in os.listdir(page_images_path):
                 os.remove(os.path.join(page_images_path, file))
             os.rmdir(page_images_path)
@@ -96,6 +98,7 @@ class LocalFileSystem(FileSystem):
         if os.path.exists(kb_path):
             for doc_id in os.listdir(kb_path):
                 self.delete_directory(kb_id, doc_id)
+            self.delete_directory(kb_id, "")
             os.rmdir(kb_path)
 
     def save_json(self, kb_id: str, doc_id: str, file_name: str, file: dict) -> None:
