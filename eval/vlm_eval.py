@@ -21,7 +21,7 @@ def create_kb_and_add_document(kb_id: str, file_path: str, document_title: str):
             "use_vlm": True,
             "vlm_config": {
                 "provider": "gemini",
-                "model": "gemini-1.5-pro-002",
+                "model": "gemini-1.5-flash-002",
             }
         }
     )
@@ -48,7 +48,8 @@ def get_response(user_input: str, search_results: List[Dict], model_name: str = 
             all_image_paths += search_result["content"]
 
     images = [PIL.Image.open(image_path) for image_path in all_image_paths]
-    generation_input = images + [user_input] # user input is the last element
+    system_message = "Please cite the page number of the document used to answer the question."
+    generation_input = images + [user_input, system_message] # user input is the last element
     response = model.generate_content(
         contents=generation_input,
         generation_config=generation_config
@@ -57,13 +58,14 @@ def get_response(user_input: str, search_results: List[Dict], model_name: str = 
     return response.text
 
 
-kb_id = "state_of_ai"
+kb_id = "state_of_ai_flash"
 
 """
 # create or load KB
 file_path = "/Users/zach/Code/test_docs/state_of_ai_report_2024.pdf"
 document_title = "State of AI Report 2024"
 kb = create_kb_and_add_document(kb_id=kb_id, file_path=file_path, document_title=document_title)
+
 """
 
 kb = KnowledgeBase(kb_id=kb_id, exists_ok=True)
@@ -71,10 +73,11 @@ kb = KnowledgeBase(kb_id=kb_id, exists_ok=True)
 #query = "What is the McKinsey Energy Report about?"
 #query = "How does the oil and gas industry compare to other industries in terms of its value prop to employees?"
 
-#query = "Who is Nathan Benaich?"
-#query = "Which country had the most AI publications in 2024?"
-#query = "Did frontier labs increase or decrease publications in 2024? By how much?"
-query = "Who has the most H100s? How many do they have?"
+query = "Who is Nathan Benaich?" # page 2
+#query = "Which country had the most AI publications in 2024?" # page 84
+#query = "Did frontier labs increase or decrease publications in 2024? By how much?" # page 84
+#query = "Who has the most H100s? How many do they have?" # page 92
+#query = "How many H100s does Lambda have?" # page 92
 
 rse_params = {
     "minimum_value": 0.5,
@@ -82,7 +85,7 @@ rse_params = {
 }
 
 search_results = kb.query(search_queries=[query], rse_params=rse_params, return_mode="page_images")
-#print (search_results)
+print (search_results)
 
 response = get_response(user_input=query, search_results=search_results)
 print(response)
