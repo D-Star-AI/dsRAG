@@ -543,4 +543,10 @@ class KnowledgeBase:
             segment_info["segment_page_start"] = start_page_number
             segment_info["segment_page_end"] = end_page_number
 
+            # Backwards compatibility, where previously the content was stored in the "text" key
+            if type(segment_info["content"]) == str:
+                segment_info["text"] = segment_info["content"]
+            else:
+                segment_info["text"] = ""
+
         return relevant_segment_info
