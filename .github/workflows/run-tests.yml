@@ -36,7 +36,10 @@ jobs:
       - name: Install dsParse dependencies
         run: |
           pip install -r requirements.txt
-          pip install .[s3, vertexai]
+          
+      - name: Install optional dependencies
+        run: |
+          pip install boto3 botocore vertexai
       
       - name: Change Directory
         run: cd ../..
