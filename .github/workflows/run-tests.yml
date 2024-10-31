@@ -31,7 +31,7 @@ jobs:
           pip install pytest
       
       - name: Change Directory
-        run: cd dsrag/dsParse
+        run: cd dsrag/dsparse
 
       - name: Install dsParse dependencies
         run: |
@@ -50,7 +50,7 @@ jobs:
           pytest tests/integration
 
       - name: Change Directory
-        run: cd dsrag/dsParse
+        run: cd dsrag/dsparse
 
       - name: Run dsParse unit tests
         run: |
