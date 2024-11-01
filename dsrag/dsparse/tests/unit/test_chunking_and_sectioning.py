@@ -38,7 +38,7 @@ class TestDsParse(unittest.TestCase):
 
         self.assertEqual(chunks[0]['line_start'], 0)
         self.assertEqual(chunks[0]['line_end'], 5)
-        self.assertEqual(chunks[0]['image_path'], None)
+        self.assertEqual(chunks[0]['is_visual'], False)
         self.assertEqual(chunks[0]['page_start'], 1)
         self.assertEqual(chunks[0]['page_end'], 1)
         self.assertEqual(chunks[0]['section_index'], 0)
