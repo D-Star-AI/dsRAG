@@ -394,6 +394,8 @@ pygments==2.18.0
     # via
     #   dsrag (pyproject.toml)
     #   rich
+pymilvus>=2.4.9
+    # via dsrag (pyproject.toml)
 pypdf2==3.0.1
     # via dsrag (pyproject.toml)
 pypika==0.48.9
