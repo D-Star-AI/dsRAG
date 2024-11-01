@@ -3,7 +3,7 @@ import sys
 import unittest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-from dsrag.dsparse.chunking import chunk_document, chunk_sub_section, find_lines_in_range
+from dsrag.dsparse.sectioning_and_chunking.chunking import chunk_document, chunk_sub_section, find_lines_in_range
 
 class TestChunking(unittest.TestCase):
     def setUp(self):

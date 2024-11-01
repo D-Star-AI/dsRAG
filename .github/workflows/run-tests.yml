@@ -29,20 +29,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
-      
-      - name: Change Directory
-        run: cd dsrag/dsparse
 
       - name: Install dsParse dependencies
         run: |
-          pip install -r requirements.txt
+          pip install -r dsrag/dsparse/requirements.txt
           
       - name: Install optional dependencies
         run: |
           pip install boto3 botocore vertexai
-      
-      - name: Change Directory
-        run: cd ../..
 
       - name: Run unit tests
         run: |
@@ -52,13 +46,10 @@ jobs:
         run: |
           pytest tests/integration
 
-      - name: Change Directory
-        run: cd dsrag/dsparse
-
       - name: Run dsParse unit tests
         run: |
-          pytest tests/unit
+          pytest dsrag/dsparse/tests/unit
 
       - name: Run dsParse integration tests
         run: |
-          pytest tests/integration
+          pytest dsrag/dsparse/tests/integration
