@@ -55,7 +55,7 @@ class TestDsParse(unittest.TestCase):
         split_lines = document_with_line_numbers.split("\n")
 
         self.assertEqual(split_lines[0], "[0] McKinsey")
-        self.assertEqual(end_line, 198)
+        self.assertEqual(end_line, 203)
     
     def test__find_lines_in_range(self):
         pass
