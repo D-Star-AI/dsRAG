@@ -27,49 +27,49 @@ class TestChunking(unittest.TestCase):
                 'content': 'This is the first line of the document. And here is another sentence.',
                 'element_type': 'NarrativeText',
                 'page_number': 1,
-                'image_path': None
+                'is_visual': False
             },
             {
                 'content': 'This is the second line of the document.',
                 'element_type': 'NarrativeText',
                 'page_number': 1,
-                'image_path': None
+                'is_visual': False
             },
             {
                 'content': 'This is the third line of the document........',
                 'element_type': 'NarrativeText',
                 'page_number': 1,
-                'image_path': None
+                'is_visual': False
             },
             {
                 'content': 'This is the fourth line of the document.',
                 'element_type': 'NarrativeText',
                 'page_number': 1,
-                'image_path': None
+                'is_visual': False
             },
             {
                 'content': 'This is the fifth line of the document. With another sentence.',
                 'element_type': 'NarrativeText',
                 'page_number': 1,
-                'image_path': None
+                'is_visual': False
             },
             {
                 'content': 'This is the sixth line of the document.',
                 'element_type': 'NarrativeText',
                 'page_number': 1,
-                'image_path': None
+                'is_visual': False
             },
             {
                 'content': 'This is the seventh line of the document.',
                 'element_type': 'NarrativeText',
                 'page_number': 1,
-                'image_path': None
+                'is_visual': False
             },
             {
                 'content': 'This is the eighth line of the document. And here is another sentence that is a bit longer',
                 'element_type': 'NarrativeText',
                 'page_number': 1,
-                'image_path': None
+                'is_visual': False
             }
         ]
 
