@@ -82,7 +82,7 @@ class TestLocalFileSystem(unittest.TestCase):
             pass
 
 
-"""class TestS3FileSystem(unittest.TestCase):
+class TestS3FileSystem(unittest.TestCase):
 
     @classmethod
     def setUpClass(self):
@@ -165,7 +165,7 @@ class TestLocalFileSystem(unittest.TestCase):
         try:
             os.system(f"rm -rf {self.base_path}")
         except:
-            pass"""
+            pass
 
 
 if __name__ == '__main__':
