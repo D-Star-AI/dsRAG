@@ -38,6 +38,11 @@ class BasicChunkDB(ChunkDB):
             return self.data[doc_id][chunk_index]["chunk_text"]
         return None
     
+    def get_is_visual(self, doc_id: str, chunk_index: int) -> Optional[bool]:
+        if doc_id in self.data and chunk_index in self.data[doc_id]:
+            return self.data[doc_id][chunk_index].get("is_visual", False) # default to False for backwards compatibility
+        return None
+    
     def get_chunk_page_numbers(self, doc_id: str, chunk_index: int) -> Optional[tuple[int, int]]:
         if doc_id in self.data and chunk_index in self.data[doc_id]:
             return (
@@ -112,6 +117,17 @@ class BasicChunkDB(ChunkDB):
                 if self.data[doc_id][0].get("supp_id", "") == supp_id
             ]
         return doc_ids
+    
+    def get_document_count(self) -> int:
+        # Retrieve the number of documents from the length of the data dictionary
+        return len(self.data.keys())
+    
+    def get_total_num_characters(self) -> int:
+        total_num_characters = 0
+        for _, doc in self.data.items():
+            for chunk in doc.values():
+                total_num_characters += len(chunk["chunk_text"])
+        return total_num_characters
 
     def load(self):
         try:

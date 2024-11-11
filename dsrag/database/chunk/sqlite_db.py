@@ -27,6 +27,7 @@ class SQLiteDB(ChunkDB):
             {"name": "chunk_length", "type": "INT"},
             {"name": "chunk_page_start", "type": "INT"},
             {"name": "chunk_page_end", "type": "INT"},
+            {"name": "is_visual", "type": "BOOLEAN"},
             {"name": "created_on", "type": "TEXT"},
             {"name": "supp_id", "type": "TEXT"},
             {"name": "metadata", "type": "TEXT"},
@@ -69,32 +70,33 @@ class SQLiteDB(ChunkDB):
 
         # Get the data from the dictionary
         for chunk_index, chunk in chunks.items():
-            document_title = chunk.get("document_title", "")
-            document_summary = chunk.get("document_summary", "")
-            section_title = chunk.get("section_title", "")
-            section_summary = chunk.get("section_summary", "")
             chunk_text = chunk.get("chunk_text", "")
-            chunk_page_start = chunk.get("chunk_page_start", None)
-            chunk_page_end = chunk.get("chunk_page_end", None)
             chunk_length = len(chunk_text)
-            c.execute(
-                "INSERT INTO documents (doc_id, document_title, document_summary, section_title, section_summary, chunk_text, chunk_page_start, chunk_page_end, chunk_index, chunk_length, created_on, supp_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    doc_id,
-                    document_title,
-                    document_summary,
-                    section_title,
-                    section_summary,
-                    chunk_text,
-                    chunk_page_start,
-                    chunk_page_end,
-                    chunk_index,
-                    chunk_length,
-                    created_on,
-                    supp_id,
-                    metadata
-                ),
-            )
+
+            values_dict = {
+                'doc_id': doc_id,
+                'document_title': chunk.get("document_title", ""),
+                'document_summary': chunk.get("document_summary", ""),
+                'section_title': chunk.get("section_title", ""),
+                'section_summary': chunk.get("section_summary", ""),
+                'chunk_text': chunk.get("chunk_text", ""),
+                'chunk_page_start': chunk.get("chunk_page_start", None),
+                'chunk_page_end': chunk.get("chunk_page_end", None),
+                'is_visual': chunk.get("is_visual", False),
+                'chunk_index': chunk_index,
+                'chunk_length': chunk_length,
+                'created_on': created_on,
+                'supp_id': supp_id,
+                'metadata': metadata
+            }
+
+            # Generate the column names and placeholders
+            columns = ', '.join(values_dict.keys())
+            placeholders = ', '.join(['?'] * len(values_dict))
+
+            sql = f"INSERT INTO documents ({columns}) VALUES ({placeholders})"
+
+            c.execute(sql, tuple(values_dict.values()))
 
         conn.commit()
         conn.close()
@@ -164,6 +166,19 @@ class SQLiteDB(ChunkDB):
         c = conn.cursor()
         c.execute(
             f"SELECT chunk_text FROM documents WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}"
+        )
+        result = c.fetchone()
+        conn.close()
+        if result:
+            return result[0]
+        return None
+    
+    def get_is_visual(self, doc_id: str, chunk_index: int) -> Optional[bool]:
+        # Retrieve the is_visual param from the sqlite table
+        conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
+        c = conn.cursor()
+        c.execute(
+            f"SELECT is_visual FROM documents WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}"
         )
         result = c.fetchone()
         conn.close()
