@@ -44,22 +44,33 @@ class TestLocalFileSystem(unittest.TestCase):
         # Make sure the file was saved
         self.assertTrue(os.path.exists(os.path.join(self.base_path, self.kb_id, self.doc_id, file_name)))
 
+        file_name = "page_1.png"
+        self.file_system.save_image(self.kb_id, self.doc_id, file_name, images[1])
+
     def test__004_get_files(self):
 
-        files = self.file_system.get_files(self.kb_id, self.doc_id, page_start=0, page_end=0)
-        self.assertTrue(len(files) == 1)
+        files = self.file_system.get_files(self.kb_id, self.doc_id, page_start=0, page_end=1)
+        self.assertTrue(len(files) == 2)
 
         # Test for a page that doesn't exist
-        files = self.file_system.get_files(self.kb_id, self.doc_id, page_start=1, page_end=1)
+        files = self.file_system.get_files(self.kb_id, self.doc_id, page_start=2, page_end=2)
         self.assertTrue(len(files) == 0)
 
-    def test__005_delete_directory(self):
+    def test__005_get_all_files(self):
+            
+        files = self.file_system.get_all_png_files(self.kb_id, self.doc_id)
+        self.assertTrue(len(files) == 2)
+        # The only file returned should be page_0.png
+        self.assertTrue(files[0] == os.path.join(self.base_path, self.kb_id, self.doc_id, "page_0.png"))
+        self.assertTrue(files[1] == os.path.join(self.base_path, self.kb_id, self.doc_id, "page_1.png"))
+
+    def test__006_delete_directory(self):
 
         self.file_system.delete_directory(self.kb_id, self.doc_id)
         # Check if the directory was deleted
         self.assertFalse(os.path.exists(os.path.join(self.base_path, self.kb_id, self.doc_id)))
 
-    def test__006_delete_kb(self):
+    def test__007_delete_kb(self):
         self.file_system.create_directory(self.kb_id, self.doc_id)
 
         # Add a file to the directory
@@ -118,26 +129,36 @@ class TestS3FileSystem(unittest.TestCase):
         
         file_name = "page_0.png"
         self.s3_file_system.save_image(self.kb_id, self.doc_id, file_name, images[0])
+        file_name = "page_1.png"
+        self.s3_file_system.save_image(self.kb_id, self.doc_id, file_name, images[1])
 
     def test__004_get_files(self):
 
-        files = self.s3_file_system.get_files(self.kb_id, self.doc_id, page_start=0, page_end=0)
-        self.assertTrue(len(files) == 1)
+        files = self.s3_file_system.get_files(self.kb_id, self.doc_id, page_start=0, page_end=1)
+        self.assertTrue(len(files) == 2)
         # Make sure the file was saved locally to the base path
         self.assertTrue(os.path.exists(os.path.join(self.base_path, self.kb_id, self.doc_id, "page_0.png")))
 
         # Try it again with the file already saved locally (Shouldn't cause any issues)
-        files = self.s3_file_system.get_files(self.kb_id, self.doc_id, page_start=0, page_end=0)
-        self.assertTrue(len(files) == 1)
+        files = self.s3_file_system.get_files(self.kb_id, self.doc_id, page_start=0, page_end=1)
+        self.assertTrue(len(files) == 2)
 
         # Test for a page that doesn't exist
-        files = self.s3_file_system.get_files(self.kb_id, self.doc_id, page_start=1, page_end=1)
+        files = self.s3_file_system.get_files(self.kb_id, self.doc_id, page_start=2, page_end=2)
         self.assertTrue(len(files) == 0)
 
-    def test__005_delete_directory(self):
+    def test__005_get_all_files(self):
+
+        files = self.s3_file_system.get_all_png_files(self.kb_id, self.doc_id)
+        self.assertTrue(len(files) == 2)
+        # The only files returned should be page_0.png and page_1.png
+        self.assertTrue(files[0] == os.path.join(self.base_path, self.kb_id, self.doc_id, "page_0.png"))
+        self.assertTrue(files[1] == os.path.join(self.base_path, self.kb_id, self.doc_id, "page_1.png"))
+
+    def test__006_delete_directory(self):
 
         objects_deleted = self.s3_file_system.delete_directory(self.kb_id, self.doc_id)
-        self.assertTrue(len(objects_deleted) == 2)
+        self.assertTrue(len(objects_deleted) == 3)
         self.assertTrue(objects_deleted[0]["Key"] == f"{self.kb_id}/{self.doc_id}/elements.json")
         self.assertTrue(objects_deleted[1]["Key"] == f"{self.kb_id}/{self.doc_id}/page_0.png")
 
@@ -145,7 +166,7 @@ class TestS3FileSystem(unittest.TestCase):
         objects_deleted = self.s3_file_system.delete_directory(self.kb_id, self.doc_id)
         self.assertTrue(len(objects_deleted) == 0)
 
-    def test__006_delete_kb(self):
+    def test__007_delete_kb(self):
         self.s3_file_system.create_directory(self.kb_id, self.doc_id)
 
         # Add a file to the directory
