@@ -662,7 +662,8 @@ class TestQdrantDB(unittest.TestCase):
 
 
 class TestPostgresVectorDB(unittest.TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(self):
         self.kb_id = "test_kb"
         self.host = "localhost"
         self.port = 5432
@@ -681,11 +682,12 @@ class TestPostgresVectorDB(unittest.TestCase):
             vector_dimension=self.vector_dimension,
         )
 
-    def tearDown(self):
-        # delete test data from ChromaDB
+    @classmethod
+    def tearDownClass(self):
+        # delete the table from the database
         self.db.delete()
 
-    def test__add_vectors_and_search(self):
+    def test__001_add_vectors_and_search(self):
         vectors = [np.array([1, 0]), np.array([0, 1])]
         metadata: Sequence[ChunkMetadata] = [
             {
@@ -710,27 +712,12 @@ class TestPostgresVectorDB(unittest.TestCase):
         self.assertEqual(results[0]["metadata"]["doc_id"], "1")
         self.assertGreaterEqual(results[0]["similarity"], 0.99)
 
-    """def test__search_with_metadata_filter(self):
-        #db = PostgresVectorDB(kb_id=self.kb_id)
+    def test__002_search_with_metadata_filter(self):
         vectors = [
-            np.array([1, 0]),
-            np.array([1, 0]),
             np.array([0, 1]),
             np.array([1, 0]),
         ]
         metadata: Sequence[ChunkMetadata] = [
-            {
-                "doc_id": "1",
-                "chunk_index": 0,
-                "chunk_header": "Header1",
-                "chunk_text": "Text1",
-            },
-            {
-                "doc_id": "2",
-                "chunk_index": 0,
-                "chunk_header": "Header1",
-                "chunk_text": "Text1",
-            },
             {
                 "doc_id": "3",
                 "chunk_index": 1,
@@ -759,41 +746,27 @@ class TestPostgresVectorDB(unittest.TestCase):
         results = self.db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0]["metadata"]["doc_id"], "1")
-        self.assertEqual(results[1]["metadata"]["doc_id"], "4")"""
+        self.assertEqual(results[1]["metadata"]["doc_id"], "4")
 
-    """def test__remove_document(self):
-        db = ChromaDB(kb_id=self.kb_id)
-        vectors = [np.array([1, 0]), np.array([0, 1])]
-        metadata: Sequence[ChunkMetadata] = [
-            {
-                "doc_id": "1",
-                "chunk_index": 0,
-                "chunk_header": "Header1",
-                "chunk_text": "Text1",
-            },
-            {
-                "doc_id": "2",
-                "chunk_index": 1,
-                "chunk_header": "Header2",
-                "chunk_text": "Text2",
-            },
-        ]
+    def test__003_remove_document(self):
 
-        db.add_vectors(vectors, metadata)
-        db.remove_document("1")
+        self.db.remove_document("1")
 
-        num_vectors = db.get_num_vectors()
-        self.assertEqual(num_vectors, 1)
+        num_vectors = self.db.get_num_vectors()
+        self.assertEqual(num_vectors, 3)
 
-    def test__empty_search(self):
-        db = ChromaDB(kb_id="test_chroma_db_2")
+    def test__004_empty_search(self):
+        self.db.remove_document("2")
+        self.db.remove_document("3")
+        self.db.remove_document("4")
+
         query_vector = np.array([1, 0])
-        results = db.search(query_vector)
+        results = self.db.search(query_vector)
 
+        # Make sure the results are just an empty list
         self.assertEqual(len(results), 0)
-        db.delete()
 
-    def test__assertion_error_on_mismatched_input_lengths(self):
+    """def test__assertion_error_on_mismatched_input_lengths(self):
         db = ChromaDB(kb_id=self.kb_id)
         vectors = [np.array([1, 0])]
         metadata: Sequence[ChunkMetadata] = [

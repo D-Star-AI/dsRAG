@@ -96,6 +96,20 @@ class PostgresVectorDB(VectorDB):
 
         conn.close()
 
+    def get_num_vectors(self):
+        conn = psycopg2.connect(
+            dbname=self.database,
+            user=self.username,
+            password=self.password,
+            host=self.host,
+            port=self.port
+        )
+        cur = conn.cursor()
+        cur.execute(f"SELECT COUNT(*) FROM {self.kb_id}_vectors")
+        count = cur.fetchone()[0]
+        conn.close()
+        return count
+
     def add_vectors(self, vectors: Sequence[Vector], metadata: Sequence[ChunkMetadata]):
 
         conn = psycopg2.connect(
@@ -125,12 +139,9 @@ class PostgresVectorDB(VectorDB):
             port=self.port
         )
         cur = conn.cursor()
-        cur = conn.cursor()
 
-        query = f"SELECT id FROM {self.kb_id}_vectors WHERE metadata @> %s"
-        cur.execute(query, (json.dumps({"doc_id": doc_id}),))
-
-        #cur.execute('DELETE FROM %s WHERE metadata @> %s', (f"{self.kb_id}_vectors", json.dumps({"doc_id": doc_id}),))
+        # Delete all vectors with the given doc_id
+        cur.execute(f"DELETE FROM {self.kb_id}_vectors WHERE metadata @> %s", (json.dumps({"doc_id": doc_id}),))
         conn.commit()
         conn.close()
 
@@ -170,7 +181,7 @@ class PostgresVectorDB(VectorDB):
                 FROM {self.kb_id}_vectors
                 ORDER BY cosine_similarity DESC LIMIT %s
             """
-        cur.execute(query, (query_vector, top_k))
+            cur.execute(query, (query_vector, top_k))
 
         results = cur.fetchall()
         formatted_results: list[VectorSearchResult] = []

@@ -203,6 +203,25 @@ class PostgresChunkDB(ChunkDB):
             return result[0]
         return None
     
+    def get_is_visual(self, doc_id: str, chunk_index: int) -> Optional[bool]:
+        # Retrieve the is_visual flag from the sqlite table
+        conn = psycopg2.connect(
+            dbname=self.database,
+            user=self.username,
+            password=self.password,
+            host=self.host,
+            port=self.port
+        )
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT is_visual FROM {self.table_name} WHERE doc_id='{doc_id}' AND chunk_index={chunk_index}"
+        )
+        result = cur.fetchone()
+        conn.close()
+        if result:
+            return result[0]
+        return None
+    
     def get_chunk_page_numbers(self, doc_id: str, chunk_index: int) -> Optional[tuple[int, int]]:
         # Retrieve the chunk page numbers from the sqlite table
         conn = psycopg2.connect(
