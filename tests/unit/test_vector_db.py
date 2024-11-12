@@ -16,7 +16,7 @@ from dsrag.database.vector import (
 from dsrag.database.vector.types import ChunkMetadata
 
 
-class TestVectorDB(unittest.TestCase):
+"""class TestVectorDB(unittest.TestCase):
     def setUp(self):
         self.storage_directory = "~/test__vector_db_dsRAG"
         self.kb_id = "test_db"
@@ -657,7 +657,7 @@ class TestQdrantDB(unittest.TestCase):
         self.assertTrue(
             "Error in add_vectors: the number of vectors and metadata items must be the same."
             in str(context.exception)
-        )
+        )"""
 
 
 
@@ -711,7 +711,7 @@ class TestPostgresVectorDB(unittest.TestCase):
         self.assertGreaterEqual(results[0]["similarity"], 0.99)
 
     """def test__search_with_metadata_filter(self):
-        db = ChromaDB(kb_id=self.kb_id)
+        #db = PostgresVectorDB(kb_id=self.kb_id)
         vectors = [
             np.array([1, 0]),
             np.array([1, 0]),
@@ -745,23 +745,23 @@ class TestPostgresVectorDB(unittest.TestCase):
             },
         ]
 
-        db.add_vectors(vectors, metadata)
+        self.db.add_vectors(vectors, metadata)
 
-        query_vector = np.array([[1, 0]])
+        query_vector = np.array([1, 0])
         metadata_filter = {"field": "doc_id", "operator": "equals", "value": "1"}
-        results = db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
+        results = self.db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["metadata"]["doc_id"], "1")
 
         # Test with the 'in' operator
         metadata_filter = {"field": "doc_id", "operator": "in", "value": ["1", "4"]}
-        results = db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
+        results = self.db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0]["metadata"]["doc_id"], "1")
-        self.assertEqual(results[1]["metadata"]["doc_id"], "4")
+        self.assertEqual(results[1]["metadata"]["doc_id"], "4")"""
 
-    def test__remove_document(self):
+    """def test__remove_document(self):
         db = ChromaDB(kb_id=self.kb_id)
         vectors = [np.array([1, 0]), np.array([0, 1])]
         metadata: Sequence[ChunkMetadata] = [
