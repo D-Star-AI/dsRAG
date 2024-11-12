@@ -58,6 +58,9 @@ class FileSystem(ABC):
     def get_files(self, kb_id: str, doc_id: str, page_start: int, page_end: int) -> List[str]:
         pass
 
+    @abstractmethod
+    def get_all_png_files(self, kb_id: str, doc_id: str) -> List[str]:
+        pass
 
 
 class LocalFileSystem(FileSystem):
@@ -132,6 +135,22 @@ class LocalFileSystem(FileSystem):
             if not os.path.exists(image_file_path):
                 continue
             image_file_paths.append(image_file_path)
+        return image_file_paths
+    
+    def get_all_png_files(self, kb_id: str, doc_id: str) -> List[str]:
+        """
+        Same as get_files except it returns all the files instead of just those in a page range
+        """
+        page_images_path = os.path.join(self.base_path, kb_id, doc_id)
+        image_file_paths = []
+        for file in os.listdir(page_images_path):
+            # Make sure the file is an image
+            if not file.endswith('.png'):
+                continue
+            image_file_paths.append(os.path.join(page_images_path, file))
+
+        # Sort the files by page number
+        image_file_paths.sort(key=lambda x: int(x.split('_')[-1].split('.')[0]))
         return image_file_paths
 
 
@@ -283,6 +302,62 @@ class S3FileSystem(FileSystem):
                 print ("Error downloading file:", e)
             
         return file_paths
+    
+    def get_all_png_files(self, kb_id: str, doc_id: str) -> List[str]:
+        """
+        Get all PNG files from a specific S3 directory and download them to local storage.
+        Returns a sorted list of local file paths.
+        
+        Args:
+            kb_id (str): Knowledge base ID
+            doc_id (str): Document ID
+            
+        Returns:
+            List[str]: Sorted list of local file paths for the downloaded images
+        """
+        prefix = f"{kb_id}/{doc_id}/"
+        s3_client = self.create_s3_client()
+        
+        try:
+            # List all objects with the specified prefix
+            response = s3_client.list_objects_v2(
+                Bucket=self.bucket_name,
+                Prefix=prefix
+            )
+            
+            if 'Contents' not in response:
+                return []
+            
+            # Filter for PNG files
+            png_files = [obj['Key'] for obj in response['Contents'] 
+                        if obj['Key'].lower().endswith('.png')]
+            
+            # Create local directory if it doesn't exist
+            output_folder = os.path.join(self.base_path, kb_id, doc_id)
+            os.makedirs(output_folder, exist_ok=True)
+            
+            # Download each file
+            local_file_paths = []
+            for s3_key in png_files:
+                local_path = os.path.join(self.base_path, s3_key)
+                try:
+                    s3_client.download_file(
+                        self.bucket_name,
+                        s3_key,
+                        local_path
+                    )
+                    local_file_paths.append(local_path)
+                except Exception as e:
+                    print(f"Error downloading file {s3_key}: {e}")
+                    continue
+            
+            # Sort the files by page number, similar to LocalFileSystem
+            local_file_paths.sort(key=lambda x: int(x.split('_')[-1].split('.')[0]))
+            return local_file_paths
+            
+        except Exception as e:
+            print(f"Error listing/downloading files from S3: {e}")
+            return []
     
 
     def to_dict(self):
