@@ -225,6 +225,7 @@ class KnowledgeBase:
                 - location: the GCP location (required if provider is "vertex_ai")
                 - save_path: the path to save intermediate files created during VLM processing
                 - exclude_elements: a list of element types to exclude from the parsed text. Default is ["Header", "Footer"].
+                - images_already_exist: bool, whether the images have already been extracted and saved (default is False)
             - always_save_page_images: bool - whether to save page images even if VLM is not used (default is False)
         - semantic_sectioning_config: a dictionary with configuration for the semantic sectioning model (defaults will be used if not provided)
             - llm_provider: the LLM provider to use for semantic sectioning - only "openai" and "anthropic" are supported at the moment

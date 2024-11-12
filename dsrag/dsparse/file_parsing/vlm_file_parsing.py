@@ -178,7 +178,6 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     - doc_id: str, document ID
     - vlm_config: dict, configuration for the VLM model. For Vertex this should include project_id and location.
     - file_system: FileSystem, object for interacting with the file system where the images are stored
-    - images_already_exist: bool, whether the images have already been extracted and saved
     
     Outputs
     - all_page_content: list of Elements
