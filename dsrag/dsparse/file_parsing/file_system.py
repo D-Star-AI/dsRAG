@@ -59,7 +59,7 @@ class FileSystem(ABC):
         pass
 
     @abstractmethod
-    def get_all_files(self, kb_id: str, doc_id: str) -> List[str]:
+    def get_all_png_files(self, kb_id: str, doc_id: str) -> List[str]:
         pass
 
 
@@ -137,7 +137,7 @@ class LocalFileSystem(FileSystem):
             image_file_paths.append(image_file_path)
         return image_file_paths
     
-    def get_all_files(self, kb_id: str, doc_id: str) -> List[str]:
+    def get_all_png_files(self, kb_id: str, doc_id: str) -> List[str]:
         """
         Same as get_files except it returns all the files instead of just those in a page range
         """
@@ -303,7 +303,7 @@ class S3FileSystem(FileSystem):
             
         return file_paths
     
-    def get_all_files(self, kb_id: str, doc_id: str) -> List[str]:
+    def get_all_png_files(self, kb_id: str, doc_id: str) -> List[str]:
         """
         Get all PNG files from a specific S3 directory and download them to local storage.
         Returns a sorted list of local file paths.

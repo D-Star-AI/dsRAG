@@ -188,7 +188,7 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     """
     images_already_exist = vlm_config.get("images_already_exist", False)
     if images_already_exist:
-        image_file_paths = file_system.get_all_files(kb_id, doc_id)
+        image_file_paths = file_system.get_all_png_files(kb_id, doc_id)
     else:
         image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system)
     
