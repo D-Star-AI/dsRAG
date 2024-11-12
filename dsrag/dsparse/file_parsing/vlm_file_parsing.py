@@ -173,14 +173,26 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     Given a PDF file, extract the content of each page using a VLM model.
     
     Inputs
-    - pdf_path: str, path to the PDF file
-    - save_path: str, path to the base directory where everything is saved (i.e. {user_id}/{job_id})
+    - pdf_path: str, path to the PDF file - can be an empty string if images_already_exist is True
+    - kb_id: str, knowledge base ID
+    - doc_id: str, document ID
     - vlm_config: dict, configuration for the VLM model. For Vertex this should include project_id and location.
+    - file_system: FileSystem, object for interacting with the file system where the images are stored
+    - images_already_exist: bool, whether the images have already been extracted and saved
     
     Outputs
     - all_page_content: list of Elements
+
+    Saves
+    - images of each page of the PDF (if images_already_exist is False)
+    - JSON files of the content of each page
     """
-    image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system)
+    images_already_exist = vlm_config.get("images_already_exist", False)
+    if images_already_exist:
+        image_file_paths = file_system.get_all_files(kb_id, doc_id)
+    else:
+        image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system)
+    
     all_page_content_dict = {}
 
     element_types = vlm_config.get("element_types", default_element_types)
