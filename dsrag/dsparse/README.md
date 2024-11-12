@@ -36,6 +36,11 @@ kb.add_document(
 )
 ```
 
+## Installation
+If you want to use dsParse on its own, without installing the full `dsrag` package, there is a standalone Python package available for dsParse, which can be installed with `pip install dsparse`. If you already have `dsrag` installed, you DO NOT need to separately install `dsparse`.
+
+To use the VLM file parsing functionality, you'll need to install one external dependency: poppler. This is used to convert PDFs to page images. On a Mac you can install it with `brew install poppler`.
+
 ## Multimodal file parsing
 dsParse uses a vision language model (VLM) to parse documents. This has a few advantages:
 - It can provide descriptions for visual elements, like images and figures.
