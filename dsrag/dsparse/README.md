@@ -78,6 +78,8 @@ Semantic sectioning uses an LLM to break a document into sections. It works by a
 The default model for semantic sectioning is `gpt-4o-mini`, but similarly strong models like `gemini-1.5-flash-002` will also work well.
 
 ## Cost and latency/throughput estimation
+
+### VLM file parsing
 An obvious concern with using a large model like `gemini-1.5-pro-002` to parse documents is the cost. Let's run the numbers:
 
 VLM file parsing cost calculation (`gemini-1.5-pro-002`)
@@ -86,10 +88,13 @@ VLM file parsing cost calculation (`gemini-1.5-pro-002`)
 - Text output: 600 tokens x $5.00/10^6 per token = $0.003000
 - Total: $0.00382875/page or **$3.83 per 1000 pages**
 
-This is actually cheaper than many commercially available PDF parsing services. Unstructured, for example, costs $10 per 1000 pages.
+This is actually cheaper than most commercially available PDF parsing services. Unstructured and Azure Document Intelligence, for example, both cost $10 per 1000 pages. 
+
+What about `gemini-1.5-flash-002`? Running the same calculation as above with the Gemini 1.5 Flash pricing gives a cost of **$0.23 per 1000 pages**. This is far cheaper than any commercially available OCR/PDF parsing service.
 
 What about latency and throughput? Since each page is processed independently, this is a highly parallelizable problem. The main limiting factor then is the rate limits imposed by the VLM provider. The current rate limit for `gemini-1.5-pro-002` is 1000 requests per minute. Since dsParse uses one request per page, that means the limit is 1000 pages per minute. Processing a single page takes around 15-20 seconds, so that's the minimum latency for processing a document.
 
+### Semantic sectioning
 Semantic sectioning uses a much cheaper model, and it also uses far fewer output tokens, so it ends up being far cheaper than the file parsing step.
 
 Semantic sectioning cost calculation (`gpt-4o-mini`)
