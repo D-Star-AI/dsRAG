@@ -4,7 +4,7 @@ import time
 import json
 from typing import Optional, Union, Dict
 import concurrent.futures
-from dsrag.dsparse.main import parse_and_chunk
+from dsrag.dsParse.main import parse_and_chunk
 from dsrag.add_document import (
     auto_context, 
     get_embeddings, 
@@ -24,8 +24,8 @@ from dsrag.database.chunk import ChunkDB, BasicChunkDB
 from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
 from dsrag.llm import LLM, OpenAIChatAPI
-from dsrag.dsparse.file_parsing.file_system import FileSystem, LocalFileSystem
-
+from dsrag.dsParse.file_parsing.file_system import FileSystem, LocalFileSystem
+from dsrag.metadata import MetadataStorage, LocalMetadataStorage
 
 class KnowledgeBase:
     def __init__(
@@ -44,6 +44,7 @@ class KnowledgeBase:
         file_system: Optional[FileSystem] = None,
         exists_ok: bool = True,
         save_metadata_to_disk: bool = True,
+        metadata_storage: Optional[MetadataStorage] = None
     ):
         self.kb_id = kb_id
         self.storage_directory = os.path.expanduser(storage_directory)
@@ -72,7 +73,7 @@ class KnowledgeBase:
                     "created_on": created_time,
                 }
                 self.initialize_components(
-                    embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system
+                    embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system, metadata_storage
                 )
                 self.save()  # save the config for the KB to disk
         else:
@@ -83,7 +84,7 @@ class KnowledgeBase:
                 "supp_id": supp_id,
             }
             self.initialize_components(
-                embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system
+                embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system, metadata_storage
             )
 
     def get_metadata_path(self):
@@ -97,7 +98,11 @@ class KnowledgeBase:
         vector_db: Optional[VectorDB],
         chunk_db: Optional[ChunkDB],
         file_system: Optional[FileSystem],
+        metadata_storage: Optional[MetadataStorage]
     ):
+        
+        self.metadata_storage = metadata_storage if metadata_storage else LocalMetadataStorage(self.kb_id, self.storage_directory)
+
         self.embedding_model = embedding_model if embedding_model else OpenAIEmbedding()
         self.reranker = reranker if reranker else CohereReranker()
         self.auto_context_model = (
@@ -123,16 +128,18 @@ class KnowledgeBase:
             "vector_db": self.vector_db.to_dict(),
             "chunk_db": self.chunk_db.to_dict(),
             "file_system": self.file_system.to_dict(),
+            "metadata_storage": self.metadata_storage.to_dict(),
         }
         # Combine metadata and components
         full_data = {**self.kb_metadata, "components": components}
 
-        metadata_dir = os.path.join(self.storage_directory, "metadata")
+        self.metadata_storage.save(full_data)
+        """metadata_dir = os.path.join(self.storage_directory, "metadata")
         if not os.path.exists(metadata_dir):
             os.makedirs(metadata_dir)
 
         with open(self.get_metadata_path(), "w") as f:
-            json.dump(full_data, f, indent=4)
+            json.dump(full_data, f, indent=4)"""
 
     def load(self, auto_context_model=None, reranker=None, file_system=None):
         """
@@ -143,7 +150,8 @@ class KnowledgeBase:
             self.kb_metadata = {
                 key: value for key, value in data.items() if key != "components"
             }
-            components = data.get("components", {})
+            components = self.metadata_storage.load()
+            #components = data.get("components", {})
             # Deserialize components
             self.embedding_model = Embedding.from_dict(
                 components.get("embedding_model", {})
@@ -160,6 +168,7 @@ class KnowledgeBase:
             )
             self.vector_db = VectorDB.from_dict(components.get("vector_db", {}))
             self.chunk_db = ChunkDB.from_dict(components.get("chunk_db", {}))
+            self.metadata_storage = MetadataStorage.from_dict(components.get("metadata_storage", {}))
 
             file_system_dict = components.get("file_system", None)
 
