@@ -3,6 +3,7 @@ import numpy as np
 import os
 import sys
 import unittest
+import time
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from dsrag.database.vector import (
@@ -11,11 +12,12 @@ from dsrag.database.vector import (
     WeaviateVectorDB,
     ChromaDB,
     QdrantVectorDB,
+    PineconeDB
 )
 from dsrag.database.vector.types import ChunkMetadata
 
 
-class TestVectorDB(unittest.TestCase):
+"""class TestVectorDB(unittest.TestCase):
     def setUp(self):
         self.storage_directory = "~/test__vector_db_dsRAG"
         self.kb_id = "test_db"
@@ -656,7 +658,111 @@ class TestQdrantDB(unittest.TestCase):
         self.assertTrue(
             "Error in add_vectors: the number of vectors and metadata items must be the same."
             in str(context.exception)
+        )"""
+
+
+
+class TestPineconeDB(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.kb_id = "test-dsrag-pinecone-db"
+        self.db = PineconeDB(kb_id=self.kb_id, dimension=2)
+        #return super().setUp()
+
+    def test__001_add_vectors_and_search(self):
+        db = PineconeDB(kb_id=self.kb_id)
+        vectors = [np.array([1, 0]), np.array([0, 1])]
+        metadata: Sequence[ChunkMetadata] = [
+            {
+                "doc_id": "1",
+                "chunk_index": 0,
+                "chunk_header": "Header1",
+                "chunk_text": "Text1",
+            },
+            {
+                "doc_id": "2",
+                "chunk_index": 1,
+                "chunk_header": "Header2",
+                "chunk_text": "Text2",
+            },
+        ]
+
+        db.add_vectors(vectors, metadata)
+        time.sleep(2)
+        query_vector = np.array([[1, 0]])
+        results = db.search(query_vector, top_k=1)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["metadata"]["doc_id"], "1")
+        self.assertGreaterEqual(results[0]["similarity"], 0.99)
+
+    def test__002_search_with_metadata_filter(self):
+        db = PineconeDB(kb_id=self.kb_id)
+
+        query_vector = np.array([[1, 0]])
+        metadata_filter = {"field": "doc_id", "operator": "equals", "value": "1"}
+        results = db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["metadata"]["doc_id"], "1")
+
+        # Test with the 'in' operator
+        metadata_filter = {"field": "doc_id", "operator": "in", "value": ["1", "2"]}
+        results = db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]["metadata"]["doc_id"], "1")
+        self.assertEqual(results[1]["metadata"]["doc_id"], "2")
+
+    def test__003_remove_document(self):
+        db = PineconeDB(kb_id=self.kb_id)
+        db.remove_document("1")
+        time.sleep(5)
+
+        num_vectors = db.get_num_vectors()
+        self.assertEqual(num_vectors, 1)
+
+    def test__004_empty_search(self):
+        db = PineconeDB(kb_id=self.kb_id)
+        db.remove_document("2")
+        time.sleep(5)
+        query_vector = np.array([1, 0])
+        results = db.search(query_vector)
+
+        self.assertEqual(len(results), 0)
+        #db.delete()
+
+    def test__005_assertion_error_on_mismatched_input_lengths(self):
+        db = PineconeDB(kb_id=self.kb_id)
+        vectors = [np.array([1, 0])]
+        metadata: Sequence[ChunkMetadata] = [
+            {
+                "doc_id": "1",
+                "chunk_index": 0,
+                "chunk_header": "Header1",
+                "chunk_text": "Text1",
+            },
+            {
+                "doc_id": "2",
+                "chunk_index": 1,
+                "chunk_header": "Header2",
+                "chunk_text": "Text2",
+            },
+        ]
+
+        with self.assertRaises(ValueError) as context:
+            db.add_vectors(vectors, metadata)
+        self.assertTrue(
+            "Error in add_vectors: the number of vectors and metadata items must be the same."
+            in str(context.exception)
         )
+
+    """@classmethod
+    def tearDownClass(self):
+        # delete test data from ChromaDB
+        self.db.delete()
+        #return super().tearDown()"""
+
+
 
 
 if __name__ == "__main__":

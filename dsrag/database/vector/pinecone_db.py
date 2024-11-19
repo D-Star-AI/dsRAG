@@ -7,12 +7,39 @@ from pinecone import Pinecone
 from pinecone import ServerlessSpec
 
 
+def format_metadata_filter(metadata_filter: MetadataFilter) -> dict:
+
+    field = metadata_filter["field"]
+    operator = metadata_filter["operator"]
+    value = metadata_filter["value"]
+
+    operator_mapping = {
+        "equals": "$eq",
+        "not_equals": "$ne",
+        "in": "$in",
+        "not_in": "$nin",
+        "greater_than": "$gt",
+        "less_than": "$lt",
+        "greater_than_equals": "$gte",
+        "less_than_equals": "$lte",
+    }
+    formatted_operator = operator_mapping.get(operator)
+
+    if formatted_operator == "$eq":
+        formatted_metadata_filter = {field: value}
+    else:
+        formatted_metadata_filter = {field: {formatted_operator: value}}
+    
+    return formatted_metadata_filter
+
+
+
 class PineconeDB(VectorDB):
     """
     Class to interact with the Pinecone API. Only supports serverless indexes.
     """
 
-    def __init__(self, kb_id: str, dimension: int, cloud: str = "aws", region: str = "us-east-1"):
+    def __init__(self, kb_id: str, dimension: int = None, cloud: str = "aws", region: str = "us-east-1"):
         """
         Inputs:
             kb_id (str): The name of the KB (which will be used as the name of the index). Note that Pinecone has some restrictions on the name of the index.
@@ -23,12 +50,9 @@ class PineconeDB(VectorDB):
         """
         self.kb_id = kb_id
         self.pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-        if not dimension:
-            raise ValueError("Dimension must be specified when creating a new index.")
 
         # See if the index already exists
         existing_indexes = self.pc.list_indexes()
-        print ("existing_indexes", existing_indexes)
         existing_index_names = [index["name"] for index in existing_indexes]
         if kb_id not in existing_index_names:
             if dimension is None:
@@ -45,6 +69,14 @@ class PineconeDB(VectorDB):
                 "Error in add_vectors: the number of vectors and metadata items must be the same."
             )
         
+        # Make sure each value in the vectors is a float and not an int
+        for vector in vectors_as_lists:
+            for i, value in enumerate(vector):
+                if isinstance(value, int):
+                    vector[i] = float(value)
+        
+        print ("vector type", type(vectors_as_lists[0]))
+        print ("value type", type(vectors_as_lists[0][0]))
         index = self.pc.Index(self.kb_id)
 
         # create unique ids for each vector
@@ -58,14 +90,47 @@ class PineconeDB(VectorDB):
 
     def get_num_vectors(self):
         index = self.pc.Index(self.kb_id)
-        return index.info().num_vectors
+        stats = index.describe_index_stats()
+        if stats:
+            num_vectors = stats["total_vector_count"]
+            return num_vectors
+        else:
+            return 0
 
     def remove_document(self, doc_id: str):
-        pass
+        index = self.pc.Index(self.kb_id)
+        # The doc id is in the metadata
+        for ids in index.list(prefix=doc_id):
+            index.delete(ids=ids)
 
     def search(self, query_vector, top_k: int = 10, metadata_filter: Optional[MetadataFilter] = None) -> list[VectorSearchResult]:
         index = self.pc.Index(self.kb_id)
-        search_results = index.query(vector=query_vector, top_k=top_k)
+        # Convert the query vector to a list if it is a NumPy array
+        if isinstance(query_vector, np.ndarray):
+            query_vector = query_vector.tolist()
+        if metadata_filter:
+            formatted_metadata_filter = format_metadata_filter(metadata_filter)
+            search_results = index.query(vector=query_vector, top_k=top_k, include_metadata=True, filter=formatted_metadata_filter)
+        else:
+            search_results = index.query(vector=query_vector, top_k=top_k, include_metadata=True)
+
+        results = []
+        for match in search_results['matches']:
+            doc_id = match['metadata'].get('doc_id') or match.get('id')
+            similarity = match['score']
+
+            results.append(
+                VectorSearchResult(
+                    doc_id=doc_id,
+                    vector=None,
+                    metadata=match['metadata'],
+                    similarity=similarity
+                )
+            )
+
+        results = sorted(results, key=lambda x: x["similarity"], reverse=True)
+
+        return results
     
     def delete(self):
         """
