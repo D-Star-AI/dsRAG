@@ -12,7 +12,7 @@ class PineconeDB(VectorDB):
     Class to interact with the Pinecone API. Only supports serverless indexes.
     """
 
-    def __init__(self, kb_id: str, api_key: str, dimension: int = None, cloud: str = "aws", region: str = "us-east-1"):
+    def __init__(self, kb_id: str, dimension: int, cloud: str = "aws", region: str = "us-east-1"):
         """
         Inputs:
             kb_id (str): The name of the KB (which will be used as the name of the index). Note that Pinecone has some restrictions on the name of the index.
@@ -22,10 +22,13 @@ class PineconeDB(VectorDB):
             region (str): The region to use. Only required when creating a new index.
         """
         self.kb_id = kb_id
-        self.pc = Pinecone(api_key=api_key)
+        self.pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
+        if not dimension:
+            raise ValueError("Dimension must be specified when creating a new index.")
 
         # See if the index already exists
         existing_indexes = self.pc.list_indexes()
+        print ("existing_indexes", existing_indexes)
         existing_index_names = [index["name"] for index in existing_indexes]
         if kb_id not in existing_index_names:
             if dimension is None:
@@ -52,6 +55,10 @@ class PineconeDB(VectorDB):
         
         # upsert the vectors
         index.upsert(vectors_to_upsert)
+
+    def get_num_vectors(self):
+        index = self.pc.Index(self.kb_id)
+        return index.info().num_vectors
 
     def remove_document(self, doc_id: str):
         pass
