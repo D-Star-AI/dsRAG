@@ -93,9 +93,9 @@ class DynamoDB(ChunkDB):
     def create_dynamo_client(self):
         dynamodb_client = boto3.resource(
             'dynamodb',
-            AWS_REGION=os.environ.get("AWS_REGION"),
-            AWS_DYNAMO_ACCESS_KEY=os.environ.get("AWS_DYNAMO_ACCESS_KEY"),
-            AWS_DYNAMO_SECRET_KEY=os.environ.get("AWS_DYNAMO_SECRET_KEY")
+            region_name=os.environ.get("AWS_REGION"),
+            aws_access_key_id=os.environ.get("AWS_DYNAMO_ACCESS_KEY"),
+            aws_secret_access_key=os.environ.get("AWS_DYNAMO_SECRET_KEY")
         )
         return dynamodb_client
 
