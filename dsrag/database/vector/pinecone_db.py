@@ -75,8 +75,6 @@ class PineconeDB(VectorDB):
                 if isinstance(value, int):
                     vector[i] = float(value)
         
-        print ("vector type", type(vectors_as_lists[0]))
-        print ("value type", type(vectors_as_lists[0][0]))
         index = self.pc.Index(self.kb_id)
 
         # create unique ids for each vector
