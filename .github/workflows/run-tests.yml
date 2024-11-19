@@ -19,6 +19,9 @@ jobs:
       AWS_S3_ACCESS_KEY: ${{ secrets.AWS_S3_ACCESS_KEY }}
       AWS_S3_SECRET_KEY: ${{ secrets.AWS_S3_SECRET_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_DYNAMO_ACCESS_KEY: ${{ secrets.AWS_DYNAMO_ACCESS_KEY }}
+      AWS_DYNAMO_SECRET_KEY: ${{ secrets.AWS_DYNAMO_SECRET_KEY }}
 
     steps:
       - name: Checkout code
