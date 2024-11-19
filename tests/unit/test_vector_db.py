@@ -756,11 +756,11 @@ class TestPineconeDB(unittest.TestCase):
             in str(context.exception)
         )
 
-    """@classmethod
+    @classmethod
     def tearDownClass(self):
         # delete test data from ChromaDB
         self.db.delete()
-        #return super().tearDown()"""
+        #return super().tearDown()
 
 
 

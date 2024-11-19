@@ -48,6 +48,12 @@ class PineconeDB(VectorDB):
             cloud (str): The cloud provider to use. Options are "aws" or "gcp". Only required when creating a new index.
             region (str): The region to use. Only required when creating a new index.
         """
+
+        # Format the kb_id in case it contains any invalid characters
+        # There can't be any underscores in the kb_id
+        kb_id = kb_id.replace("_", "-")
+        kb_id = kb_id.replace(" ", "-")
+
         self.kb_id = kb_id
         self.pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 
