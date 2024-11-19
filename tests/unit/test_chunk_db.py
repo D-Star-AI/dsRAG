@@ -333,10 +333,7 @@ class TestDynamoDB(unittest.TestCase):
         self.table_name = "test_dynamo_db_chunks"
         self.kb_id = "test_dynamo_db"
         self.db = DynamoDB(
-            self.kb_id,
-            AWS_REGION=os.environ.get("AWS_REGION"),
-            AWS_DYNAMO_ACCESS_KEY=os.environ.get("AWS_DYNAMO_ACCESS_KEY"),
-            AWS_DYNAMO_SECRET_KEY=os.environ.get("AWS_DYNAMO_SECRET_KEY"),
+            self.kb_id
         )
         #return super().setUp()
 
@@ -470,9 +467,6 @@ class TestDynamoDB(unittest.TestCase):
         db = DynamoDB(
             self.kb_id,
             table_name=self.table_name,
-            AWS_REGION=os.environ.get("AWS_REGION"),
-            AWS_DYNAMO_ACCESS_KEY=os.environ.get("AWS_DYNAMO_ACCESS_KEY"),
-            AWS_DYNAMO_SECRET_KEY=os.environ.get("AWS_DYNAMO_SECRET_KEY"),
         )
         config = db.to_dict()
         db2 = ChunkDB.from_dict(config)
