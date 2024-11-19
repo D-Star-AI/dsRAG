@@ -14,7 +14,7 @@ There are three key methods used to improve performance over vanilla RAG systems
 #### Semantic sectioning
 Semantic sectioning uses an LLM to break a document into sections. It works by annotating the document with line numbers and then prompting an LLM to identify the starting and ending lines for each “semantically cohesive section.” These sections should be anywhere from a few paragraphs to a few pages long. The sections then get broken into smaller chunks if needed. The LLM is also prompted to generate descriptive titles for each section. These section titles get used in the contextual chunk headers created by AutoContext, which provides additional context to the ranking models (embeddings and reranker), enabling better retrieval.
 
-#### AutoContext
+#### AutoContext (contextual chunk headers)
 AutoContext creates contextual chunk headers that contain document-level and section-level context, and prepends those chunk headers to the chunks prior to embedding them. This gives the embeddings a much more accurate and complete representation of the content and meaning of the text. In our testing, this feature leads to a dramatic improvement in retrieval quality. In addition to increasing the rate at which the correct information is retrieved, AutoContext also substantially reduces the rate at which irrelevant results show up in the search results. This reduces the rate at which the LLM misinterprets a piece of text in downstream chat and generation applications.
 
 #### Relevant Segment Extraction
@@ -140,6 +140,7 @@ There are five key components that define the configuration of a KnowledgeBase, 
 3. Embedding
 4. Reranker
 5. LLM
+6. FileSystem
 
 There are defaults for each of these components, as well as alternative options included in the repo. You can also define fully custom components by subclassing the base classes and passing in an instance of that subclass to the KnowledgeBase constructor. 
 
@@ -150,6 +151,8 @@ The currently available options are:
 - `BasicVectorDB`
 - `WeaviateVectorDB`
 - `ChromaDB`
+- `QdrantVectorDB`
+- `MilvusDB`
 
 #### ChunkDB
 The ChunkDB stores the content of text chunks in a nested dictionary format, keyed on `doc_id` and `chunk_index`. This is used by RSE to retrieve the full text associated with specific chunks.
@@ -182,8 +185,28 @@ The currently available options are:
 - `AnthropicChatAPI`
 - `OllamaChatAPI`
 
+#### FileSystem
+This defines the file system to be used for saving PDF images.
+
+For backwards compatibility, if an existing `KnowledgeBase` is loaded in, a `LocalFileSystem` will be created by default using the `storage_directory`. This is also the behavior if no `FileSystem` is defined when creating a new `KnowledgeBase`.
+
+The currently available options are:
+- `LocalFileSystem`
+- `S3FileSystem`
+
+Usage:
+For the `LocalFileSystem`, only a `base_path` needs to be passed in. This defines where the files will be stored on the system
+For the `S3FileSystem`, the following parameters are needed:
+- `base_path`
+- `bucket_name`
+- `region_name`
+- `access_key`
+- `access_secret`
+
+The `base_path` is used when downloading files from S3. The files have to be stored locally in order to be used in the retrieval system. 
+
 ## Config dictionaries
-There are two config dictionaries that can be passed in to `add_document` (`auto_context_config` and `semantic_sectioning_config`) and one that can be passed in to `query` (`rse_params`).
+Since there are a lot of configuration parameters available, they're organized into a few config dictionaries. There are four config dictionaries that can be passed in to `add_document` (`auto_context_config`, `file_parsing_config`, `semantic_sectioning_config`, and `chunking_config`) and one that can be passed in to `query` (`rse_params`).
 
 Default values will be used for any parameters not provided in these dictionaries, so if you just want to alter one or two parameters there's no need to send in the full dictionary.
 
@@ -195,10 +218,24 @@ auto_context_config
 - get_section_summaries: bool - whether to get section summaries (default is False)
 - section_summarization_guidance: str
 
+file_parsing_config
+- use_vlm: bool - whether to use VLM (vision language model) for parsing the file (default is False)
+- vlm_config: a dictionary with configuration parameters for VLM (ignored if use_vlm is False)
+    - provider: the VLM provider to use - only "vertex_ai" is supported at the moment
+    - model: the VLM model to use
+    - project_id: the GCP project ID (required if provider is "vertex_ai")
+    - location: the GCP location (required if provider is "vertex_ai")
+    - save_path: the path to save intermediate files created during VLM processing
+    - exclude_elements: a list of element types to exclude from the parsed text. Default is ["Header", "Footer"].
+
 semantic_sectioning_config
 - llm_provider: the LLM provider to use for semantic sectioning - only "openai" and "anthropic" are supported at the moment
 - model: the LLM model to use for semantic sectioning
 - use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
+
+chunking_config
+- chunk_size: the maximum number of characters to include in each chunk
+- min_length_for_chunking: the minimum length of text to allow chunking (measured in number of characters); if the text is shorter than this, it will be added as a single chunk. If semantic sectioning is used, this parameter will be applied to each section. Setting this to a higher value than the chunk_size can help avoid unnecessary chunking of short documents or sections.
 
 rse_params
 - max_length: maximum length of a segment, measured in number of chunks

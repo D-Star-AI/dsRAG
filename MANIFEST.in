@@ -1,0 +1,5 @@
+exclude dsrag/dsparse/requirements.txt
+exclude dsrag/dsparse/requirements.in
+exclude dsrag/dsparse/MANIFEST.in
+exclude dsrag/dsparse/README.md
+exclude dsrag/dsparse/pyproject.toml

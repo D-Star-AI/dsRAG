@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dsrag"
-version = "0.4.0"
-description = "State-of-the-art RAG pipeline from D-Star AI"
+name = "dsparse"
+version = "0.0.1"
+description = "Multi-modal file parsing and chunking"
 readme = "README.md"
 authors = [{ name = "Zach McCormick", email = "zach@d-star.ai" }, { name = "Nick McCormick", email = "nick@d-star.ai" }]
 license = { file = "LICENSE" }
@@ -31,12 +31,15 @@ dynamic = ["dependencies"]
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
 
+[project.optional-dependencies]
+s3 = ["boto3>=1.34.142", "botocore>=1.34.142"]
+vertexai = ["vertexai>=1.70.0"]
+
 [project.urls]
-Homepage = "https://github.com/D-Star-AI/dsRAG"
-Documentation = "https://github.com/D-Star-AI/dsRAG"
-Contact = "https://github.com/D-Star-AI/dsRAG"
+Homepage = "https://github.com/D-Star-AI/dsRAG/blob/main/dsrag/dsparse/README.md"
+Documentation = "https://github.com/D-Star-AI/dsRAG/blob/main/dsrag/dsparse/README.md"
+Contact = "https://github.com/D-Star-AI/dsRAG/blob/main/dsrag/dsparse/README.md"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["dsrag", "dsrag.*"]
-exclude = ["dsrag.dsparse.tests", "dsrag.dsparse.tests.*", "dsrag.dsparse.dist", "dsrag.dsparse.dist.*"]
+include = ["dsparse"]
