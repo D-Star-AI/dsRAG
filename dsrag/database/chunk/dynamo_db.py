@@ -1,3 +1,4 @@
+import os
 import boto3
 from typing import Any, Optional
 from decimal import Decimal
@@ -25,11 +26,8 @@ def process_items(items):
 
 class DynamoDB(ChunkDB):
 
-    def __init__(self, kb_id: str, AWS_REGION: str, AWS_DYNAMO_ACCESS_KEY: str, AWS_DYNAMO_SECRET_KEY: str, table_name: str = None, billing_mode: str = "PAY_PER_REQUEST") -> None:
+    def __init__(self, kb_id: str, table_name: str = None, billing_mode: str = "PAY_PER_REQUEST") -> None:
         self.kb_id = kb_id
-        self.AWS_REGION = AWS_REGION
-        self.AWS_DYNAMO_ACCESS_KEY = AWS_DYNAMO_ACCESS_KEY
-        self.AWS_DYNAMO_SECRET_KEY = AWS_DYNAMO_SECRET_KEY
         self.billing_mode = billing_mode
         if table_name is not None:
             self.table_name = table_name
@@ -95,9 +93,9 @@ class DynamoDB(ChunkDB):
     def create_dynamo_client(self):
         dynamodb_client = boto3.resource(
             'dynamodb',
-            region_name=self.AWS_REGION,
-            aws_access_key_id=self.AWS_DYNAMO_ACCESS_KEY,
-            aws_secret_access_key=self.AWS_DYNAMO_SECRET_KEY
+            AWS_REGION=os.environ.get("AWS_REGION"),
+            AWS_DYNAMO_ACCESS_KEY=os.environ.get("AWS_DYNAMO_ACCESS_KEY"),
+            AWS_DYNAMO_SECRET_KEY=os.environ.get("AWS_DYNAMO_SECRET_KEY")
         )
         return dynamodb_client
 
@@ -522,7 +520,4 @@ class DynamoDB(ChunkDB):
             **super().to_dict(),
             "kb_id": self.kb_id,
             "table_name": self.table_name,
-            "AWS_REGION": self.AWS_REGION,
-            "AWS_DYNAMO_ACCESS_KEY": self.AWS_DYNAMO_ACCESS_KEY,
-            "AWS_DYNAMO_SECRET_KEY": self.AWS_DYNAMO_SECRET_KEY
         }
