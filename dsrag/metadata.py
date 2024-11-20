@@ -92,7 +92,7 @@ def convert_decimal_to_numbers(obj: Any) -> Any:
         return obj
 
 
-class DynamoMetadataStorage(MetadataStorage):
+class DynamoDBMetadataStorage(MetadataStorage):
 
     def __init__(self, kb_id: str, table_name: str) -> None:
         super().__init__(kb_id)
