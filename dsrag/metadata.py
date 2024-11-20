@@ -9,20 +9,8 @@ from abc import ABC, abstractmethod
 
 class MetadataStorage(ABC):
 
-    subclasses = {}
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        cls.subclasses[cls.__name__] = cls
-
-    @classmethod
-    def from_dict(cls, config):
-        subclass_name = config.pop('subclass_name', None)  # Remove subclass_name from config
-        subclass = cls.subclasses.get(subclass_name)
-        if subclass:
-            return subclass(**config)  # Pass the modified config without subclass_name
-        else:
-            raise ValueError(f"Unknown subclass: {subclass_name}")
+    def __init__(self, kb_id: str) -> None:
+        self.kb_id = kb_id
 
     @abstractmethod
     def load(self) -> dict:
@@ -33,15 +21,13 @@ class MetadataStorage(ABC):
         pass
 
     @abstractmethod
-    def to_dict(self) -> dict:
-        return {
-            'subclass_name': self.__class__.__name__,
-        }
+    def delete(self) -> None:
+        pass
 
 class LocalMetadataStorage(MetadataStorage):
 
     def __init__(self, kb_id: str, storage_directory: str) -> None:
-        self.kb_id = kb_id
+        super().__init__(kb_id)
         self.storage_directory = storage_directory
         self.metadata_path = os.path.join(self.storage_directory, "metadata", f"{self.kb_id}.json")
     
@@ -63,8 +49,8 @@ class LocalMetadataStorage(MetadataStorage):
         with open(self.metadata_path, "w") as f:
             json.dump(full_data, f, indent=4)
 
-    def to_dict(self) -> dict:
-        return super().to_dict()
+    def delete(self):
+        os.remove(self.metadata_path)
 
 
 
@@ -109,7 +95,7 @@ def convert_decimal_to_numbers(obj: Any) -> Any:
 class DynamoMetadataStorage(MetadataStorage):
 
     def __init__(self, kb_id: str, table_name: str) -> None:
-        self.kb_id = kb_id
+        super().__init__(kb_id)
         self.table_name = table_name
 
     def create_dynamo_client(self):
@@ -120,6 +106,29 @@ class DynamoMetadataStorage(MetadataStorage):
             aws_secret_access_key=os.environ.get("AWS_DYNAMO_SECRET_KEY")
         )
         return dynamodb_client
+    
+    def create_table(self):
+        dynamodb_client = self.create_dynamo_client()
+        try:
+            dynamodb_client.create_table(
+                TableName="metadata_storage",
+                KeySchema=[
+                    {
+                        'AttributeName': 'kb_id',
+                        'KeyType': 'HASH'  # Partition key
+                    }
+                ],
+                AttributeDefinitions=[
+                    {
+                        'AttributeName': 'kb_id',
+                        'AttributeType': 'S'  # 'S' for String
+                    }
+                ],
+                BillingMode='PAY_PER_REQUEST'
+            )
+        except Exception as e:
+            # Probably the table already exists
+            print (e)
     
     def load(self) -> dict:
         # Read the data from the dynamo table
@@ -145,10 +154,8 @@ class DynamoMetadataStorage(MetadataStorage):
         table = dynamodb_client.Table(self.table_name)
         table.put_item(Item={'kb_id': self.kb_id, 'metadata': converted_data})
 
-    def to_dict(self) -> dict:
-        base_dict = super().to_dict()
-        base_dict.update({
-            'table_name': self.table_name,
-        })
-        return base_dict
+    def delete(self):
+        dynamodb_client = self.create_dynamo_client()
+        table = dynamodb_client.Table(self.table_name)
+        table.delete_item(Key={'kb_id': self.kb_id})
 

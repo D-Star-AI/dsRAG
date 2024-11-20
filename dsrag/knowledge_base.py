@@ -128,7 +128,6 @@ class KnowledgeBase:
             "vector_db": self.vector_db.to_dict(),
             "chunk_db": self.chunk_db.to_dict(),
             "file_system": self.file_system.to_dict(),
-            "metadata_storage": self.metadata_storage.to_dict(),
         }
         # Combine metadata and components
         full_data = {**self.kb_metadata, "components": components}
@@ -168,7 +167,6 @@ class KnowledgeBase:
             )
             self.vector_db = VectorDB.from_dict(components.get("vector_db", {}))
             self.chunk_db = ChunkDB.from_dict(components.get("chunk_db", {}))
-            self.metadata_storage = MetadataStorage.from_dict(components.get("metadata_storage", {}))
 
             file_system_dict = components.get("file_system", None)
 
@@ -195,7 +193,8 @@ class KnowledgeBase:
         self.file_system.delete_kb(self.kb_id)
 
         # delete the metadata file
-        os.remove(self.get_metadata_path())
+        self.metadata_storage.delete()
+        #os.remove(self.get_metadata_path())
 
     def add_document(
         self,
