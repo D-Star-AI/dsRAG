@@ -4,7 +4,7 @@ import time
 import json
 from typing import Optional, Union, Dict
 import concurrent.futures
-from dsrag.dsParse.main import parse_and_chunk
+from dsrag.dsparse.main import parse_and_chunk
 from dsrag.add_document import (
     auto_context, 
     get_embeddings, 
@@ -24,7 +24,7 @@ from dsrag.database.chunk import ChunkDB, BasicChunkDB
 from dsrag.embedding import Embedding, OpenAIEmbedding
 from dsrag.reranker import Reranker, CohereReranker
 from dsrag.llm import LLM, OpenAIChatAPI
-from dsrag.dsParse.file_parsing.file_system import FileSystem, LocalFileSystem
+from dsrag.dsparse.file_parsing.file_system import FileSystem, LocalFileSystem
 from dsrag.metadata import MetadataStorage, LocalMetadataStorage
 
 class KnowledgeBase:
