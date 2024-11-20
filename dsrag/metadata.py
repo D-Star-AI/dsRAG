@@ -9,8 +9,8 @@ from abc import ABC, abstractmethod
 
 class MetadataStorage(ABC):
 
-    def __init__(self, kb_id: str) -> None:
-        self.kb_id = kb_id
+    def __init__(self) -> None:
+        pass
 
     @abstractmethod
     def load(self) -> dict:
@@ -26,31 +26,35 @@ class MetadataStorage(ABC):
 
 class LocalMetadataStorage(MetadataStorage):
 
-    def __init__(self, kb_id: str, storage_directory: str) -> None:
-        super().__init__(kb_id)
+    def __init__(self, storage_directory: str) -> None:
+        super().__init__()
         self.storage_directory = storage_directory
-        self.metadata_path = os.path.join(self.storage_directory, "metadata", f"{self.kb_id}.json")
+
+    def get_metadata_path(self, kb_id: str) -> str:
+        return os.path.join(self.storage_directory, "metadata", f"{kb_id}.json")
+
+    def kb_exists(self, kb_id: str) -> bool:
+        metadata_path = self.get_metadata_path(kb_id)
+        return os.path.exists(metadata_path)
     
-    def load(self) -> dict:
-        with open(self.metadata_path, "r") as f:
+    def load(self, kb_id: str) -> dict:
+        metadata_path = self.get_metadata_path(kb_id)
+        with open(metadata_path, "r") as f:
             data = json.load(f)
-            self.kb_metadata = {
-                key: value for key, value in data.items() if key != "components"
-            }
-            components = data.get("components", {})
-        return components
+        return data
 
-    def save(self, full_data: dict):
-
+    def save(self, full_data: dict, kb_id: str):
+        metadata_path = self.get_metadata_path(kb_id)
         metadata_dir = os.path.join(self.storage_directory, "metadata")
         if not os.path.exists(metadata_dir):
             os.makedirs(metadata_dir)
 
-        with open(self.metadata_path, "w") as f:
+        with open(metadata_path, "w") as f:
             json.dump(full_data, f, indent=4)
 
-    def delete(self):
-        os.remove(self.metadata_path)
+    def delete(self, kb_id: str):
+        metadata_path = self.get_metadata_path(kb_id)
+        os.remove(metadata_path)
 
 
 
@@ -94,8 +98,7 @@ def convert_decimal_to_numbers(obj: Any) -> Any:
 
 class DynamoDBMetadataStorage(MetadataStorage):
 
-    def __init__(self, kb_id: str, table_name: str) -> None:
-        super().__init__(kb_id)
+    def __init__(self, table_name: str) -> None:
         self.table_name = table_name
 
     def create_dynamo_client(self):
@@ -129,12 +132,18 @@ class DynamoDBMetadataStorage(MetadataStorage):
         except Exception as e:
             # Probably the table already exists
             print (e)
+
+    def kb_exists(self, kb_id: str) -> bool:
+        dynamodb_client = self.create_dynamo_client()
+        table = dynamodb_client.Table(self.table_name)
+        response = table.get_item(Key={'kb_id': kb_id})
+        return 'Item' in response
     
-    def load(self) -> dict:
+    def load(self, kb_id: str) -> dict:
         # Read the data from the dynamo table
         dynamodb_client = self.create_dynamo_client()
         table = dynamodb_client.Table(self.table_name)
-        response = table.get_item(Key={'kb_id': self.kb_id})
+        response = table.get_item(Key={'kb_id': kb_id})
         data = response.get('Item', {}).get('metadata', {})
         kb_metadata = {
             key: value for key, value in data.items() if key != "components"
@@ -144,7 +153,7 @@ class DynamoDBMetadataStorage(MetadataStorage):
         converted_data = convert_decimal_to_numbers(full_data)
         return converted_data
 
-    def save(self, full_data: dict) -> None:
+    def save(self, full_data: dict, kb_id: str) -> None:
 
         # Check if any of the items are a float or int, and convert them to Decimal
         converted_data = convert_numbers_to_decimal(full_data)
@@ -152,10 +161,10 @@ class DynamoDBMetadataStorage(MetadataStorage):
         # Upload this data to the dynamo table, where the kb_id is the primary key
         dynamodb_client = self.create_dynamo_client()
         table = dynamodb_client.Table(self.table_name)
-        table.put_item(Item={'kb_id': self.kb_id, 'metadata': converted_data})
+        table.put_item(Item={'kb_id': kb_id, 'metadata': converted_data})
 
-    def delete(self):
+    def delete(self, kb_id: str) -> None:
         dynamodb_client = self.create_dynamo_client()
         table = dynamodb_client.Table(self.table_name)
-        table.delete_item(Key={'kb_id': self.kb_id})
+        table.delete_item(Key={'kb_id': kb_id})
 

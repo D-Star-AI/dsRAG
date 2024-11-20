@@ -5,7 +5,7 @@ from pdf2image import convert_from_path
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from dsparse.file_parsing.file_system import LocalFileSystem, S3FileSystem
+from dsParse.file_parsing.file_system import LocalFileSystem, S3FileSystem
 
 
 class TestLocalFileSystem(unittest.TestCase):

@@ -48,16 +48,16 @@ class KnowledgeBase:
     ):
         self.kb_id = kb_id
         self.storage_directory = os.path.expanduser(storage_directory)
+        self.metadata_storage = metadata_storage if metadata_storage else LocalMetadataStorage(self.storage_directory)
 
         if save_metadata_to_disk:
             # load the KB if it exists; otherwise, initialize it and save it to disk
-            metadata_path = self.get_metadata_path()
-            if os.path.exists(metadata_path) and exists_ok:
+            if self.metadata_storage.kb_exists(self.kb_id) and exists_ok:
                 self.load(
                     auto_context_model, reranker, file_system
                 )  # allow the user to override the auto_context_model and reranker
                 self.save()
-            elif os.path.exists(metadata_path) and not exists_ok:
+            elif self.metadata_storage.kb_exists(self.kb_id) and not exists_ok:
                 raise ValueError(
                     f"Knowledge Base with ID {kb_id} already exists. Use exists_ok=True to load it."
                 )
@@ -73,7 +73,7 @@ class KnowledgeBase:
                     "created_on": created_time,
                 }
                 self.initialize_components(
-                    embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system, metadata_storage
+                    embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system
                 )
                 self.save()  # save the config for the KB to disk
         else:
@@ -84,7 +84,7 @@ class KnowledgeBase:
                 "supp_id": supp_id,
             }
             self.initialize_components(
-                embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system, metadata_storage
+                embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system
             )
 
     def get_metadata_path(self):
@@ -98,10 +98,7 @@ class KnowledgeBase:
         vector_db: Optional[VectorDB],
         chunk_db: Optional[ChunkDB],
         file_system: Optional[FileSystem],
-        metadata_storage: Optional[MetadataStorage]
     ):
-        
-        self.metadata_storage = metadata_storage if metadata_storage else LocalMetadataStorage(self.kb_id, self.storage_directory)
 
         self.embedding_model = embedding_model if embedding_model else OpenAIEmbedding()
         self.reranker = reranker if reranker else CohereReranker()
@@ -132,48 +129,47 @@ class KnowledgeBase:
         # Combine metadata and components
         full_data = {**self.kb_metadata, "components": components}
 
-        self.metadata_storage.save(full_data)
+        self.metadata_storage.save(full_data, self.kb_id)
 
     def load(self, auto_context_model=None, reranker=None, file_system=None):
         """
         Note: auto_context_model and reranker can be passed in to override the models in the metadata file. The other components are not overridable because that would break things.
         """
-        with open(self.get_metadata_path(), "r") as f:
-            data = json.load(f)
-            self.kb_metadata = {
-                key: value for key, value in data.items() if key != "components"
-            }
-            components = self.metadata_storage.load()
-            # Deserialize components
-            self.embedding_model = Embedding.from_dict(
-                components.get("embedding_model", {})
-            )
-            self.reranker = (
-                reranker
-                if reranker
-                else Reranker.from_dict(components.get("reranker", {}))
-            )
-            self.auto_context_model = (
-                auto_context_model
-                if auto_context_model
-                else LLM.from_dict(components.get("auto_context_model", {}))
-            )
-            self.vector_db = VectorDB.from_dict(components.get("vector_db", {}))
-            self.chunk_db = ChunkDB.from_dict(components.get("chunk_db", {}))
+        data = self.metadata_storage.load(self.kb_id)
+        self.kb_metadata = {
+            key: value for key, value in data.items() if key != "components"
+        }
+        components = data.get("components", {})
+        # Deserialize components
+        self.embedding_model = Embedding.from_dict(
+            components.get("embedding_model", {})
+        )
+        self.reranker = (
+            reranker
+            if reranker
+            else Reranker.from_dict(components.get("reranker", {}))
+        )
+        self.auto_context_model = (
+            auto_context_model
+            if auto_context_model
+            else LLM.from_dict(components.get("auto_context_model", {}))
+        )
+        self.vector_db = VectorDB.from_dict(components.get("vector_db", {}))
+        self.chunk_db = ChunkDB.from_dict(components.get("chunk_db", {}))
 
-            file_system_dict = components.get("file_system", None)
+        file_system_dict = components.get("file_system", None)
 
-            if file_system_dict is not None:
-                # If the file system dict exists, use it
-                self.file_system = FileSystem.from_dict(file_system_dict)
-            elif file_system is not None:
-                # If the file system does not exist but is provided, use the provided file system
-                self.file_system = file_system
-            else:
-                # If the file system does not exist and is not provided, default to LocalFileSystem
-                self.file_system = LocalFileSystem(base_path=self.storage_directory)
+        if file_system_dict is not None:
+            # If the file system dict exists, use it
+            self.file_system = FileSystem.from_dict(file_system_dict)
+        elif file_system is not None:
+            # If the file system does not exist but is provided, use the provided file system
+            self.file_system = file_system
+        else:
+            # If the file system does not exist and is not provided, default to LocalFileSystem
+            self.file_system = LocalFileSystem(base_path=self.storage_directory)
 
-            self.vector_dimension = self.embedding_model.dimension
+        self.vector_dimension = self.embedding_model.dimension
 
     def delete(self):
         # delete all documents in the KB
@@ -186,7 +182,7 @@ class KnowledgeBase:
         self.file_system.delete_kb(self.kb_id)
 
         # delete the metadata file
-        self.metadata_storage.delete()
+        self.metadata_storage.delete(self.kb_id)
 
     def add_document(
         self,
