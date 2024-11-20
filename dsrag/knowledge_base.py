@@ -133,12 +133,6 @@ class KnowledgeBase:
         full_data = {**self.kb_metadata, "components": components}
 
         self.metadata_storage.save(full_data)
-        """metadata_dir = os.path.join(self.storage_directory, "metadata")
-        if not os.path.exists(metadata_dir):
-            os.makedirs(metadata_dir)
-
-        with open(self.get_metadata_path(), "w") as f:
-            json.dump(full_data, f, indent=4)"""
 
     def load(self, auto_context_model=None, reranker=None, file_system=None):
         """
@@ -150,7 +144,6 @@ class KnowledgeBase:
                 key: value for key, value in data.items() if key != "components"
             }
             components = self.metadata_storage.load()
-            #components = data.get("components", {})
             # Deserialize components
             self.embedding_model = Embedding.from_dict(
                 components.get("embedding_model", {})
@@ -194,7 +187,6 @@ class KnowledgeBase:
 
         # delete the metadata file
         self.metadata_storage.delete()
-        #os.remove(self.get_metadata_path())
 
     def add_document(
         self,
