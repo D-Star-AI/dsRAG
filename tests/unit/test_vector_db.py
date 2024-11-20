@@ -688,7 +688,7 @@ class TestPineconeDB(unittest.TestCase):
         ]
 
         db.add_vectors(vectors, metadata)
-        time.sleep(2)
+        time.sleep(10)
         query_vector = np.array([[1, 0]])
         results = db.search(query_vector, top_k=1)
 
@@ -716,7 +716,7 @@ class TestPineconeDB(unittest.TestCase):
     def test__003_remove_document(self):
         db = PineconeDB(kb_id=self.kb_id)
         db.remove_document("1")
-        time.sleep(5)
+        time.sleep(10)
 
         num_vectors = db.get_num_vectors()
         self.assertEqual(num_vectors, 1)
@@ -724,12 +724,11 @@ class TestPineconeDB(unittest.TestCase):
     def test__004_empty_search(self):
         db = PineconeDB(kb_id=self.kb_id)
         db.remove_document("2")
-        time.sleep(5)
+        time.sleep(10)
         query_vector = np.array([1, 0])
         results = db.search(query_vector)
 
         self.assertEqual(len(results), 0)
-        #db.delete()
 
     def test__005_assertion_error_on_mismatched_input_lengths(self):
         db = PineconeDB(kb_id=self.kb_id)
