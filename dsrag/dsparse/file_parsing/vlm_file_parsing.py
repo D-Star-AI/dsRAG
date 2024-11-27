@@ -79,9 +79,7 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
     # Save each image
     image_file_paths = []
     for i, image in enumerate(images):
-        #image_file_path = os.path.join(page_images_path, f'page_{i+1}.png')
         file_system.save_image(kb_id, doc_id, f'page_{i+1}.png', image)
-        #image.save(image_file_path, 'PNG')
         image_file_path = f'/{kb_id}/{doc_id}/page_{i+1}.png'
         image_file_paths.append(image_file_path)
 
