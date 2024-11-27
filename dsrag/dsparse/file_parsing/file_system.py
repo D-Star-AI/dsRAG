@@ -251,7 +251,6 @@ class S3FileSystem(FileSystem):
         """
         Upload the file to S3
         """
-
         file_name = f"{kb_id}/{doc_id}/{file_name}"
         buffer = io.BytesIO()
         file.save(buffer, format='PNG')
@@ -297,7 +296,6 @@ class S3FileSystem(FileSystem):
                     output_filepath
                 )
                 file_paths.append(output_filepath)
-                print ("File downloaded successfully.")
             except Exception as e:
                 print ("Error downloading file:", e)
             

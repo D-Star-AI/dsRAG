@@ -342,7 +342,21 @@ class DynamoDB(ChunkDB):
             return None
 
     def get_is_visual(self, doc_id: str, chunk_index: int) -> Optional[bool]:
-        pass
+        # Get the 'is_visual' attribute for the given doc_id and chunk_index
+        dynamo_db = self.create_dynamo_client()
+        table = dynamo_db.Table(self.table_name)
+        response = table.get_item(
+            Key={
+                'doc_id': doc_id,
+                'chunk_index': chunk_index
+            },
+            ProjectionExpression='is_visual'
+        )
+        item = response.get('Item')
+        if item:
+            return item.get('is_visual')
+        else:
+            return None
 
     def get_chunk_page_numbers(self, doc_id: str, chunk_index: int) -> Optional[tuple[int, int]]:
         # Get the chunk page start and end
@@ -431,6 +445,7 @@ class DynamoDB(ChunkDB):
 
     def get_all_doc_ids(self, supp_id: Optional[str] = None) -> list[str]:
         dynamo_db = self.create_dynamo_client()
+        print ("table_name", self.table_name)
         table = dynamo_db.Table(self.table_name)
 
         doc_ids = set()
