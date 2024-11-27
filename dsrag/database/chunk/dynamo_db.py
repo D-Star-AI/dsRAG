@@ -32,6 +32,8 @@ class DynamoDB(ChunkDB):
         if table_name is not None:
             self.table_name = table_name
         else:
+            # Strip the kb of any spaces
+            kb_id = kb_id.replace(" ", "_")
             self.table_name = f"{kb_id}_chunks"
 
         self.columns = [

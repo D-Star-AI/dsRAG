@@ -264,7 +264,7 @@ class S3FileSystem(FileSystem):
                 Body=buffer,
                 ContentType='image/png'
             )
-            print(f"JSON data uploaded to {self.bucket_name}/{file_name}.")
+            print(f"PNG uploaded to {self.bucket_name}/{file_name}.")
         except Exception as e:
             raise RuntimeError(f"Failed to upload image to S3.") from e
 
