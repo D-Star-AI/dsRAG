@@ -447,7 +447,6 @@ class DynamoDB(ChunkDB):
 
     def get_all_doc_ids(self, supp_id: Optional[str] = None) -> list[str]:
         dynamo_db = self.create_dynamo_client()
-        print ("table_name", self.table_name)
         table = dynamo_db.Table(self.table_name)
 
         doc_ids = set()

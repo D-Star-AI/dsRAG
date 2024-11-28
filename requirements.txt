@@ -139,6 +139,8 @@ google-auth>=2.23.4
     # via kubernetes
 googleapis-common-protos>=1.61.0
     # via opentelemetry-exporter-otlp-proto-grpc
+google-generativeai==0.8.3
+    # via dsparse
 grpcio>=1.62.3,<1.67.0
     # via
     #   chromadb
