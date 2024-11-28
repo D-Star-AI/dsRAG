@@ -350,6 +350,9 @@ parameterized==0.9.0
     # via
     #   cohere
     #   dsrag (pyproject.toml)
+pdf2image==1.17.0
+    # via -r requirements.in
+pillow==11.0.0
 pinecone>=5.4.0
 portalocker==2.10.1
     # via qdrant-client

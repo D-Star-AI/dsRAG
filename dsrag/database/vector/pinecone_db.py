@@ -67,7 +67,6 @@ class PineconeDB(VectorDB):
         # See if the index already exists
         existing_indexes = self.pc.list_indexes()
         existing_index_names = [index["name"] for index in existing_indexes]
-        print ("table_name", table_name)
         if kb_id not in existing_index_names and table_name is None:
             if dimension is None:
                 raise ValueError("Dimension must be specified when creating a new index.")
