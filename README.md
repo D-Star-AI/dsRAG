@@ -106,7 +106,7 @@ for segment in results:
 ```
 
 #### Basic customization
-Now let's look at an example of how we can customize the configuration of a KnowledgeBase. In this case, we'll customize it so that it only uses OpenAI (useful if you don't have API keys for Anthropic and Cohere). To do so, we need to pass in a subclass of `LLM` and a subclass of `Reranker`. We'll use `gpt-4o-mini` for the LLM (this is what gets used for document and section summarization in AutoContext) and since OpenAI doesn't offer a reranker, we'll use the `NoReranker` class for that.
+Now let's look at an example of how we can customize the configuration of a KnowledgeBase. In this case, we'll customize it so that it only uses OpenAI (useful if you don't have an API key for Cohere). To do so, we need to pass in a subclass of `LLM` and a subclass of `Reranker`. We'll use `gpt-4o-mini` for the LLM (this is what gets used for document and section summarization in AutoContext) and since OpenAI doesn't offer a reranker, we'll use the `NoReranker` class for that.
 ```python
 from dsrag.llm import OpenAIChatAPI
 from dsrag.reranker import NoReranker
@@ -117,13 +117,10 @@ reranker = NoReranker()
 kb = KnowledgeBase(kb_id="levels_of_agi", reranker=reranker, auto_context_model=llm)
 ```
 
-Now we can add documents to this KnowledgeBase using the `add_document` method. Note that the `add_document` method takes in raw text, not files, so we'll have to extract the text from our file first. There are some utility functions for doing this in the `document_parsing.py` file.
+Now we can add documents to this KnowledgeBase using the `add_document` method. You can pass in either a `file_path` or `text` to this method. We'll use a `file_path` so we don't have to extract the text from the PDF manually.
 ```python
-from dsrag.document_parsing import extract_text_from_pdf
-
 file_path = "dsRAG/tests/data/levels_of_agi.pdf"
-text = extract_text_from_pdf(file_path)
-kb.add_document(doc_id=file_path, text=text)
+kb.add_document(doc_id=file_path, file_path=file_path)
 ```
 
 # Architecture
@@ -134,7 +131,7 @@ A KnowledgeBase object takes in documents (in the form of raw text) and does chu
 KnowledgeBase objects are persistent by default. The full configuration needed to reconstruct the object gets saved as a JSON file upon creation and updating.
 
 ## Components
-There are five key components that define the configuration of a KnowledgeBase, each of which are customizable:
+There are six key components that define the configuration of a KnowledgeBase, each of which are customizable:
 1. VectorDB
 2. ChunkDB
 3. Embedding
@@ -153,6 +150,7 @@ The currently available options are:
 - `ChromaDB`
 - `QdrantVectorDB`
 - `MilvusDB`
+- `PineconeDB`
 
 #### ChunkDB
 The ChunkDB stores the content of text chunks in a nested dictionary format, keyed on `doc_id` and `chunk_index`. This is used by RSE to retrieve the full text associated with specific chunks.
@@ -171,11 +169,12 @@ The currently available options are:
 - `OllamaEmbedding`
 
 #### Reranker
-The Reranker components define the reranker. This is used after the vector database search (and before RSE) to provide a more accurate ranking of chunks.
+The Reranker components define the reranker. This is used after the vector database search (and before RSE) to provide a more accurate ranking of chunks. This is optional, but highly recommended. If you don't want to use a reranker, you can use the `NoReranker` class for this component.
 
 The currently available options are:
 - `CohereReranker`
 - `VoyageReranker`
+- `NoReranker`
 
 #### LLM
 This defines the LLM to be used for document title generation, document summarization, and section summarization in AutoContext.
@@ -186,7 +185,7 @@ The currently available options are:
 - `OllamaChatAPI`
 
 #### FileSystem
-This defines the file system to be used for saving PDF images.
+This defines the file system to be used for saving PDF images for VLM file parsing.
 
 For backwards compatibility, if an existing `KnowledgeBase` is loaded in, a `LocalFileSystem` will be created by default using the `storage_directory`. This is also the behavior if no `FileSystem` is defined when creating a new `KnowledgeBase`.
 
@@ -275,7 +274,7 @@ metadata_filter = {
 ```
 
 ## Document upload flow
-Documents -> semantic sectioning -> chunking -> AutoContext -> embedding -> chunk and vector database upsert
+Documents -> VLM file parsing -> semantic sectioning -> chunking -> AutoContext -> embedding -> chunk and vector database upsert
 
 ## Query flow
 Queries -> vector database search -> reranking -> RSE -> results
