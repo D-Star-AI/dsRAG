@@ -29,6 +29,10 @@
             "subclass_name": "BasicChunkDB",
             "kb_id": "nike_10k",
             "storage_directory": "example_kb_data"
+        },
+        "file_system": {
+            "subclass_name": "LocalFileSystem",
+            "base_path": "example_kb_data"
         }
     }
 }
