@@ -32,7 +32,7 @@ class Reranker(ABC):
         pass
 
 class CohereReranker(Reranker):
-    def __init__(self, model: str = "rerank-english-v3.0"):
+    def __init__(self, model: str = "rerank-v3.5"):
         self.model = model
         cohere_api_key = os.environ['CO_API_KEY']
         base_url = os.environ.get("DSRAG_COHERE_BASE_URL", None)
@@ -74,7 +74,7 @@ class CohereReranker(Reranker):
         return base_dict
     
 class VoyageReranker(Reranker):
-    def __init__(self, model: str = "rerank-1"):
+    def __init__(self, model: str = "rerank-2"):
         self.model = model
         voyage_api_key = os.environ['VOYAGE_API_KEY']
         self.client = voyageai.Client(api_key=voyage_api_key)
