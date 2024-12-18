@@ -159,12 +159,12 @@ class KnowledgeBase:
 
         file_system_dict = components.get("file_system", None)
 
-        if file_system_dict is not None:
-            # If the file system dict exists, use it
-            self.file_system = FileSystem.from_dict(file_system_dict)
-        elif file_system is not None:
+        if file_system is not None:
             # If the file system does not exist but is provided, use the provided file system
             self.file_system = file_system
+        elif file_system_dict is not None:
+            # If the file system dict exists, use it
+            self.file_system = FileSystem.from_dict(file_system_dict)
         else:
             # If the file system does not exist and is not provided, default to LocalFileSystem
             self.file_system = LocalFileSystem(base_path=self.storage_directory)
@@ -283,7 +283,7 @@ class KnowledgeBase:
             chunk_embeddings=chunk_embeddings,
             metadata=metadata,
             doc_id=doc_id,
-            supp_id=supp_id,
+            supp_id=supp_id
         )
         add_vectors_to_db(
             vector_db=self.vector_db,

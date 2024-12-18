@@ -39,7 +39,9 @@ class PineconeDB(VectorDB):
     Class to interact with the Pinecone API. Only supports serverless indexes.
     """
 
-    def __init__(self, kb_id: str, dimension: int = None, cloud: str = "aws", region: str = "us-east-1"):
+    def __init__(
+        self, kb_id: str, dimension: int = None, cloud: str = "aws", region: str = "us-east-1", table_name: str = None
+    ):
         """
         Inputs:
             kb_id (str): The name of the KB (which will be used as the name of the index). Note that Pinecone has some restrictions on the name of the index.
@@ -57,13 +59,19 @@ class PineconeDB(VectorDB):
         self.kb_id = kb_id
         self.pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 
+        if table_name is not None:
+            self.table_name = table_name
+        else:
+            self.table_name = kb_id
+
         # See if the index already exists
         existing_indexes = self.pc.list_indexes()
         existing_index_names = [index["name"] for index in existing_indexes]
-        if kb_id not in existing_index_names:
+        if kb_id not in existing_index_names and table_name is None:
             if dimension is None:
                 raise ValueError("Dimension must be specified when creating a new index.")
-            self.pc.create_index(name=kb_id, dimension=dimension, metric="cosine", spec=ServerlessSpec(cloud=cloud, region=region))
+            print ("Creating Pinecone DB")
+            self.pc.create_index(name=self.table_name, dimension=dimension, metric="cosine", spec=ServerlessSpec(cloud=cloud, region=region))
 
     def add_vectors(self, vectors: list, metadata: list):
         # Convert NumPy arrays to lists
@@ -81,19 +89,21 @@ class PineconeDB(VectorDB):
                 if isinstance(value, int):
                     vector[i] = float(value)
         
-        index = self.pc.Index(self.kb_id)
+        index = self.pc.Index(self.table_name)
 
         # create unique ids for each vector
         ids = [f"{meta['doc_id']}_{meta['chunk_index']}" for meta in metadata]
         
         # convert to format that Pinecone expects - list of dictionaries including "values", "id", and "metadata"
         vectors_to_upsert = [{"values": vector, "id": id, "metadata": meta} for vector, id, meta in zip(vectors_as_lists, ids, metadata)]
-        
-        # upsert the vectors
-        index.upsert(vectors_to_upsert)
+
+        # Batch the vectors into groups of 250
+        batch_size = 250
+        for i in range(0, len(vectors_to_upsert), batch_size):
+            index.upsert(vectors_to_upsert[i:i+batch_size])
 
     def get_num_vectors(self):
-        index = self.pc.Index(self.kb_id)
+        index = self.pc.Index(self.table_name)
         stats = index.describe_index_stats()
         if stats:
             num_vectors = stats["total_vector_count"]
@@ -102,13 +112,13 @@ class PineconeDB(VectorDB):
             return 0
 
     def remove_document(self, doc_id: str):
-        index = self.pc.Index(self.kb_id)
+        index = self.pc.Index(self.table_name)
         # The doc id is in the metadata
         for ids in index.list(prefix=doc_id):
             index.delete(ids=ids)
 
     def search(self, query_vector, top_k: int = 10, metadata_filter: Optional[MetadataFilter] = None) -> list[VectorSearchResult]:
-        index = self.pc.Index(self.kb_id)
+        index = self.pc.Index(self.table_name)
         # Convert the query vector to a list if it is a NumPy array
         if isinstance(query_vector, np.ndarray):
             query_vector = query_vector.tolist()
@@ -140,10 +150,11 @@ class PineconeDB(VectorDB):
         """
         WARNING: This will permanently delete the index and all associated data.
         """
-        self.pc.delete_index(self.kb_id)
+        self.pc.delete_index(self.table_name)
 
     def to_dict(self):
         return {
             **super().to_dict(),
             "kb_id": self.kb_id,
+            "table_name": self.table_name,
         }

@@ -32,6 +32,8 @@ class DynamoDB(ChunkDB):
         if table_name is not None:
             self.table_name = table_name
         else:
+            # Strip the kb of any spaces
+            kb_id = kb_id.replace(" ", "_")
             self.table_name = f"{kb_id}_chunks"
 
         self.columns = [
@@ -342,7 +344,21 @@ class DynamoDB(ChunkDB):
             return None
 
     def get_is_visual(self, doc_id: str, chunk_index: int) -> Optional[bool]:
-        pass
+        # Get the 'is_visual' attribute for the given doc_id and chunk_index
+        dynamo_db = self.create_dynamo_client()
+        table = dynamo_db.Table(self.table_name)
+        response = table.get_item(
+            Key={
+                'doc_id': doc_id,
+                'chunk_index': chunk_index
+            },
+            ProjectionExpression='is_visual'
+        )
+        item = response.get('Item')
+        if item:
+            return item.get('is_visual')
+        else:
+            return None
 
     def get_chunk_page_numbers(self, doc_id: str, chunk_index: int) -> Optional[tuple[int, int]]:
         # Get the chunk page start and end
