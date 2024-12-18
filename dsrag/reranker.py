@@ -32,7 +32,7 @@ class Reranker(ABC):
         pass
 
 class CohereReranker(Reranker):
-    def __init__(self, model: str = "rerank-v3.5"):
+    def __init__(self, model: str = "rerank-english-v3.0"):
         self.model = model
         cohere_api_key = os.environ['CO_API_KEY']
         base_url = os.environ.get("DSRAG_COHERE_BASE_URL", None)
