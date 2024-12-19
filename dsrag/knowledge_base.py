@@ -300,7 +300,7 @@ class KnowledgeBase:
     def add_documents(
         self,
         documents: List[Dict[str, Union[str, dict]]],
-        max_workers: Optional[int] = None,
+        max_workers: int = 1,
         show_progress: bool = True,
         rate_limit_pause: float = 1.0,
     ) -> List[str]:
@@ -313,7 +313,7 @@ class KnowledgeBase:
                 - 'file_path' and 'doc_id' keys
                 Optional keys include 'document_title', 'auto_context_config', 'file_parsing_config', 
                 'semantic_sectioning_config', 'chunking_config', 'supp_id', and 'metadata'
-            max_workers: Maximum number of worker threads. If None, uses CPU count.
+            max_workers: Maximum number of worker threads
             show_progress: Whether to show a progress bar
             rate_limit_pause: Time in seconds to pause between document uploads to avoid rate limits
             
