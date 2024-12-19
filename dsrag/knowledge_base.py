@@ -2,8 +2,10 @@ import numpy as np
 import os
 import time
 import json
-from typing import Optional, Union, Dict
+from typing import Optional, Union, Dict, List
 import concurrent.futures
+from tqdm import tqdm
+
 from dsrag.dsparse.main import parse_and_chunk
 from dsrag.add_document import (
     auto_context, 
@@ -295,6 +297,93 @@ class KnowledgeBase:
 
         self.save()  # save to disk after adding a document
 
+    def add_documents(
+        self,
+        documents: List[Dict[str, Union[str, dict]]],
+        max_workers: Optional[int] = None,
+        show_progress: bool = True,
+        rate_limit_pause: float = 1.0,
+    ) -> List[str]:
+        """
+        Add multiple documents to the knowledge base in parallel.
+        
+        Args:
+            documents: List of document dictionaries. Each dictionary must contain either:
+                - 'text' and 'doc_id' keys
+                - 'file_path' and 'doc_id' keys
+                Optional keys include 'document_title', 'auto_context_config', 'file_parsing_config', 
+                'semantic_sectioning_config', 'chunking_config', 'supp_id', and 'metadata'
+            max_workers: Maximum number of worker threads. If None, uses CPU count.
+            show_progress: Whether to show a progress bar
+            rate_limit_pause: Time in seconds to pause between document uploads to avoid rate limits
+            
+        Returns:
+            List of successfully uploaded document IDs
+        """
+        successful_uploads = []
+        
+        def process_document(doc: Dict) -> Optional[str]:
+            try:
+                # Extract required parameters
+                doc_id = doc['doc_id']
+                text = doc.get('text', '')
+                file_path = doc.get('file_path', '')
+                
+                # Extract optional parameters with defaults
+                document_title = doc.get('document_title', '')
+                auto_context_config = doc.get('auto_context_config', {})
+                file_parsing_config = doc.get('file_parsing_config', {})
+                semantic_sectioning_config = doc.get('semantic_sectioning_config', {})
+                chunking_config = doc.get('chunking_config', {})
+                supp_id = doc.get('supp_id', '')
+                metadata = doc.get('metadata', {})
+                
+                # Call add_document with extracted parameters
+                self.add_document(
+                    doc_id=doc_id,
+                    text=text,
+                    file_path=file_path,
+                    document_title=document_title,
+                    auto_context_config=auto_context_config,
+                    file_parsing_config=file_parsing_config,
+                    semantic_sectioning_config=semantic_sectioning_config,
+                    chunking_config=chunking_config,
+                    supp_id=supp_id,
+                    metadata=metadata
+                )
+                
+                # Pause to avoid rate limits
+                time.sleep(rate_limit_pause)
+                return doc_id
+                
+            except Exception as e:
+                print(f"Error processing document {doc.get('doc_id', 'unknown')}: {str(e)}")
+                return None
+
+        # Process documents in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Create futures
+            future_to_doc = {
+                executor.submit(process_document, doc): doc 
+                for doc in documents
+            }
+            
+            # Process results with optional progress bar
+            if show_progress:
+                futures = tqdm(
+                    concurrent.futures.as_completed(future_to_doc),
+                    total=len(documents),
+                    desc="Processing documents"
+                )
+            else:
+                futures = concurrent.futures.as_completed(future_to_doc)
+                
+            for future in futures:
+                doc_id = future.result()
+                if doc_id:
+                    successful_uploads.append(doc_id)
+        
+        return successful_uploads
 
     def delete_document(self, doc_id: str):
         self.chunk_db.remove_document(doc_id)
