@@ -326,17 +326,25 @@ class KnowledgeBase:
             try:
                 # Extract required parameters
                 doc_id = doc['doc_id']
-                text = doc.get('text', '')
-                file_path = doc.get('file_path', '')
+                print(f"Starting to process document: {doc_id}")  # Debug log
+                
+                # Create a copy of the document dict to avoid modification during iteration
+                doc_params = doc.copy()
+                
+                # Extract required parameters from the copy
+                text = doc_params.get('text', '')
+                file_path = doc_params.get('file_path', '')
                 
                 # Extract optional parameters with defaults
-                document_title = doc.get('document_title', '')
-                auto_context_config = doc.get('auto_context_config', {})
-                file_parsing_config = doc.get('file_parsing_config', {})
-                semantic_sectioning_config = doc.get('semantic_sectioning_config', {})
-                chunking_config = doc.get('chunking_config', {})
-                supp_id = doc.get('supp_id', '')
-                metadata = doc.get('metadata', {})
+                document_title = doc_params.get('document_title', '')
+                auto_context_config = doc_params.get('auto_context_config', {}).copy()
+                file_parsing_config = doc_params.get('file_parsing_config', {}).copy()
+                semantic_sectioning_config = doc_params.get('semantic_sectioning_config', {}).copy()
+                chunking_config = doc_params.get('chunking_config', {}).copy()
+                supp_id = doc_params.get('supp_id', '')
+                metadata = doc_params.get('metadata', {}).copy()
+                
+                print(f"Extracted parameters for {doc_id}")  # Debug log
                 
                 # Call add_document with extracted parameters
                 self.add_document(
@@ -352,12 +360,20 @@ class KnowledgeBase:
                     metadata=metadata
                 )
                 
+                print(f"Successfully processed document: {doc_id}")  # Debug log
+                
                 # Pause to avoid rate limits
                 time.sleep(rate_limit_pause)
                 return doc_id
                 
             except Exception as e:
-                print(f"Error processing document {doc.get('doc_id', 'unknown')}: {str(e)}")
+                import traceback
+                error_msg = f"Error processing document {doc.get('doc_id', 'unknown')}:\n"
+                error_msg += f"Error type: {type(e).__name__}\n"
+                error_msg += f"Error message: {str(e)}\n"
+                error_msg += "Traceback:\n"
+                error_msg += traceback.format_exc()
+                print(error_msg)
                 return None
 
         # Process documents in parallel
