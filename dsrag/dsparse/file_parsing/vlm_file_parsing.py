@@ -134,10 +134,10 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
             )
         except Exception as e:
             if "429 Online prediction request quota exceeded" in str(e):
-                print (f"Error in make_llm_call_gemini: {e}")
+                print (f"Error in make_llm_call_vertex: {e}")
                 return 429
             else:
-                print (f"Error in make_llm_call_gemini: {e}")
+                print (f"Error in make_llm_call_vertex: {e}")
     elif vlm_config["provider"] == "gemini":
         try:
             llm_output = make_llm_call_gemini(
@@ -215,7 +215,6 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
                 tries += 1
                 continue
             else:
-                print ("Successfully processed page")
                 return page_number, content
 
     # Use ThreadPoolExecutor to process pages in parallel
