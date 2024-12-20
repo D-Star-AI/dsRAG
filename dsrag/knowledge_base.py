@@ -306,6 +306,8 @@ class KnowledgeBase:
     ) -> List[str]:
         """
         Add multiple documents to the knowledge base in parallel.
+
+        NOTE: Be sure you are using a thread-safe VectorDB and ChunkDB if you are adding documents in parallel. The default implementations are not thread-safe.
         
         Args:
             documents: List of document dictionaries. Each dictionary must contain either:
