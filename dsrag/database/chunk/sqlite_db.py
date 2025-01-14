@@ -197,7 +197,7 @@ class SQLiteDB(ChunkDB):
         conn.close()
         if result:
             return result
-        return None
+        return None, None
 
     def get_document_title(self, doc_id: str, chunk_index: int) -> Optional[str]:
         # Retrieve the document title from the sqlite table
