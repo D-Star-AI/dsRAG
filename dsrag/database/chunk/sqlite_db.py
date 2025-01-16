@@ -1,7 +1,9 @@
 import os
 import time
 import sqlite3
-from typing import Any, Optional
+from typing import Any, Optional, ContextManager
+import contextlib
+import logging
 
 from dsrag.database.chunk.db import ChunkDB
 from dsrag.database.chunk.types import FormattedDocument
@@ -58,56 +60,89 @@ class SQLiteDB(ChunkDB):
                     c.execute("ALTER TABLE documents ADD COLUMN {} {}".format(column["name"], column["type"]))
         conn.close()
 
+        # Add these settings
+        self.timeout = 60.0  # seconds
+        self.max_retries = 3
+        self.retry_delay = 1.0  # seconds
+
+    @contextlib.contextmanager
+    def get_connection(self) -> ContextManager[sqlite3.Connection]:
+        """Get a database connection with proper timeout settings."""
+        conn = sqlite3.connect(
+            os.path.join(self.db_path, f"{self.kb_id}.db"),
+            timeout=self.timeout
+        )
+        try:
+            yield conn
+        finally:
+            conn.close()
+
+    def _execute_with_retry(self, operation: callable, *args, **kwargs) -> Any:
+        """Execute a database operation with retries."""
+        last_error = None
+        
+        for attempt in range(self.max_retries):
+            try:
+                with self.get_connection() as conn:
+                    result = operation(conn, *args, **kwargs)
+                    return result
+            except sqlite3.OperationalError as e:
+                last_error = e
+                if "database is locked" in str(e):
+                    if attempt < self.max_retries - 1:
+                        logging.warning(f"Database locked, retrying in {self.retry_delay} seconds...")
+                        time.sleep(self.retry_delay)
+                        continue
+                raise
+            except Exception as e:
+                raise
+
+        raise last_error
+
     def add_document(self, doc_id: str, chunks: dict[int, dict[str, Any]], supp_id: str = "", metadata: dict = {}) -> None:
-        # Add the docs to the sqlite table
-        conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
-        c = conn.cursor()
-        # Create a created on timestamp
-        created_on = str(int(time.time()))
+        def _add_doc(conn: sqlite3.Connection, doc_id: str, chunks: dict, supp_id: str, metadata: dict) -> None:
+            c = conn.cursor()
+            created_on = str(int(time.time()))
+            metadata_str = str(metadata)
 
-        # Turn the metadata object into a string
-        metadata = str(metadata)
+            for chunk_index, chunk in chunks.items():
+                chunk_text = chunk.get("chunk_text", "")
+                chunk_length = len(chunk_text)
 
-        # Get the data from the dictionary
-        for chunk_index, chunk in chunks.items():
-            chunk_text = chunk.get("chunk_text", "")
-            chunk_length = len(chunk_text)
+                values_dict = {
+                    'doc_id': doc_id,
+                    'document_title': chunk.get("document_title", ""),
+                    'document_summary': chunk.get("document_summary", ""),
+                    'section_title': chunk.get("section_title", ""),
+                    'section_summary': chunk.get("section_summary", ""),
+                    'chunk_text': chunk_text,
+                    'chunk_page_start': chunk.get("chunk_page_start", None),
+                    'chunk_page_end': chunk.get("chunk_page_end", None),
+                    'is_visual': chunk.get("is_visual", False),
+                    'chunk_index': chunk_index,
+                    'chunk_length': chunk_length,
+                    'created_on': created_on,
+                    'supp_id': supp_id,
+                    'metadata': metadata_str
+                }
 
-            values_dict = {
-                'doc_id': doc_id,
-                'document_title': chunk.get("document_title", ""),
-                'document_summary': chunk.get("document_summary", ""),
-                'section_title': chunk.get("section_title", ""),
-                'section_summary': chunk.get("section_summary", ""),
-                'chunk_text': chunk.get("chunk_text", ""),
-                'chunk_page_start': chunk.get("chunk_page_start", None),
-                'chunk_page_end': chunk.get("chunk_page_end", None),
-                'is_visual': chunk.get("is_visual", False),
-                'chunk_index': chunk_index,
-                'chunk_length': chunk_length,
-                'created_on': created_on,
-                'supp_id': supp_id,
-                'metadata': metadata
-            }
+                columns = ', '.join(values_dict.keys())
+                placeholders = ', '.join(['?'] * len(values_dict))
+                sql = f"INSERT INTO documents ({columns}) VALUES ({placeholders})"
+                
+                c.execute(sql, tuple(values_dict.values()))
+            
+            conn.commit()
 
-            # Generate the column names and placeholders
-            columns = ', '.join(values_dict.keys())
-            placeholders = ', '.join(['?'] * len(values_dict))
-
-            sql = f"INSERT INTO documents ({columns}) VALUES ({placeholders})"
-
-            c.execute(sql, tuple(values_dict.values()))
-
-        conn.commit()
-        conn.close()
+        self._execute_with_retry(_add_doc, doc_id, chunks, supp_id, metadata)
 
     def remove_document(self, doc_id: str) -> None:
-        # Remove the docs from the sqlite table
-        conn = sqlite3.connect(os.path.join(self.db_path, f"{self.kb_id}.db"))
-        c = conn.cursor()
-        c.execute(f"DELETE FROM documents WHERE doc_id='{doc_id}'")
-        conn.commit()
-        conn.close()
+        def _remove_doc(conn: sqlite3.Connection, doc_id: str) -> None:
+            c = conn.cursor()
+            c.execute(f"DELETE FROM documents WHERE doc_id=?", (doc_id,))
+            conn.commit()
+
+        self._execute_with_retry(_remove_doc, doc_id)
 
     def get_document(
         self, doc_id: str, include_content: bool = False
