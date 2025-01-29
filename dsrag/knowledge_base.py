@@ -54,7 +54,7 @@ class KnowledgeBase:
             # load the KB if it exists; otherwise, initialize it and save it to disk
             if self.metadata_storage.kb_exists(self.kb_id) and exists_ok:
                 self.load(
-                    auto_context_model, reranker, file_system
+                    auto_context_model, reranker, file_system, chunk_db
                 )  # allow the user to override the auto_context_model and reranker
                 self.save()
             elif self.metadata_storage.kb_exists(self.kb_id) and not exists_ok:
@@ -131,7 +131,7 @@ class KnowledgeBase:
 
         self.metadata_storage.save(full_data, self.kb_id)
 
-    def load(self, auto_context_model=None, reranker=None, file_system=None):
+    def load(self, auto_context_model=None, reranker=None, file_system=None, chunk_db=None):
         """
         Note: auto_context_model and reranker can be passed in to override the models in the metadata file. The other components are not overridable because that would break things.
         """
@@ -155,7 +155,10 @@ class KnowledgeBase:
             else LLM.from_dict(components.get("auto_context_model", {}))
         )
         self.vector_db = VectorDB.from_dict(components.get("vector_db", {}))
-        self.chunk_db = ChunkDB.from_dict(components.get("chunk_db", {}))
+        if chunk_db is not None:
+            self.chunk_db = chunk_db
+        else:
+            self.chunk_db = ChunkDB.from_dict(components.get("chunk_db", {}))
 
         file_system_dict = components.get("file_system", None)
 
