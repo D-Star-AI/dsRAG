@@ -105,7 +105,6 @@ class DynamoDBMetadataStorage(MetadataStorage):
         self.secret_key = secret_key
 
     def create_dynamo_client(self):
-        print ("region name", self.region_name)
         dynamodb_client = boto3.resource(
             'dynamodb',
             region_name=self.region_name,
