@@ -43,6 +43,7 @@ class TestMilvusDB(unittest.TestCase):
         # Initialize MilvusDB and KnowledgeBase
         vector_db = MilvusDB(kb_id=self.kb_id, storage_directory=self.storage_directory, dimension=self.dimension)
         kb = KnowledgeBase(kb_id=self.kb_id, vector_db=vector_db, exists_ok=False)
+        kb.reranker.model = "rerank-english-v3.0"
 
         # Add document to the knowledge base
         kb.add_document(

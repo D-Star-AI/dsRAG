@@ -1,8 +1,6 @@
 # dsRAG
 [![Discord](https://img.shields.io/discord/1234629280755875881.svg?label=Discord&logo=discord&color=7289DA)](https://discord.gg/NTUVX9DmQ3)
 
-**Note:** If you’re using (or planning to use) dsRAG in production, please fill out this short [form](https://forms.gle/RQ5qFVReonSHDcCu5) telling us about your use case. This helps us prioritize new features. In return I’ll give you my personal email address, which you can use for priority email support.
-
 ## What is dsRAG?
 dsRAG is a retrieval engine for unstructured data. It is especially good at handling challenging queries over dense text, like financial reports, legal documents, and academic papers. dsRAG achieves substantially higher accuracy than vanilla RAG baselines on complex open-book question answering tasks. On one especially challenging benchmark, [FinanceBench](https://arxiv.org/abs/2311.11944), dsRAG gets accurate answers 83% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
 
@@ -61,16 +59,6 @@ Cohere English embeddings and the Cohere 3 English reranker were used for all co
 
 Using CCH and RSE together leads to a dramatic improvement in performance, from 4.72 -> 8.42. Looking at the RSE and CCH+Top-k results, we can see that using each of those features individually leads to a large improvement over the baseline, with RSE appearing to be slightly more important than CCH.
 
-To put these results in perspective, we also tested the CCH+RSE configuration with a smaller model, GPT-4o Mini. As expected, this led to a decrease in performance compared to using GPT-4o, but the difference was surprisingly small (7.95 vs. 8.42). Using CCH+RSE with GPT-4o Mini dramatically outperforms the baseline RAG pipeline even though the baseline uses a 17x more expensive LLM. This suggests that the LLM plays a much smaller role in end-to-end RAG system accuracy than the retrieval pipeline does.
-
-|                         | CCH+RSE (GPT-4o) | CCH+RSE (GPT-4o Mini) |
-|-------------------------|------------------|-----------------------|
-| AI Papers               | 7.9              | 7.0                   |
-| BVP Cloud               | 7.8              | 7.9                   |
-| Sourcegraph             | 9.4              | 8.5                   |
-| Supreme Court Opinions  | 8.5              | 8.4                   |
-| **Average**             | 8.42             | 7.95                  |
-
 Note: we did not use semantic sectioning for any of the configurations tested here. We'll evaluate that one separately once we finish some of the improvements we're working on for it. We also did not use AutoQuery, as the KITE questions are all suitable for direct use as search queries.
 
 # Tutorial
@@ -106,7 +94,7 @@ for segment in results:
 ```
 
 #### Basic customization
-Now let's look at an example of how we can customize the configuration of a KnowledgeBase. In this case, we'll customize it so that it only uses OpenAI (useful if you don't have API keys for Anthropic and Cohere). To do so, we need to pass in a subclass of `LLM` and a subclass of `Reranker`. We'll use `gpt-4o-mini` for the LLM (this is what gets used for document and section summarization in AutoContext) and since OpenAI doesn't offer a reranker, we'll use the `NoReranker` class for that.
+Now let's look at an example of how we can customize the configuration of a KnowledgeBase. In this case, we'll customize it so that it only uses OpenAI (useful if you don't have an API key for Cohere). To do so, we need to pass in a subclass of `LLM` and a subclass of `Reranker`. We'll use `gpt-4o-mini` for the LLM (this is what gets used for document and section summarization in AutoContext) and since OpenAI doesn't offer a reranker, we'll use the `NoReranker` class for that.
 ```python
 from dsrag.llm import OpenAIChatAPI
 from dsrag.reranker import NoReranker
@@ -117,13 +105,10 @@ reranker = NoReranker()
 kb = KnowledgeBase(kb_id="levels_of_agi", reranker=reranker, auto_context_model=llm)
 ```
 
-Now we can add documents to this KnowledgeBase using the `add_document` method. Note that the `add_document` method takes in raw text, not files, so we'll have to extract the text from our file first. There are some utility functions for doing this in the `document_parsing.py` file.
+Now we can add documents to this KnowledgeBase using the `add_document` method. You can pass in either a `file_path` or `text` to this method. We'll use a `file_path` so we don't have to extract the text from the PDF manually.
 ```python
-from dsrag.document_parsing import extract_text_from_pdf
-
 file_path = "dsRAG/tests/data/levels_of_agi.pdf"
-text = extract_text_from_pdf(file_path)
-kb.add_document(doc_id=file_path, text=text)
+kb.add_document(doc_id=file_path, file_path=file_path)
 ```
 
 # Architecture
@@ -134,7 +119,7 @@ A KnowledgeBase object takes in documents (in the form of raw text) and does chu
 KnowledgeBase objects are persistent by default. The full configuration needed to reconstruct the object gets saved as a JSON file upon creation and updating.
 
 ## Components
-There are five key components that define the configuration of a KnowledgeBase, each of which are customizable:
+There are six key components that define the configuration of a KnowledgeBase, each of which are customizable:
 1. VectorDB
 2. ChunkDB
 3. Embedding
@@ -153,6 +138,7 @@ The currently available options are:
 - `ChromaDB`
 - `QdrantVectorDB`
 - `MilvusDB`
+- `PineconeDB`
 
 #### ChunkDB
 The ChunkDB stores the content of text chunks in a nested dictionary format, keyed on `doc_id` and `chunk_index`. This is used by RSE to retrieve the full text associated with specific chunks.
@@ -171,11 +157,12 @@ The currently available options are:
 - `OllamaEmbedding`
 
 #### Reranker
-The Reranker components define the reranker. This is used after the vector database search (and before RSE) to provide a more accurate ranking of chunks.
+The Reranker components define the reranker. This is used after the vector database search (and before RSE) to provide a more accurate ranking of chunks. This is optional, but highly recommended. If you don't want to use a reranker, you can use the `NoReranker` class for this component.
 
 The currently available options are:
 - `CohereReranker`
 - `VoyageReranker`
+- `NoReranker`
 
 #### LLM
 This defines the LLM to be used for document title generation, document summarization, and section summarization in AutoContext.
@@ -186,7 +173,7 @@ The currently available options are:
 - `OllamaChatAPI`
 
 #### FileSystem
-This defines the file system to be used for saving PDF images.
+This defines the file system to be used for saving PDF images for VLM file parsing.
 
 For backwards compatibility, if an existing `KnowledgeBase` is loaded in, a `LocalFileSystem` will be created by default using the `storage_directory`. This is also the behavior if no `FileSystem` is defined when creating a new `KnowledgeBase`.
 
@@ -275,7 +262,7 @@ metadata_filter = {
 ```
 
 ## Document upload flow
-Documents -> semantic sectioning -> chunking -> AutoContext -> embedding -> chunk and vector database upsert
+Documents -> VLM file parsing -> semantic sectioning -> chunking -> AutoContext -> embedding -> chunk and vector database upsert
 
 ## Query flow
 Queries -> vector database search -> reranking -> RSE -> results
@@ -285,20 +272,5 @@ You can join our [Discord](https://discord.gg/NTUVX9DmQ3) to ask questions, make
 
 If you’re using (or planning to use) dsRAG in production, please fill out this short [form](https://forms.gle/RQ5qFVReonSHDcCu5) telling us about your use case. This helps us prioritize new features. In return I’ll give you my personal email address, which you can use for priority email support.
 
-# Private cloud deployment
-If you want to run dsRAG in production with minimal effort, reach out to us about our commercial offering, which is a managed private cloud deployment of dsRAG.
-
-Here are the high-level details of the offering:
-
-**Private cloud deployment (i.e. in your own AWS, Azure, or GCP account) of dsRAG.**
-- Deployed as a production-ready API with endpoints for adding and deleting documents, viewing upload status, querying, etc.
-- Unlimited number of KnowledgeBases. You can just pass in the kb_id with each API call to specify which one it’s for.
-- Document upload queue with configurable concurrency limits so you don’t have to worry about rate limiting document uploads in your application code.
-- VectorDB and ChunkDB are created and managed as part of the API, so you don’t have to set those up separately.
-- Could also be deployed directly into your customers’ cloud environments if needed.
-
-**Support**
-- We’ll help you customize the retrieval configuration and components for your use case and make sure everything runs smoothly and performs well.
-- Ongoing support and regular updates as needed.
-
-If this is something you’d like to learn more about, fill out this short [form](https://forms.gle/Z4n81qdwdpckqsct6) and we’ll reach out ASAP.
+# Professional services
+The two creators of dsRAG, Zach and Nick McCormick, run a small applied AI consulting firm (just the two of us for now). We specialize in building high-performance RAG-based applications (naturally). As former startup founders and YC alums, we bring a business and product-centric perspective to the projects we work on, which is unique for highly technical engineers. We do a mix of advisory and implementation work. If you'd like to hire us, fill out this [form](https://forms.gle/zbQwDJp7pBQKtqVT8) and we'll be in touch.

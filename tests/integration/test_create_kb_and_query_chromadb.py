@@ -22,6 +22,7 @@ class TestCreateKB(unittest.TestCase):
 
         vector_db = ChromaDB(kb_id=kb_id)
         kb = KnowledgeBase(kb_id=kb_id, vector_db=vector_db, exists_ok=False)
+        kb.reranker.model = "rerank-english-v3.0"
         kb.add_document(
             doc_id="levels_of_agi.pdf",
             document_title="Levels of AGI",
@@ -43,6 +44,7 @@ class TestCreateKB(unittest.TestCase):
         ]
         segment_info = kb.query(search_queries)
         self.assertGreater(len(segment_info[0]), 0)
+
         # Assert that the chunk page start and end are correct
         self.assertEqual(segment_info[0]["chunk_page_start"], 5)
         self.assertEqual(segment_info[0]["chunk_page_end"], 8)
