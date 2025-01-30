@@ -54,7 +54,7 @@ class KnowledgeBase:
             # load the KB if it exists; otherwise, initialize it and save it to disk
             if self.metadata_storage.kb_exists(self.kb_id) and exists_ok:
                 self.load(
-                    auto_context_model, reranker, file_system
+                    auto_context_model, reranker, file_system, chunk_db
                 )  # allow the user to override the auto_context_model and reranker
                 self.save()
             elif self.metadata_storage.kb_exists(self.kb_id) and not exists_ok:
@@ -131,7 +131,7 @@ class KnowledgeBase:
 
         self.metadata_storage.save(full_data, self.kb_id)
 
-    def load(self, auto_context_model=None, reranker=None, file_system=None):
+    def load(self, auto_context_model=None, reranker=None, file_system=None, chunk_db=None):
         """
         Note: auto_context_model and reranker can be passed in to override the models in the metadata file. The other components are not overridable because that would break things.
         """
@@ -155,16 +155,19 @@ class KnowledgeBase:
             else LLM.from_dict(components.get("auto_context_model", {}))
         )
         self.vector_db = VectorDB.from_dict(components.get("vector_db", {}))
-        self.chunk_db = ChunkDB.from_dict(components.get("chunk_db", {}))
+        if chunk_db is not None:
+            self.chunk_db = chunk_db
+        else:
+            self.chunk_db = ChunkDB.from_dict(components.get("chunk_db", {}))
 
         file_system_dict = components.get("file_system", None)
 
-        if file_system_dict is not None:
-            # If the file system dict exists, use it
-            self.file_system = FileSystem.from_dict(file_system_dict)
-        elif file_system is not None:
+        if file_system is not None:
             # If the file system does not exist but is provided, use the provided file system
             self.file_system = file_system
+        elif file_system_dict is not None:
+            # If the file system dict exists, use it
+            self.file_system = FileSystem.from_dict(file_system_dict)
         else:
             # If the file system does not exist and is not provided, default to LocalFileSystem
             self.file_system = LocalFileSystem(base_path=self.storage_directory)
@@ -283,7 +286,7 @@ class KnowledgeBase:
             chunk_embeddings=chunk_embeddings,
             metadata=metadata,
             doc_id=doc_id,
-            supp_id=supp_id,
+            supp_id=supp_id
         )
         add_vectors_to_db(
             vector_db=self.vector_db,

@@ -102,7 +102,12 @@ def get_sections_text(sections: List[DocumentSection], document_lines: List[Line
             end_index = len(document_lines) - 1
         else:
             end_index = sections[i+1].start_index - 1
-        contents = [document_lines[j]["content"] for j in range(s.start_index, end_index+1)]
+        try:
+            contents = [document_lines[j]["content"] for j in range(s.start_index, end_index+1)]
+        except Exception as e:
+            print ("error in get_sections_text", e)
+            print ("section ", s)
+            raise e
 
         section_dicts.append(Section(
             title=s.title,
@@ -162,25 +167,30 @@ def elements_to_lines(elements: List[Element], exclude_elements: List[str], visu
     """
     document_lines = []
     for element in elements:
-        if element["type"] in exclude_elements:
-            continue
-        elif element["type"] in visual_elements:
-            # don't split visual elements
-            document_lines.append({
-                "content": element["content"],
-                "element_type": element["type"],
-                "page_number": element.get("page_number", None),
-                "is_visual": True,
-            })
-        else:
-            lines = element["content"].split("\n")
-            for line in lines:
+        try:
+            if element["type"] in exclude_elements:
+                continue
+            elif element["type"] in visual_elements:
+                # don't split visual elements
                 document_lines.append({
-                    "content": line,
+                    "content": element["content"],
                     "element_type": element["type"],
                     "page_number": element.get("page_number", None),
-                    "is_visual": False,
+                    "is_visual": True,
                 })
+            else:
+                lines = element["content"].split("\n")
+                for line in lines:
+                    document_lines.append({
+                        "content": line,
+                        "element_type": element["type"],
+                        "page_number": element.get("page_number", None),
+                        "is_visual": False,
+                    })
+        except Exception as e:
+            print ("error in elements_to_lines", e)
+            print ("element", element)
+            raise e
 
     return document_lines
 

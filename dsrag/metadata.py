@@ -98,15 +98,18 @@ def convert_decimal_to_numbers(obj: Any) -> Any:
 
 class DynamoDBMetadataStorage(MetadataStorage):
 
-    def __init__(self, table_name: str) -> None:
+    def __init__(self, table_name: str, region_name: str, access_key: str, secret_key: str) -> None:
         self.table_name = table_name
+        self.region_name = region_name
+        self.access_key = access_key
+        self.secret_key = secret_key
 
     def create_dynamo_client(self):
         dynamodb_client = boto3.resource(
             'dynamodb',
-            region_name=os.environ.get("AWS_REGION"),
-            aws_access_key_id=os.environ.get("AWS_DYNAMO_ACCESS_KEY"),
-            aws_secret_access_key=os.environ.get("AWS_DYNAMO_SECRET_KEY")
+            region_name=self.region_name,
+            aws_access_key_id=self.access_key,
+            aws_secret_access_key=self.secret_key,
         )
         return dynamodb_client
     

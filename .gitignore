@@ -164,3 +164,5 @@ weaviate
 
 # DS_Store files
 .DS_Store
+
+.python-version

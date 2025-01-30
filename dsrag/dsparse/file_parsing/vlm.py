@@ -3,6 +3,7 @@ import vertexai.generative_models as gm
 import google.generativeai as genai
 import PIL.Image
 import os
+import io
 
 
 def make_llm_call_vertex(image_path: str, system_message: str, model: str, project_id: str, location: str, response_schema: dict = None, max_tokens: int = 4000) -> str:
@@ -27,6 +28,44 @@ def make_llm_call_vertex(image_path: str, system_message: str, model: str, proje
     return response.text
 
 
+def compress_image(image: PIL.Image.Image, max_size_bytes: int = 1097152, quality: int = 85) -> tuple[PIL.Image.Image, int]:
+    """
+    Compress image if it exceeds file size while maintaining aspect ratio.
+    
+    Args:
+        image: PIL Image object
+        max_size_bytes: Maximum file size in bytes (default ~1MB)
+        quality: Initial JPEG quality (0-100)
+    
+    Returns:
+        Tuple of (compressed PIL Image object, final quality used)
+    """
+    output = io.BytesIO()
+    
+    # Initial compression
+    image.save(output, format='JPEG', quality=quality)
+    
+    # Reduce quality if file is too large
+    while output.tell() > max_size_bytes and quality > 10:
+        output = io.BytesIO()
+        quality -= 5
+        image.save(output, format='JPEG', quality=quality)
+    
+    # If reducing quality didn't work, reduce dimensions
+    if output.tell() > max_size_bytes:
+        while output.tell() > max_size_bytes:
+            width, height = image.size
+            image = image.resize((int(width*0.9), int(height*0.9)), PIL.Image.Resampling.LANCZOS)
+            output = io.BytesIO()
+            image.save(output, format='JPEG', quality=quality)
+    
+    # Convert back to PIL Image
+    output.seek(0)
+    compressed_image = PIL.Image.open(output)
+    compressed_image.load()  # This is important to ensure the BytesIO can be closed
+    return compressed_image
+
+
 def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gemini-1.5-pro-002", response_schema: dict = None, max_tokens: int = 4000) -> str:
     
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
@@ -39,14 +78,19 @@ def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gem
         generation_config["response_schema"] = response_schema
 
     model = genai.GenerativeModel(model)
-    image = PIL.Image.open(image_path)
-    response = model.generate_content(
-        [
-            image,
-            system_message
-        ],
-        generation_config=generation_config
-    )
-    # Close the image
-    image.close()
-    return response.text
+    try:
+        image = PIL.Image.open(image_path)
+        # Compress image if needed
+        compressed_image = compress_image(image)
+        response = model.generate_content(
+            [
+                compressed_image,
+                system_message
+            ],
+            generation_config=generation_config
+        )
+        return response.text
+    finally:
+        # Ensure image is closed even if an error occurs
+        if 'image' in locals():
+            image.close()

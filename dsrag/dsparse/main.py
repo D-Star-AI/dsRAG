@@ -73,7 +73,7 @@ def parse_and_chunk(
     use_vlm = file_parsing_config.get("use_vlm", False)
 
     # We can only run VLM file parsing on .pdf files
-    if use_vlm and file_path and not file_path.endswith(".pdf"):
+    if use_vlm and file_path and not file_path.lower().endswith(".pdf"):
         raise ValueError("VLM parsing requires a .pdf file. Please provide a .pdf file_path.")
     
     # Create a FileSystem object if not provided

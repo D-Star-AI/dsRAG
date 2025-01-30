@@ -1,6 +1,9 @@
 import os
 import sys
 import unittest
+import dotenv
+
+dotenv.load_dotenv()
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from dsrag.dsparse.file_parsing.file_system import LocalFileSystem, S3FileSystem
@@ -31,7 +34,7 @@ class TestFileSystem(unittest.TestCase):
     def test__002_overwrite_file_system(self):
         kb = KnowledgeBase(kb_id=self.kb_id, file_system=self.s3_file_system)
         # Assert the class. We don't want to allow overwriting the file system
-        assert isinstance(kb.file_system, LocalFileSystem)
+        assert isinstance(kb.file_system, S3FileSystem)
 
     @classmethod
     def tearDownClass(self):
