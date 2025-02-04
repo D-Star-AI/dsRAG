@@ -1,8 +1,10 @@
 # dsRAG
 [![Discord](https://img.shields.io/discord/1234629280755875881.svg?label=Discord&logo=discord&color=7289DA)](https://discord.gg/NTUVX9DmQ3)
 
+The two creators of dsRAG, Zach and Nick McCormick, run a small applied AI consulting firm. We specialize in building high-performance RAG-based applications (naturally). As former startup founders and YC alums, we bring a business and product-centric perspective to the projects we work on. We do a mix of advisory and implementation work. If you'd like to hire us, fill out this [form](https://forms.gle/zbQwDJp7pBQKtqVT8) and we'll be in touch.
+
 ## What is dsRAG?
-dsRAG is a retrieval engine for unstructured data. It is especially good at handling challenging queries over dense text, like financial reports, legal documents, and academic papers. dsRAG achieves substantially higher accuracy than vanilla RAG baselines on complex open-book question answering tasks. On one especially challenging benchmark, [FinanceBench](https://arxiv.org/abs/2311.11944), dsRAG gets accurate answers 83% of the time, compared to the vanilla RAG baseline which only gets 19% of questions correct.
+dsRAG is a retrieval engine for unstructured data. It is especially good at handling challenging queries over dense text, like financial reports, legal documents, and academic papers. dsRAG achieves substantially higher accuracy than vanilla RAG baselines on complex open-book question answering tasks. On one especially challenging benchmark, [FinanceBench](https://arxiv.org/abs/2311.11944), dsRAG gets accurate answers 96.6% of the time, compared to the vanilla RAG baseline which only gets 32% of questions correct.
 
 There are three key methods used to improve performance over vanilla RAG systems:
 1. Semantic sectioning
@@ -26,7 +28,7 @@ We've evaluated dsRAG on a couple of end-to-end RAG benchmarks.
 #### FinanceBench
 First, we have [FinanceBench](https://arxiv.org/abs/2311.11944). This benchmark uses a corpus of a few hundred 10-Ks and 10-Qs. The queries are challenging, and often require combining multiple pieces of information. Ground truth answers are provided. Answers are graded manually on a pass/fail basis. Minor allowances for rounding errors are allowed, but other than that the answer must exactly match the ground truth answer to be considered correct.
 
-The baseline retrieval pipeline, which uses standard chunking and top-k retrieval, achieves a score of **19%** according to the paper. dsRAG, using default parameters and AutoQuery for query generation, achieves a score of **83%**.
+The baseline retrieval pipeline, which uses standard chunking and top-k retrieval, achieves a score of **19%** according to the paper, and **32%** according to our own experiment, which uses updated embedding and response models. dsRAG, using mostly default parameters and Claude 3.5 Sonnet (10-22-2024 version) for response generation, achieves a score of **96.6%**.
 
 #### KITE
 We couldn't find any other suitable end-to-end RAG benchmarks, so we decided to create our own, called [KITE](https://github.com/D-Star-AI/KITE) (Knowledge-Intensive Task Evaluation).
