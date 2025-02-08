@@ -315,7 +315,8 @@ class DynamoDB(ChunkDB):
                 content=full_document_string if include_content else None,
                 summary=summary,
                 created_on=created_on,
-                metadata=metadata
+                metadata=metadata,
+                chunk_count=len(items)
             )
 
         except Exception as e:
