@@ -3,11 +3,6 @@ import os
 import base64
 import requests
 from pydantic import BaseModel
-
-import os
-import sys
-sys.path.append(os.path.abspath("/Users/zach/Code/dsRAG"))
-
 from dsrag.utils.llm import get_response
 
 
