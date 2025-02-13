@@ -6,7 +6,7 @@ import google.generativeai as genai
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import warnings
-from advisorx_ai.utils.model_names import (
+from dsrag.utils.model_names import (
     OPENAI_MODEL_NAMES,
     ANTHROPIC_MODEL_NAMES,
     GEMINI_MODEL_NAMES
