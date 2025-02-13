@@ -3,7 +3,7 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__))))
 
 from database.chat_thread.db import ChatThreadDB
-from chat.chat_types import ChatThreadParams, MetadataFilter
+from chat.chat_types import ChatThreadParams, MetadataFilter, ChatResponseInput
 from auto_query import get_search_queries
 from utils.llm import get_response
 import tiktoken
@@ -228,7 +228,12 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
     chat_messages = [{"role": "system", "content": formatted_system_message}] + chat_messages
 
     # get LLM response
-    llm_output = get_response(messages=chat_messages, model_name=chat_thread_params['model'], temperature=chat_thread_params['temperature'])
+    llm_output = get_response(
+        messages=chat_messages,
+        model_name=chat_thread_params['model'],
+        temperature=chat_thread_params['temperature'],
+        max_tokens=4000
+    )
 
     # add interaction to chat thread
     interaction = {
@@ -245,3 +250,57 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
     }
 
     return interaction
+
+def get_filenames_and_types(interaction: dict, kbs: dict):
+    ranked_results = interaction.get("relevant_segments", [])
+    formatted_results = []
+    for result in ranked_results:
+        kb_id = result["kb_id"]
+        doc_id = result["doc_id"]
+
+        kb = kbs.get(kb_id, None)
+        if kb is None:
+            # Should never happen
+            file_name = ""
+            document_type = "text"
+        else:
+            document = kb.chunk_db.get_document(doc_id, include_content=False)
+            if document is None:
+                file_name = ""
+                document_type = "text"
+            else:
+                file_name = document.get("metadata", {}).get("file_name", "")
+                document_type = document.get("metadata", {}).get("document_type", "text")
+        
+        result["file_name"] = file_name
+        result["document_type"] = document_type
+        formatted_results.append(result)
+    
+    interaction["relevant_segments"] = formatted_results
+    return interaction
+
+def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict):
+    user_input = get_response_input.user_input
+    chat_thread_params_override = get_response_input.chat_thread_params
+    metadata_filter = get_response_input.metadata_filter
+    thread = chat_thread_db.get_chat_thread(thread_id)
+    if chat_thread_params_override is not None:
+        chat_thread_params = chat_thread_params_override
+    else:
+        chat_thread_params = thread
+    chat_thread_interactions = thread['interactions']
+    # Get the kbs from the chat_thread_params
+    kbs = {}
+    for kb_id in chat_thread_params["kb_ids"]:
+        kbs[kb_id] = knowledge_bases.get(kb_id, None)
+        if kbs[kb_id] is None:
+            return {"message": "knowledge base not found"}
+
+    # Get the chat response
+    interaction = get_chat_response(user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
+    formatted_interaction = get_filenames_and_types(interaction, knowledge_bases)
+
+    # Add this interaction to the chat thread db
+    chat_thread_db.add_interaction(thread_id, interaction)
+
+    return formatted_interaction
