@@ -284,7 +284,7 @@ oauthlib==3.2.2
     #   requests-oauthlib
 ollama==0.2.1
     # via dsrag (pyproject.toml)
-onnxruntime==1.19.2
+onnxruntime>=1.19.2
     # via chromadb
 openai>=1.51.2
     # via
