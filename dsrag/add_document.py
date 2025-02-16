@@ -12,7 +12,7 @@ from dsrag.llm import LLM
 from dsrag.embedding import Embedding
 from dsrag.database.chunk import ChunkDB
 from dsrag.database.vector import VectorDB
-
+from dsrag.custom_term_mapping import annotate_chunks
 
 def auto_context(auto_context_model: LLM, sections, chunks, text, doc_id, document_title, auto_context_config, language):
     # document title and summary
@@ -65,7 +65,9 @@ def auto_context(auto_context_model: LLM, sections, chunks, text, doc_id, docume
             chunk["section_title"] = sections[section_index]["title"]
             chunk["section_summary"] = sections[section_index]["summary"]
 
-    print(f"Adding {len(chunks)} chunks to the database")
+    # custom term mapping
+    if auto_context_config.get("custom_term_mapping", None):
+        annotated_chunks = annotate_chunks(chunks, auto_context_config["custom_term_mapping"])
 
     # prepare the chunks for embedding by prepending the chunk headers
     chunks_to_embed = []
@@ -76,6 +78,8 @@ def auto_context(auto_context_model: LLM, sections, chunks, text, doc_id, docume
             section_title=chunk["section_title"],
             section_summary=chunk["section_summary"],
         )
+        if auto_context_config.get("custom_term_mapping", None):
+            chunk["content"] = annotated_chunks[i] # override the chunk content with the annotated content if custom term mapping is used
         chunk_to_embed = f"{chunk_header}\n\n{chunk['content']}"
         chunks_to_embed.append(chunk_to_embed)
 
