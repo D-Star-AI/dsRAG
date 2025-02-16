@@ -67,7 +67,8 @@ def auto_context(auto_context_model: LLM, sections, chunks, text, doc_id, docume
 
     # custom term mapping
     if auto_context_config.get("custom_term_mapping", None):
-        annotated_chunks = annotate_chunks(chunks, auto_context_config["custom_term_mapping"])
+        raw_chunks = [chunk["content"] for chunk in chunks] # need to convert chunks to list of strings
+        annotated_chunks = annotate_chunks(raw_chunks, auto_context_config["custom_term_mapping"])
 
     # prepare the chunks for embedding by prepending the chunk headers
     chunks_to_embed = []

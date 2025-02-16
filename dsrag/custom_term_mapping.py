@@ -70,6 +70,8 @@ def annotate_chunks(chunks: List[str], custom_term_mapping: Dict[str, List[str]]
     for key, target_terms in custom_term_mapping.items():
         variations = find_all_term_variations(chunks, target_terms)
         term_variations[key] = list(set(variations + target_terms))  # Include original terms
+        # remove an exact match of the key from the list of terms
+        term_variations[key] = [term for term in term_variations[key] if term != key]
     
     # Then annotate each chunk with all terms
     annotated_chunks = []
