@@ -688,10 +688,11 @@ class TestPineconeDB(unittest.TestCase):
         ]
 
         db.add_vectors(vectors, metadata)
-        time.sleep(10)
+        time.sleep(30)
         query_vector = np.array([[1, 0]])
         results = db.search(query_vector, top_k=1)
 
+        print ("results", results)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["metadata"]["doc_id"], "1")
         self.assertGreaterEqual(results[0]["similarity"], 0.99)
@@ -703,6 +704,7 @@ class TestPineconeDB(unittest.TestCase):
         metadata_filter = {"field": "doc_id", "operator": "equals", "value": "1"}
         results = db.search(query_vector, top_k=4, metadata_filter=metadata_filter)
 
+        print ("results", results)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["metadata"]["doc_id"], "1")
 
@@ -716,15 +718,16 @@ class TestPineconeDB(unittest.TestCase):
     def test__003_remove_document(self):
         db = PineconeDB(kb_id=self.kb_id)
         db.remove_document("1")
-        time.sleep(10)
+        time.sleep(20)
 
         num_vectors = db.get_num_vectors()
+        print ("num_vectors", num_vectors)
         self.assertEqual(num_vectors, 1)
 
     def test__004_empty_search(self):
         db = PineconeDB(kb_id=self.kb_id)
         db.remove_document("2")
-        time.sleep(10)
+        time.sleep(20)
         query_vector = np.array([1, 0])
         results = db.search(query_vector)
 
