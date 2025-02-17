@@ -9,7 +9,7 @@ class BasicChatThreadDB(ChatThreadDB):
         except FileNotFoundError:
             self.chat_threads = {}
 
-    def create_chat_thread(self, thread_id: str, chat_thread_params: dict) -> dict:
+    def create_chat_thread(self, chat_thread_params: dict) -> dict:
         """
         chat_thread_params: dict with the following keys:
         - thread_id: str
@@ -28,13 +28,12 @@ class BasicChatThreadDB(ChatThreadDB):
         - interactions: list[dict]
         """
         
-        chat_thread_params["thread_id"] = thread_id
         chat_thread = {
             "params": chat_thread_params,
             "interactions": []
         }
         
-        self.chat_threads[thread_id] = chat_thread
+        self.chat_threads[chat_thread_params["thread_id"]] = chat_thread
         self.save()
         return chat_thread
     

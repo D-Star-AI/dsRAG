@@ -2,10 +2,10 @@ import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__))))
 
-from database.chat_thread.db import ChatThreadDB
-from chat.chat_types import ChatThreadParams, MetadataFilter, ChatResponseInput
-from auto_query import get_search_queries
-from utils.llm import get_response
+from dsrag.database.chat_thread.db import ChatThreadDB
+from dsrag.chat.chat_types import ChatThreadParams, MetadataFilter, ChatResponseInput
+from dsrag.chat.auto_query import get_search_queries
+from dsrag.utils.llm import get_response
 import tiktoken
 from datetime import datetime
 import uuid
@@ -57,9 +57,12 @@ def create_new_chat_thread(chat_thread_params: ChatThreadParams, chat_thread_db:
     chat_thread_params["thread_id"] = thread_id
     if "supp_id" not in chat_thread_params:
         chat_thread_params["supp_id"] = ""
+    print("Before set_chat_thread_params:", chat_thread_params)  # Debug print
     chat_thread_params = set_chat_thread_params(chat_thread_params)
+    print("After set_chat_thread_params:", chat_thread_params)   # Debug print
     chat_thread_db.create_chat_thread(chat_thread_params=chat_thread_params)
-    
+    thread = chat_thread_db.get_chat_thread(thread_id)
+    print("Retrieved from DB:", thread["params"])                # Debug print
     return thread_id
 
 def get_knowledge_base_descriptions_str(kb_info: list[dict]):
@@ -150,15 +153,27 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
     kb_ids = chat_thread_params['kb_ids']
 
     # set parameters - override if provided
-    chat_thread_params = set_chat_thread_params(chat_thread_params, kb_ids, chat_thread_params["model"], chat_thread_params["temperature"], chat_thread_params["system_message"], chat_thread_params["auto_query_model"], chat_thread_params["auto_query_guidance"], chat_thread_params["target_output_length"], chat_thread_params["max_chat_history_tokens"])
+    chat_thread_params = set_chat_thread_params(
+        chat_thread_params=chat_thread_params, 
+        kb_ids=kb_ids,
+        model=chat_thread_params.get("model"),
+        temperature=chat_thread_params.get("temperature"),
+        system_message=chat_thread_params.get("system_message"),
+        auto_query_model=chat_thread_params.get("auto_query_model"),
+        auto_query_guidance=chat_thread_params.get("auto_query_guidance"),
+        target_output_length=chat_thread_params.get("target_output_length"),
+        max_chat_history_tokens=chat_thread_params.get("max_chat_history_tokens")
+    )
 
     kb_info = []
     for kb_id in chat_thread_params['kb_ids']:
         kb = kbs.get(kb_id)
+        if not kb:
+            continue
         kb_info.append(
             {
                 "id": kb_id,
-                "description": kb.kb_metadata["description"],
+                "description": kb.kb_metadata.get("description", "No description available"),
             }
         )
 
@@ -178,7 +193,8 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
         # generate search queries
         try:
             search_queries = get_search_queries(chat_messages=chat_messages, kb_info=kb_info, auto_query_guidance=chat_thread_params['auto_query_guidance'], max_queries=5, auto_query_model=chat_thread_params['auto_query_model'])
-        except:
+        except Exception as e:
+            print(f"Error generating search queries: {str(e)}")
             search_queries = []
 
         # group search queries by kb
@@ -280,6 +296,9 @@ def get_filenames_and_types(interaction: dict, kbs: dict):
     return interaction
 
 def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict):
+    """
+    - knowledge_bases: dict of knowledge base id to knowledge base object
+    """
     user_input = get_response_input.user_input
     chat_thread_params_override = get_response_input.chat_thread_params
     metadata_filter = get_response_input.metadata_filter
@@ -287,14 +306,14 @@ def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInp
     if chat_thread_params_override is not None:
         chat_thread_params = chat_thread_params_override
     else:
-        chat_thread_params = thread
+        chat_thread_params = thread["params"]
     chat_thread_interactions = thread['interactions']
     # Get the kbs from the chat_thread_params
-    kbs = {}
-    for kb_id in chat_thread_params["kb_ids"]:
-        kbs[kb_id] = knowledge_bases.get(kb_id, None)
-        if kbs[kb_id] is None:
-            return {"message": "knowledge base not found"}
+    missing_kbs = [kb_id for kb_id in chat_thread_params["kb_ids"] if kb_id not in knowledge_bases]
+    if missing_kbs:
+        return {"message": f"Missing knowledge bases: {', '.join(missing_kbs)}"}
+
+    kbs = {kb_id: knowledge_bases[kb_id] for kb_id in chat_thread_params["kb_ids"]}
 
     # Get the chat response
     interaction = get_chat_response(user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)

@@ -152,10 +152,21 @@ def _format_openai_messages(messages):
 # Anthropic Handlers (with multimodal support)
 def _handle_anthropic_instructor(messages, model_name, response_model, temperature, max_tokens):
     client = instructor.from_anthropic(Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]))
-    formatted = _format_anthropic_messages(messages)
+    
+    # Extract system message if present
+    system = None
+    filtered_messages = []
+    for msg in messages:
+        if msg["role"] == "system":
+            system = msg["content"]
+        else:
+            filtered_messages.append(msg)
+    
+    formatted = _format_anthropic_messages(filtered_messages)
     return client.messages.create(
         model=model_name,
         messages=formatted,
+        system=system,  # Pass system message separately
         response_model=response_model,
         temperature=temperature,
         max_tokens=max_tokens
@@ -163,10 +174,21 @@ def _handle_anthropic_instructor(messages, model_name, response_model, temperatu
 
 def _handle_anthropic_standard(messages, model_name, temperature, max_tokens):
     client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    formatted = _format_anthropic_messages(messages)
+    
+    # Extract system message if present
+    system = None
+    filtered_messages = []
+    for msg in messages:
+        if msg["role"] == "system":
+            system = msg["content"]
+        else:
+            filtered_messages.append(msg)
+    
+    formatted = _format_anthropic_messages(filtered_messages)
     response = client.messages.create(
         model=model_name,
         messages=formatted,
+        system=system,  # Pass system message separately
         temperature=temperature,
         max_tokens=max_tokens
     )
