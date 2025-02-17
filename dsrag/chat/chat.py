@@ -5,6 +5,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__))))
 from dsrag.database.chat_thread.db import ChatThreadDB
 from dsrag.chat.chat_types import ChatThreadParams, MetadataFilter, ChatResponseInput
 from dsrag.chat.auto_query import get_search_queries
+from dsrag.chat.citations import format_sources_for_context, ResponseWithCitations
 from dsrag.utils.llm import get_response
 import tiktoken
 from datetime import datetime
@@ -37,6 +38,19 @@ The following pieces of text are search results from searches you chose to run. 
 NEVER MAKE THINGS UP
 If you do not have sufficient information to respond to the user, then you should either ask the user to clarify their question or tell the user you don't know the answer. DO NOT make things up.
 
+CITATION FORMAT
+When providing your response, you must cite your sources. For each piece of information you use, provide a citation that includes:
+1. The document ID (doc_id)
+2. The page numbers where the information was found (if available)
+3. The relevant text that supports your response
+
+Your response must be a ResponseWithCitations object. It must include these two fields:
+1. "response": Your complete response text
+2. "citations": An array of citation objects, each containing:
+   - "doc_id": The source document ID
+   - "page_numbers": Array of page numbers (or null if not available)
+   - "cited_text": The supporting text
+
 {response_length_guidance}
 """.strip()
 
@@ -56,12 +70,8 @@ def create_new_chat_thread(chat_thread_params: ChatThreadParams, chat_thread_db:
     chat_thread_params["thread_id"] = thread_id
     if "supp_id" not in chat_thread_params:
         chat_thread_params["supp_id"] = ""
-    print("Before set_chat_thread_params:", chat_thread_params)  # Debug print
     chat_thread_params = set_chat_thread_params(chat_thread_params)
-    print("After set_chat_thread_params:", chat_thread_params)   # Debug print
     chat_thread_db.create_chat_thread(chat_thread_params=chat_thread_params)
-    thread = chat_thread_db.get_chat_thread(thread_id)
-    print("Retrieved from DB:", thread["params"])                # Debug print
     return thread_id
 
 def get_knowledge_base_descriptions_str(kb_info: list[dict]):
@@ -188,7 +198,8 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
     # limit total number of tokens in chat_messages
     chat_messages = limit_chat_messages(chat_messages, chat_thread_params['max_chat_history_tokens'])
 
-    if kb_info != []:
+    all_relevant_segments = []
+    if kb_info:
         # generate search queries
         try:
             search_queries = get_search_queries(chat_messages=chat_messages, kb_info=kb_info, auto_query_guidance=chat_thread_params['auto_query_guidance'], max_queries=5, auto_query_model=chat_thread_params['auto_query_model'])
@@ -215,17 +226,21 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
             kb = kbs.get(kb_id)
             search_results[kb_id] = kb.query(search_queries=queries, metadata_filter=metadata_filter)
 
-        # unpack search results into a list and then combine them into a single string
-        all_relevant_segments = []
+        # unpack search results into a list
         for kb_id, results in search_results.items():
             for result in results:
                 result["kb_id"] = kb_id
                 all_relevant_segments.append(result)
-        relevant_knowledge_str = format_relevant_knowledge_str(all_relevant_segments)
+        
+        # Format search results into citation-friendly context
+        relevant_knowledge_str = format_sources_for_context(
+            search_results=all_relevant_segments,
+            kb_id=kb_id,
+            file_system=kb.file_system
+        )
     else:
         relevant_knowledge_str = "No knowledge bases provided, therefore no relevant knowledge to display."
         search_queries = []
-        all_relevant_segments = []
 
     # deal with target_output_length
     if chat_thread_params['target_output_length'] == "short":
@@ -239,15 +254,21 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
         print (f"ERROR: target_output_length {chat_thread_params['target_output_length']} not recognized. Using medium length output.")
 
     # format system message and add to chat messages
-    formatted_system_message = MAIN_SYSTEM_MESSAGE.format(user_configurable_message=chat_thread_params['system_message'], knowledge_base_descriptions=knowledge_base_descriptions, relevant_knowledge_str=relevant_knowledge_str, response_length_guidance=response_length_guidance)
+    formatted_system_message = MAIN_SYSTEM_MESSAGE.format(
+        user_configurable_message=chat_thread_params['system_message'],
+        knowledge_base_descriptions=knowledge_base_descriptions,
+        relevant_knowledge_str=relevant_knowledge_str,
+        response_length_guidance=response_length_guidance
+    )
     chat_messages = [{"role": "system", "content": formatted_system_message}] + chat_messages
 
-    # get LLM response
-    llm_output = get_response(
+    # get LLM response with structured output
+    response = get_response(
         messages=chat_messages,
         model_name=chat_thread_params['model'],
         temperature=chat_thread_params['temperature'],
-        max_tokens=4000
+        max_tokens=4000,
+        response_model=ResponseWithCitations
     )
 
     # add interaction to chat thread
@@ -257,7 +278,8 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
             "timestamp": request_timestamp
         },
         "model_response": {
-            "content": llm_output,
+            "content": response.response,
+            "citations": [citation.model_dump() for citation in response.citations],
             "timestamp": datetime.now().isoformat()
         },
         "search_queries": search_queries,

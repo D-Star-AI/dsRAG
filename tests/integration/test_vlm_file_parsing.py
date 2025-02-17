@@ -135,6 +135,94 @@ class TestRetrieval(unittest.TestCase):
 
         self.cleanup()
 
+    def test_page_content_storage(self):
+        """Test that page content is properly stored and retrieved when using VLM."""
+        self.cleanup()
+
+        file_path = "../data/mck_energy_first_5_pages.pdf"
+        file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), file_path))
+        save_path = "~/dsrag_test_mck_energy"
+        save_path = os.path.expanduser(save_path)  # Expand the ~ to full path
+
+        file_system = LocalFileSystem(base_path=save_path)
+        vlm_config = {
+            "provider": "gemini",
+            "model": "gemini-1.5-flash-002",
+        }
+        file_parsing_config = {
+            "use_vlm": True,
+            "vlm_config": vlm_config
+        }
+
+        # Create KB and add document
+        kb = KnowledgeBase(kb_id="mck_energy_test", file_system=file_system)
+        kb.add_document(
+            doc_id="mck_energy_report",
+            file_path=file_path,
+            document_title="McKinsey Energy Report",
+            file_parsing_config=file_parsing_config
+        )
+
+        # Verify the page content files exist
+        doc_dir = os.path.join(save_path, "mck_energy_test", "mck_energy_report")
+        self.assertTrue(os.path.exists(doc_dir))
+        
+        # Check that page content files were created
+        page_content_files = [f for f in os.listdir(doc_dir) if f.startswith('page_content_') and f.endswith('.json')]
+        self.assertTrue(len(page_content_files) > 0)
+        
+        # Test loading content for a specific page
+        page_content = kb.file_system.load_page_content(
+            kb_id="mck_energy_test",
+            doc_id="mck_energy_report",
+            page_number=1
+        )
+        self.assertIsNotNone(page_content)
+        self.assertTrue(isinstance(page_content, str))
+        self.assertTrue(len(page_content) > 0)
+
+        # Test loading a range of pages
+        page_contents = kb.file_system.load_page_content_range(
+            kb_id="mck_energy_test",
+            doc_id="mck_energy_report",
+            page_start=1,
+            page_end=3
+        )
+        self.assertEqual(len(page_contents), 3)
+        for content in page_contents:
+            self.assertTrue(isinstance(content, str))
+            self.assertTrue(len(content) > 0)
+
+        # Verify the content format
+        import json
+        page_content_path = os.path.join(doc_dir, 'page_content_1.json')
+        with open(page_content_path, 'r') as f:
+            content_data = json.load(f)
+            self.assertIn('content', content_data)
+            self.assertTrue(isinstance(content_data['content'], str))
+
+        # Test that non-VLM document doesn't create page content
+        kb.add_document(
+            doc_id="text_doc",
+            text="This is a test document without page numbers.",
+            document_title="Test Document"
+        )
+
+        # Verify no page content was created for the text document
+        text_doc_dir = os.path.join(save_path, "mck_energy_test", "text_doc")
+        if os.path.exists(text_doc_dir):
+            page_content_files = [f for f in os.listdir(text_doc_dir) if f.startswith('page_content_')]
+            self.assertEqual(len(page_content_files), 0)
+
+        text_doc_content = kb.file_system.load_page_content(
+            kb_id="mck_energy_test",
+            doc_id="text_doc",
+            page_number=1
+        )
+        self.assertIsNone(text_doc_content)
+
+        self.cleanup()
+
     def cleanup(self):
         kb = KnowledgeBase(kb_id="mck_energy_test", exists_ok=True)
         kb.delete()

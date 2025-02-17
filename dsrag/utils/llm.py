@@ -174,7 +174,7 @@ def _handle_anthropic_instructor(messages, model_name, response_model, temperatu
     }
     if system is not None:
         kwargs["system"] = system
-        
+    
     return client.messages.create(**kwargs)
 
 def _handle_anthropic_standard(messages, model_name, temperature, max_tokens):
