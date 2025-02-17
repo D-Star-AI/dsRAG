@@ -163,14 +163,19 @@ def _handle_anthropic_instructor(messages, model_name, response_model, temperatu
             filtered_messages.append(msg)
     
     formatted = _format_anthropic_messages(filtered_messages)
-    return client.messages.create(
-        model=model_name,
-        messages=formatted,
-        system=system,  # Pass system message separately
-        response_model=response_model,
-        temperature=temperature,
-        max_tokens=max_tokens
-    )
+    
+    # Only include system parameter if we have a system message
+    kwargs = {
+        "model": model_name,
+        "messages": formatted,
+        "response_model": response_model,
+        "temperature": temperature,
+        "max_tokens": max_tokens
+    }
+    if system is not None:
+        kwargs["system"] = system
+        
+    return client.messages.create(**kwargs)
 
 def _handle_anthropic_standard(messages, model_name, temperature, max_tokens):
     client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
@@ -185,13 +190,18 @@ def _handle_anthropic_standard(messages, model_name, temperature, max_tokens):
             filtered_messages.append(msg)
     
     formatted = _format_anthropic_messages(filtered_messages)
-    response = client.messages.create(
-        model=model_name,
-        messages=formatted,
-        system=system,  # Pass system message separately
-        temperature=temperature,
-        max_tokens=max_tokens
-    )
+    
+    # Only include system parameter if we have a system message
+    kwargs = {
+        "model": model_name,
+        "messages": formatted,
+        "temperature": temperature,
+        "max_tokens": max_tokens
+    }
+    if system is not None:
+        kwargs["system"] = system
+        
+    response = client.messages.create(**kwargs)
     return response.content[0].text
 
 def _format_anthropic_messages(messages):

@@ -1,7 +1,10 @@
+import os
+import sys
+sys.path.append(os.path.abspath("/Users/zach/Code/dsRAG"))
+
 import unittest
 import os
 import base64
-import requests
 from pydantic import BaseModel
 from dsrag.utils.llm import get_response
 
@@ -9,9 +12,10 @@ from dsrag.utils.llm import get_response
 class TestLLM(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        # Download and encode test image
-        image_url = "https://upload.wikimedia.org/wikipedia/commons/5/53/Sheba1.JPG"
-        cls.image_data = base64.b64encode(requests.get(image_url).content).decode('utf-8')
+        # Load test image relative to test file location
+        image_path = os.path.join(os.path.dirname(__file__), "..", "data", "page_7.png")
+        with open(image_path, "rb") as f:
+            cls.image_data = base64.b64encode(f.read()).decode('utf-8')
         
         # Test configurations
         cls.test_models = {
@@ -52,7 +56,7 @@ class TestLLM(unittest.TestCase):
                     "type": "image",
                     "source": {
                         "type": "base64",
-                        "media_type": "image/jpeg",
+                        "media_type": "image/png",
                         "data": self.image_data
                     }
                 }
@@ -70,7 +74,10 @@ class TestLLM(unittest.TestCase):
                 )
                 self.assertIsInstance(result, str)
                 self.assertGreater(len(result), 10)
-                self.assertIn("cat", result.lower())
+                self.assertTrue(
+                    any(term in result.lower() for term in ["machine learning", "llm", "definitions"]),
+                    f"Response did not contain expected AI/ML terms: {result}"
+                )
 
     def test_structured_output(self):
         """Test structured output with response model"""
