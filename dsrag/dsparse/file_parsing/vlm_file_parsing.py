@@ -106,7 +106,7 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
         vlm_config["provider"] = "gemini"
     if "model" not in vlm_config:
         if vlm_config["provider"] == "gemini":
-            vlm_config["model"] = "gemini-1.5-flash-002"
+            vlm_config["model"] = "gemini-2.0-flash"
         else:
             raise ValueError("Non-default VLM provider specified without specifying model")
 

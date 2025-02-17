@@ -1,8 +1,6 @@
 import os
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
-from anthropic import Anthropic
-from openai import OpenAI
 import instructor
 from ..models.types import SemanticSectioningConfig, Line, Section, Element, ElementType
 
@@ -49,6 +47,7 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, ll
         formatted_system_prompt += "\n" + LANGUAGE_ADDENDUM
 
     if llm_provider == "anthropic":
+        from anthropic import Anthropic
         base_url = os.environ.get("DSRAG_ANTHROPIC_BASE_URL", None)
         if base_url is not None:
             client = instructor.from_anthropic(Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url))
@@ -68,6 +67,7 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, ll
             ],
         )
     elif llm_provider == "openai":
+        from openai import OpenAI
         base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
         if base_url is not None:
             client = instructor.from_openai(OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url))
@@ -89,8 +89,30 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, ll
                 },
             ],
         )
+    elif llm_provider == "gemini":
+        import google.generativeai as genai
+        genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+        client = instructor.from_gemini(
+            client=genai.GenerativeModel(model_name=f"models/{model}"),
+            mode=instructor.Mode.GEMINI_JSON
+        )
+        # For Gemini, prepend the system prompt to the user message
+        combined_prompt = f"{formatted_system_prompt}\n\n<document>\n{document_with_line_numbers}\n</document>"
+        return client.messages.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": combined_prompt
+                }
+            ],
+            response_model=StructuredDocument,
+            generation_config={
+                "temperature": 0.0,
+                "max_output_tokens": 4000
+            }
+        )
     else:
-        raise ValueError("Invalid provider. Must be either 'anthropic' or 'openai'.")
+        raise ValueError("Invalid provider. Must be one of: 'anthropic', 'openai', 'gemini'.")
 
 def get_sections_text(sections: List[DocumentSection], document_lines: List[Line]) -> List[Section]:
     """
