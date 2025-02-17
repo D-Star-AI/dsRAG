@@ -1,10 +1,10 @@
 import os
 import boto3
 import io
-from botocore.exceptions import NoCredentialsError
 import json
 from abc import ABC, abstractmethod
 from typing import List
+from datetime import datetime
 
 
 class FileSystem(ABC):
@@ -60,6 +60,10 @@ class FileSystem(ABC):
 
     @abstractmethod
     def get_all_png_files(self, kb_id: str, doc_id: str) -> List[str]:
+        pass
+
+    @abstractmethod
+    def log_error(self, kb_id: str, doc_id: str, error: dict) -> None:
         pass
 
 
@@ -152,16 +156,20 @@ class LocalFileSystem(FileSystem):
         # Sort the files by page number
         image_file_paths.sort(key=lambda x: int(x.split('_')[-1].split('.')[0]))
         return image_file_paths
+    
+    def log_error(self, kb_id: str, doc_id: str, error: dict) -> None:
+        pass
 
 
 class S3FileSystem(FileSystem):
 
-    def __init__(self, base_path: str, bucket_name: str, region_name: str, access_key: str, secret_key: str):
+    def __init__(self, base_path: str, bucket_name: str, region_name: str, access_key: str, secret_key: str, error_table: str = None):
         super().__init__(base_path)
         self.bucket_name = bucket_name
         self.region_name = region_name
         self.access_key = access_key
         self.secret_key = secret_key
+        self.error_table = error_table
 
     def create_s3_client(self):
         return boto3.client(
@@ -251,7 +259,6 @@ class S3FileSystem(FileSystem):
         """
         Upload the file to S3
         """
-
         file_name = f"{kb_id}/{doc_id}/{file_name}"
         buffer = io.BytesIO()
         file.save(buffer, format='PNG')
@@ -265,7 +272,7 @@ class S3FileSystem(FileSystem):
                 Body=buffer,
                 ContentType='image/png'
             )
-            print(f"JSON data uploaded to {self.bucket_name}/{file_name}.")
+            print(f"PNG uploaded to {self.bucket_name}/{file_name}.")
         except Exception as e:
             raise RuntimeError(f"Failed to upload image to S3.") from e
 
@@ -297,7 +304,6 @@ class S3FileSystem(FileSystem):
                     output_filepath
                 )
                 file_paths.append(output_filepath)
-                print ("File downloaded successfully.")
             except Exception as e:
                 print ("Error downloading file:", e)
             
@@ -358,6 +364,28 @@ class S3FileSystem(FileSystem):
         except Exception as e:
             print(f"Error listing/downloading files from S3: {e}")
             return []
+        
+    
+    def log_error(self, kb_id: str, doc_id: str, error: dict) -> None:
+        if self.error_table is None:
+            return
+        
+        # Create a uuid for this error
+        timestamp = datetime.now().isoformat()
+        dynamodb_client = boto3.resource(
+            'dynamodb',
+            region_name=self.region_name,
+            aws_access_key_id=self.access_key,
+            aws_secret_access_key=self.secret_key
+        )
+        table = dynamodb_client.Table(self.error_table)
+        item = {
+            'client_id': kb_id,
+            'doc_id': doc_id,
+            'error': error,
+            'timestamp': timestamp
+        }
+        table.put_item(Item=item)
     
 
     def to_dict(self):
@@ -366,6 +394,7 @@ class S3FileSystem(FileSystem):
             "bucket_name": self.bucket_name,
             "region_name": self.region_name,
             "access_key": self.access_key,
-            "secret_key": self.secret_key
+            "secret_key": self.secret_key,
+            "error_table": self.error_table
         })
         return base_dict

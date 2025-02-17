@@ -47,11 +47,11 @@ backoff==2.2.1
     # via posthog
 bcrypt==4.2.0
     # via chromadb
-boto3==1.34.142
+boto3>=1.34.142
     # via
     #   cohere
     #   dsrag (pyproject.toml)
-botocore==1.34.142
+botocore>=1.34.142
     # via
     #   boto3
     #   dsrag (pyproject.toml)
@@ -139,6 +139,8 @@ google-auth>=2.23.4
     # via kubernetes
 googleapis-common-protos>=1.61.0
     # via opentelemetry-exporter-otlp-proto-grpc
+google-generativeai>=0.8.3
+    # via dsparse
 grpcio>=1.62.3,<1.67.0
     # via
     #   chromadb
@@ -282,7 +284,7 @@ oauthlib==3.2.2
     #   requests-oauthlib
 ollama==0.2.1
     # via dsrag (pyproject.toml)
-onnxruntime==1.19.2
+onnxruntime>=1.19.2
     # via chromadb
 openai>=1.51.2
     # via
@@ -342,12 +344,15 @@ packaging==24.1
     #   huggingface-hub
     #   langchain-core
     #   onnxruntime
-pandas==2.2.2
+pandas==2.2.3
     # via dsrag (pyproject.toml)
 parameterized==0.9.0
     # via
     #   cohere
     #   dsrag (pyproject.toml)
+pdf2image==1.17.0
+    # via -r requirements.in
+pillow==11.0.0
 pinecone>=5.4.0
 portalocker==2.10.1
     # via qdrant-client
@@ -554,6 +559,8 @@ validators==0.28.3
     # via
     #   dsrag (pyproject.toml)
     #   weaviate-client
+vertexai>=1.70.0
+    # via dsrag (pyproject.toml)
 voyageai==0.2.3
     # via dsrag (pyproject.toml)
 watchfiles==0.24.0
