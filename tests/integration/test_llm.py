@@ -1,7 +1,3 @@
-import os
-import sys
-sys.path.append(os.path.abspath("/Users/zach/Code/dsRAG"))
-
 import unittest
 import os
 import base64
