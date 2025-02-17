@@ -217,6 +217,9 @@ class KnowledgeBase:
             - document_summarization_guidance: str
             - get_section_summaries: bool - whether to get section summaries (default is False)
             - section_summarization_guidance: str
+            - custom_term_mapping: dict - a dictionary of custom term mapping for the document
+                - key: str - the term to map to
+                - value: list[str] - the list of terms to map to the key
         - file_parsing_config: a dictionary with configuration parameters for parsing the file
             - use_vlm: bool - whether to use VLM (vision language model) for parsing the file (default is False)
             - vlm_config: a dictionary with configuration parameters for VLM (ignored if use_vlm is False)
