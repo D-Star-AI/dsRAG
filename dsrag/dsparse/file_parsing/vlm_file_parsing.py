@@ -34,6 +34,8 @@ Here are detailed descriptions of the element types you can use:
 
 For visual elements ({visual_elements_as_str}), you must provide a detailed description of the element in the "content" field. Do not just transcribe the actual text contained in the element. For textual elements ({non_visual_elements_as_str}), you must provide the exact text content of the element.
 
+If there is any sensitive information in the document, YOU MUST IGNORE IT. This could be a SSN, bank information, etc. Names and DOBs are not sensitive information.
+
 Output format
 - Your output should be an ordered (from top to bottom) list of elements on the page, where each element is a dictionary with the following keys:
     - type: str - the type of the element
@@ -79,9 +81,7 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
     # Save each image
     image_file_paths = []
     for i, image in enumerate(images):
-        #image_file_path = os.path.join(page_images_path, f'page_{i+1}.png')
         file_system.save_image(kb_id, doc_id, f'page_{i+1}.png', image)
-        #image.save(image_file_path, 'PNG')
         image_file_path = f'/{kb_id}/{doc_id}/page_{i+1}.png'
         image_file_paths.append(image_file_path)
 
@@ -137,7 +137,18 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
                 print (f"Error in make_llm_call_vertex: {e}")
                 return 429
             else:
-                print (f"Error in make_llm_call_vertex: {e}")
+                print (f"Error in make_llm_call_gemini: {e}")
+                error_data = {
+                    "error": f"Error in make_llm_call_gemini: {e}",
+                    "function": "parse_page",
+                }
+                try:
+                    file_system.log_error(kb_id, doc_id, error_data)
+                except:
+                    print ("Failed to log error")
+                finally:
+                    return 429
+                
     elif vlm_config["provider"] == "gemini":
         try:
             llm_output = make_llm_call_gemini(
@@ -150,16 +161,38 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
         except Exception as e:
             if "429 Online prediction request quota exceeded" in str(e):
                 print (f"Error in make_llm_call_gemini: {e}")
-                return
+                return 429
             else:
                 print (f"Error in make_llm_call_gemini: {e}")
+                error_data = {
+                    "error": f"Error in make_llm_call_gemini: {e}",
+                    "function": "parse_page",
+                }
+                try:
+                    file_system.log_error(kb_id, doc_id, error_data)
+                except:
+                    print ("Failed to log error")
+                finally:
+                    llm_output = json.dumps([{
+                        "type": "text",
+                        "content": "Unable to process page"
+                    }])
+                    
     else:
         raise ValueError("Invalid provider specified in the VLM config. Only 'vertex_ai' and 'gemini' are supported for now.")
     
     try:
         page_content = json.loads(llm_output)
-    except:
-        print(f"Error for {page_image_path}")
+    except Exception as e:
+        print(f"Error for {page_image_path}: {e}")
+        error_data = {
+            "error": f"Error parsing JSON for {page_image_path}: {e}",
+            "function": "parse_page",
+        }
+        try:
+            file_system.log_error(kb_id, doc_id, error_data)
+        except:
+            print ("Failed to log error")
         page_content = []
 
     # add page number to each element
