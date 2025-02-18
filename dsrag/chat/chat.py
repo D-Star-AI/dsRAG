@@ -41,15 +41,17 @@ If you do not have sufficient information to respond to the user, then you shoul
 CITATION FORMAT
 When providing your response, you must cite your sources. For each piece of information you use, provide a citation that includes:
 1. The document ID (doc_id)
-2. The page numbers where the information was found (if available)
+2. The page number where the information was found (if available)
 3. The relevant text that supports your response
 
-Your response must be a ResponseWithCitations object. It must include these two fields:
-1. "response": Your complete response text
-2. "citations": An array of citation objects, each containing:
-   - "doc_id": The source document ID
-   - "page_numbers": Array of page numbers (or null if not available)
-   - "cited_text": The supporting text
+Your response must be a valid ResponseWithCitations object. It must include these two fields:
+1. response: Your complete response text
+2. citations: An array of citation objects, each containing:
+   - doc_id: The source document ID where the information used to generate the response was found
+   - page_number: The page number where the information used to generate the response was found (or null if not available)
+   - cited_text: The exact text containing the information used to generate the response
+
+Note that an individual citation may only be associated with one page number. If the information used to generate the response was found on multiple pages, then you must provide multiple citations.
 
 {response_length_guidance}
 """.strip()

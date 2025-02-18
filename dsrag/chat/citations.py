@@ -3,8 +3,8 @@ from typing import Optional, List
 
 class Citation(BaseModel):
     doc_id: str = Field(..., description="The document ID where the information used to generate the response was found.")
-    page_numbers: Optional[List[int]] = Field(None, description="The page numbers where the information was found. May be None if page numbers are not available.")
-    cited_text: Optional[str] = Field(None, description="The exact text containing the information used to generate the response. May be None if page content is not available.")
+    page_number: Optional[int] = Field(None, description="The page where the information was found. May only be None if page numbers are not provided.")
+    cited_text: str = Field(..., description="The exact text containing the information used to generate the response.")
 
 class ResponseWithCitations(BaseModel):
     response: str = Field(..., description="The response to the user's question")
