@@ -63,14 +63,6 @@ class FileSystem(ABC):
         pass
 
     @abstractmethod
-    def save_data(self, kb_id: str, doc_id: str, data_name: str, data) -> None:
-        pass
-
-    @abstractmethod
-    def load_data(self, kb_id: str, doc_id: str, data_name: str):
-        pass
-
-    @abstractmethod
     def log_error(self, kb_id: str, doc_id: str, error: dict) -> None:
         pass
 
