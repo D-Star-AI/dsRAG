@@ -81,6 +81,16 @@ class FileSystem(ABC):
         """Load the text content for a range of pages"""
         pass
 
+    @abstractmethod
+    def load_data(self, kb_id: str, doc_id: str, data_name: str) -> Optional[dict]:
+        """Load JSON data from a file
+        Args:
+            kb_id: Knowledge base ID
+            doc_id: Document ID 
+            data_name: Name of the data to load (e.g. "elements" for elements.json)
+        """
+        pass
+
 
 class LocalFileSystem(FileSystem):
     """
@@ -201,6 +211,19 @@ class LocalFileSystem(FileSystem):
             if content is not None:
                 page_contents.append(content)
         return page_contents
+
+    def load_data(self, kb_id: str, doc_id: str, data_name: str) -> Optional[dict]:
+        """Load JSON data from a file in the local filesystem"""
+        file_path = os.path.join(self.base_path, kb_id, doc_id, f"{data_name}.json")
+        try:
+            with open(file_path, 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            print(f"File not found: {file_path}")
+            return None
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from {file_path}: {str(e)}")
+            return None
 
 
 class S3FileSystem(FileSystem):
@@ -483,3 +506,21 @@ class S3FileSystem(FileSystem):
             "error_table": self.error_table
         })
         return base_dict
+
+    def load_data(self, kb_id: str, doc_id: str, data_name: str) -> Optional[dict]:
+        """Load JSON data from a file in S3"""
+        s3_key = f"{kb_id}/{doc_id}/{data_name}.json"
+        s3_client = self.create_s3_client()
+        
+        try:
+            response = s3_client.get_object(Bucket=self.bucket_name, Key=s3_key)
+            return json.loads(response['Body'].read().decode('utf-8'))
+        except s3_client.exceptions.NoSuchKey:
+            print(f"File not found in S3: {s3_key}")
+            return None
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from S3 file {s3_key}: {str(e)}")
+            return None
+        except Exception as e:
+            print(f"Error loading data from S3: {str(e)}")
+            return None

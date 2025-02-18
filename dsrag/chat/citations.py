@@ -24,6 +24,7 @@ def get_source_text(kb_id: str, doc_id: str, page_start: Optional[int], page_end
     
     page_contents = file_system.load_page_content_range(kb_id, doc_id, page_start, page_end)
     if not page_contents:
+        print(f"No page contents found for doc_id: {doc_id}, page_start: {page_start}, page_end: {page_end}")
         return None
     
     source_text = f"<doc_id: {doc_id}>\n"
@@ -45,6 +46,9 @@ def format_sources_for_context(search_results: list[dict], kb_id: str, file_syst
         doc_id = result["doc_id"]
         page_start = result.get("segment_page_start")
         page_end = result.get("segment_page_end")
+
+        print(f"\nSegment page start: {page_start}")
+        print(f"Segment page end: {page_end}")
         
         source_text = None
         if page_start is not None and page_end is not None:
@@ -66,6 +70,7 @@ def convert_elements_to_page_content(elements: list[dict], kb_id: str, doc_id: s
     """
     # Check if this document has page numbers
     if not elements or "page_number" not in elements[0]:
+        print(f"No page numbers found for document {doc_id}")
         return
 
     # Group elements by page
@@ -78,5 +83,6 @@ def convert_elements_to_page_content(elements: list[dict], kb_id: str, doc_id: s
 
     # Save each page's content
     for page_num, contents in pages.items():
+        print(f"Saving contents for page {page_num}")
         page_content = "\n".join(contents)
         file_system.save_page_content(kb_id, doc_id, page_num, page_content)
