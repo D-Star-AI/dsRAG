@@ -67,7 +67,6 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             self.assertLess(section['end'], len(document_lines))
             self.assertLess(section['start'], section['end'])
 
-    """
     def test_openai_semantic_sectioning(self):
         semantic_sectioning_config = {
             "use_semantic_sectioning": True,
@@ -99,7 +98,6 @@ The potential for AI to improve healthcare delivery remains high, but careful co
         )
         
         self._validate_sections(sections, document_lines)
-    """
 
     def test_gemini_semantic_sectioning(self):
         semantic_sectioning_config = {
@@ -119,7 +117,6 @@ The potential for AI to improve healthcare delivery remains high, but careful co
         
         self._validate_sections(sections, document_lines)
 
-    """
     def test_no_semantic_sectioning(self):
         semantic_sectioning_config = {
             "use_semantic_sectioning": False,
@@ -136,7 +133,6 @@ The potential for AI to improve healthcare delivery remains high, but careful co
         self.assertEqual(sections[0]['start'], 0)
         self.assertEqual(sections[0]['end'], len(document_lines) - 1)
         self.assertEqual(sections[0]['content'], self.test_document)
-    """
 
 if __name__ == "__main__":
     unittest.main() 

@@ -119,6 +119,9 @@ def validate_and_fix_sections(sections: List[DocumentSection], document_length: 
     if not sections:
         return sections
 
+    # Remove sections with duplicate start_indices
+    sections = [s for s in sections if s.start_index not in [s.start_index for s in sections if s != s]]
+
     # Sort sections by start_index to ensure proper ordering
     original_order = [s.start_index for s in sections]
     sections = sorted(sections, key=lambda x: x.start_index)
@@ -232,12 +235,38 @@ def get_sections_text(sections: List[DocumentSection], document_lines: List[Line
         ))
     return section_dicts
 
-def elements_to_lines(elements: List[Element], exclude_elements: List[str], visual_elements: List[str]) -> List[Line]:
+def split_long_line(line: str, max_line_length: int = 200) -> List[str]:
+    """Split a long line into multiple shorter lines while trying to preserve word boundaries."""
+    if len(line) <= max_line_length:
+        return [line]
+    
+    words = line.split()
+    lines = []
+    current_line = []
+    current_length = 0
+    
+    for word in words:
+        # +1 for the space that would be added
+        if current_length + len(word) + 1 <= max_line_length or not current_line:
+            current_line.append(word)
+            current_length += len(word) + 1
+        else:
+            lines.append(" ".join(current_line))
+            current_line = [word]
+            current_length = len(word)
+    
+    if current_line:
+        lines.append(" ".join(current_line))
+    
+    return lines
+
+def elements_to_lines(elements: List[Element], exclude_elements: List[str], visual_elements: List[str], max_line_length: int = 200) -> List[Line]:
     """
     Inputs
     - elements: list[dict] - the elements of the document
     - exclude_elements: list[str] - the types of elements to exclude
     - visual_elements: list[str] - the types of elements that are visual and therefore should not be split
+    - max_line_length: int - maximum length for a single line before splitting
     """
     document_lines = []
     for element in elements:
@@ -255,43 +284,76 @@ def elements_to_lines(elements: List[Element], exclude_elements: List[str], visu
             else:
                 lines = element["content"].split("\n")
                 for line in lines:
-                    document_lines.append({
-                        "content": line,
-                        "element_type": element["type"],
-                        "page_number": element.get("page_number", None),
-                        "is_visual": False,
-                    })
+                    if len(line) <= max_line_length:
+                        document_lines.append({
+                            "content": line,
+                            "element_type": element["type"],
+                            "page_number": element.get("page_number", None),
+                            "is_visual": False,
+                        })
+                    else:
+                        # Only split if line is too long
+                        split_lines = split_long_line(line, max_line_length)
+                        for split_line in split_lines:
+                            document_lines.append({
+                                "content": split_line,
+                                "element_type": element["type"],
+                                "page_number": element.get("page_number", None),
+                                "is_visual": False,
+                            })
         except Exception as e:
-            print ("error in elements_to_lines", e)
-            print ("element", element)
+            print("error in elements_to_lines", e)
+            print("element", element)
             raise e
 
     return document_lines
 
-def str_to_lines(document: str) -> List[Line]:
+def str_to_lines(document: str, max_line_length: int = 200) -> List[Line]:
     document_lines = []
     lines = document.split("\n")
     for line in lines:
-        document_lines.append({
-            "content": line,
-            "element_type": "NarrativeText",
-            "page_number": None,
-            "is_visual": False,
-        })
+        if len(line) <= max_line_length:
+            document_lines.append({
+                "content": line,
+                "element_type": "NarrativeText",
+                "page_number": None,
+                "is_visual": False,
+            })
+        else:
+            # Only split if line is too long
+            split_lines = split_long_line(line, max_line_length)
+            for split_line in split_lines:
+                document_lines.append({
+                    "content": split_line,
+                    "element_type": "NarrativeText",
+                    "page_number": None,
+                    "is_visual": False,
+                })
 
     return document_lines
 
-def pages_to_lines(pages: List[str]) -> List[Line]:
+def pages_to_lines(pages: List[str], max_line_length: int = 200) -> List[Line]:
     document_lines = []
     for i, page in enumerate(pages):
         lines = page.split("\n")
         for line in lines:
-            document_lines.append({
-                "content": line,
-                "element_type": "NarrativeText",
-                "page_number": i+1, # page numbers are 1-indexed
-                "is_visual": False,
-            })
+            if len(line) <= max_line_length:
+                document_lines.append({
+                    "content": line,
+                    "element_type": "NarrativeText",
+                    "page_number": i+1,  # page numbers are 1-indexed
+                    "is_visual": False,
+                })
+            else:
+                # Only split if line is too long
+                split_lines = split_long_line(line, max_line_length)
+                for split_line in split_lines:
+                    document_lines.append({
+                        "content": split_line,
+                        "element_type": "NarrativeText",
+                        "page_number": i+1,  # page numbers are 1-indexed
+                        "is_visual": False,
+                    })
 
     return document_lines
 
