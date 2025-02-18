@@ -304,6 +304,7 @@ class KnowledgeBase:
 
         # Convert elements to page content if the document was processed with page numbers
         if file_path and file_parsing_config.get('use_vlm', False):
+            # NOTE: does this really need to be in a try/except block?
             try:
                 elements = self.file_system.load_data(kb_id=self.kb_id, doc_id=doc_id, data_name="elements")
                 if elements:
