@@ -185,29 +185,6 @@ class LocalFileSystem(FileSystem):
     def log_error(self, kb_id: str, doc_id: str, error: dict) -> None:
         pass
 
-    def save_data(self, kb_id: str, doc_id: str, data_name: str, data):
-        """
-        - doc_id can be an empty string to indicate it should be saved at the kb_id level
-        - data can be a dictionary or a list
-        """
-        file_name = f"{data_name}.json"
-        if doc_id:
-            file_path = os.path.join(self.base_path, kb_id, doc_id, file_name)
-        else:
-            file_path = os.path.join(self.base_path, kb_id, file_name)
-        with open(file_path, "w") as f:
-            json.dump(data, f, indent=4)
-
-    def load_data(self, kb_id: str, doc_id: str, data_name: str):
-        file_name = f"{data_name}.json"
-        if doc_id:
-            file_path = os.path.join(self.base_path, kb_id, doc_id, file_name)
-        else:
-            file_path = os.path.join(self.base_path, kb_id, file_name)
-        with open(file_path, "r") as f:
-            data = json.load(f)
-        return data
-
     def save_page_content(self, kb_id: str, doc_id: str, page_number: int, content: str) -> None:
         """Save the text content of a page to a JSON file"""
         page_content_path = os.path.join(self.base_path, kb_id, doc_id, f'page_content_{page_number}.json')
@@ -462,120 +439,7 @@ class S3FileSystem(FileSystem):
             'error': error,
             'timestamp': timestamp
         }
-        table.put_item(Item=item)
-    
-    def save_data(self, client_id: str, doc_id: str, data_name: str, data):
-        """
-        Save data to DynamoDB
-        - data can be a dictionary or a list
-        """
-        dynamodb_client = boto3.resource(
-            'dynamodb',
-            region_name=self.region_name,
-            aws_access_key_id=self.access_key,
-            aws_secret_access_key=self.secret_key
-        )
-        if doc_id is None or doc_id == "":
-            table = dynamodb_client.Table(self.dynamodb_client_data_table_name)
-        else:
-            table = dynamodb_client.Table(self.dynamodb_table_name)
-        unique_id = str(uuid.uuid4())
-        item = {
-            'client_id': client_id,
-            'unique_id': unique_id,
-            'data_name': data_name,
-            'data': data
-        }
-        if doc_id is not None and doc_id != "":
-            item['doc_id'] = doc_id
-        table.put_item(Item=item)
-
-    def load_data(self, client_id: str, doc_id: str, data_name: str):
-        """
-        Load data from DynamoDB
-        """
-        if data_name == "elements":
-            # load as JSON from S3 instead of DynamoDB, since that's how dsRAG saves it
-            s3_client = boto3.client(
-                's3',
-                region_name=self.region_name,
-                aws_access_key_id=self.access_key,
-                aws_secret_access_key=self.secret_key
-            )
-            # Pull the data from the S3 bucket
-            response = s3_client.get_object(Bucket=self.bucket_name, Key=f"kb_{client_id}/{doc_id}/elements.json")
-            data = json.loads(response['Body'].read().decode('utf-8'))
-            return data
-        else:
-            dynamodb_client = boto3.resource(
-                'dynamodb',
-                region_name=self.region_name,
-                aws_access_key_id=self.access_key,
-                aws_secret_access_key=self.secret_key
-            )
-            if doc_id is None or doc_id == "":
-                table = dynamodb_client.Table(self.dynamodb_client_data_table_name)
-                # doc_id may not exist, but client_id and data_name will always exist
-                response = table.query(
-                    KeyConditionExpression=Key('client_id').eq(client_id)
-                )
-                items = response.get('Items')
-                # get the item with the given doc_id and data_name
-                for item in items:
-                    if item['data_name'] == data_name:
-                        return item['data']
-                return None
-            else:
-                table = dynamodb_client.Table(self.dynamodb_table_name)
-                # doc_id may not exist, but client_id and data_name will always exist
-                items = []
-                last_evaluated_key = None
-                
-                while True:
-                    if last_evaluated_key:
-                        response = table.query(
-                            KeyConditionExpression=Key('client_id').eq(client_id),
-                            ExclusiveStartKey=last_evaluated_key
-                        )
-                    else:
-                        response = table.query(
-                            KeyConditionExpression=Key('client_id').eq(client_id)
-                        )
-                    
-                    items.extend(response.get('Items', []))
-                    last_evaluated_key = response.get('LastEvaluatedKey')
-                    
-                    if not last_evaluated_key:
-                        break
-                # get the item with the given doc_id and data_name
-                all_items = []
-                for item in items:
-                    if item['doc_id'] == doc_id and item['data_name'] == data_name:
-                        return item['data']
-                    elif item['doc_id'] == doc_id and data_name in item['data_name']:
-                        all_items.append(item)
-                if len(all_items) > 1:
-                    # Concatenate all the items, in the order by page number, which is appended to the end of the data_name
-                    # So it will be page_content_0, page_content_1, etc.
-                    sorted_items = sorted(all_items, key=lambda x: int(x['data_name'].split('_')[-1]))
-                    # Concatenate all items in order
-                    concatenated_content = []
-                    for item in sorted_items:
-                        concatenated_content.extend(item['data'])
-                    return concatenated_content
-                else:
-                    return None
-
-    def to_dict(self):
-        base_dict = super().to_dict()
-        base_dict.update({
-            "bucket_name": self.bucket_name,
-            "region_name": self.region_name,
-            "access_key": self.access_key,
-            "secret_key": self.secret_key,
-            "error_table": self.error_table
-        })
-        return base_dict
+        table.put_item(Item=item) 
 
     def save_page_content(self, kb_id: str, doc_id: str, page_number: int, content: str) -> None:
         """Save the text content of a page to S3"""
@@ -616,3 +480,14 @@ class S3FileSystem(FileSystem):
             if content is not None:
                 page_contents.append(content)
         return page_contents
+    
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update({
+            "bucket_name": self.bucket_name,
+            "region_name": self.region_name,
+            "access_key": self.access_key,
+            "secret_key": self.secret_key,
+            "error_table": self.error_table
+        })
+        return base_dict
