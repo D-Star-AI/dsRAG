@@ -112,6 +112,8 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             max_characters=20000,
             semantic_sectioning_config=semantic_sectioning_config
         )
+
+        print(f"\nSections:\n{sections}\n\n")
         
         self._validate_sections(sections, document_lines)
 
