@@ -41,11 +41,13 @@ def format_sources_for_context(search_results: list[dict], kb_id: str, file_syst
     Handles both cases with and without page numbers.
     """
     context_parts = []
+    all_doc_ids = []
     
     for result in search_results:
         doc_id = result["doc_id"]
         page_start = result.get("segment_page_start")
         page_end = result.get("segment_page_end")
+        all_doc_ids.append(doc_id)
         
         source_text = None
         if page_start is not None and page_end is not None:
@@ -57,7 +59,7 @@ def format_sources_for_context(search_results: list[dict], kb_id: str, file_syst
             result_content = result.get("content", "")
             context_parts.append(f"<doc_id: {doc_id}>\n{result_content}\n</doc_id: {doc_id}>")
     
-    return "\n\n".join(context_parts)
+    return ["\n\n".join(context_parts), all_doc_ids]
 
 def convert_elements_to_page_content(elements: list[dict], kb_id: str, doc_id: str, file_system) -> None:
     """
