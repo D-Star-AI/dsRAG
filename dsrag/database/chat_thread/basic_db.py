@@ -1,5 +1,6 @@
 import json
 from .db import ChatThreadDB
+import uuid
 
 class BasicChatThreadDB(ChatThreadDB):
     def __init__(self):
@@ -74,6 +75,8 @@ class BasicChatThreadDB(ChatThreadDB):
             - query: str
             - kb_id: str
         """
+        message_id = str(uuid.uuid4())
+        interaction["message_id"] = message_id
         self.chat_threads[thread_id]["interactions"].append(interaction)
         self.save()
         return interaction
