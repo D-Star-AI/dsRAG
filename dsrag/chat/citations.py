@@ -35,7 +35,7 @@ def get_source_text(kb_id: str, doc_id: str, page_start: Optional[int], page_end
 
     return source_text
 
-def format_sources_for_context(search_results: list[dict], kb_id: str, file_system) -> str:
+def format_sources_for_context(search_results: list[dict], kb_id: str, file_system) -> tuple[str, list[str]]:
     """
     Format all search results into a context string for the LLM.
     Handles both cases with and without page numbers.
@@ -49,17 +49,18 @@ def format_sources_for_context(search_results: list[dict], kb_id: str, file_syst
         page_end = result.get("segment_page_end")
         all_doc_ids.append(doc_id)
         
-        source_text = None
+        full_page_source_text = None
         if page_start is not None and page_end is not None:
-            source_text = get_source_text(kb_id, doc_id, page_start, page_end, file_system)
+            # if we have page numbers, then we assume we have the page content - but this is not always the case
+            full_page_source_text = get_source_text(kb_id, doc_id, page_start, page_end, file_system)
         
-        if source_text:
-            context_parts.append(source_text)
+        if full_page_source_text:
+            context_parts.append(full_page_source_text)
         else:
             result_content = result.get("content", "")
             context_parts.append(f"<doc_id: {doc_id}>\n{result_content}\n</doc_id: {doc_id}>")
     
-    return ["\n\n".join(context_parts), all_doc_ids]
+    return "\n\n".join(context_parts), all_doc_ids
 
 def convert_elements_to_page_content(elements: list[dict], kb_id: str, doc_id: str, file_system) -> None:
     """

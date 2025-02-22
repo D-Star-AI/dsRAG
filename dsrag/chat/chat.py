@@ -188,6 +188,7 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
         kb_info.append(
             {
                 "id": kb_id,
+                "title": kb.kb_metadata.get("title", "No title available"),
                 "description": kb.kb_metadata.get("description", "No description available"),
             }
         )
@@ -256,6 +257,9 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
         relevant_knowledge_str = "No knowledge bases provided, therefore no relevant knowledge to display."
         search_queries = []
 
+    # DEBUG
+    print (f"Relevant knowledge str:\n{relevant_knowledge_str}")
+
     # deal with target_output_length
     if chat_thread_params['target_output_length'] == "short":
         response_length_guidance = SHORT_OUTPUT
@@ -290,7 +294,12 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
     formatted_citations = []
     for citation in citations:
         citation = citation.model_dump()
-        citation["kb_id"] = all_doc_ids[citation["doc_id"]]
+        # Add error handling for unknown doc_ids
+        if citation["doc_id"] in all_doc_ids:
+            citation["kb_id"] = all_doc_ids[citation["doc_id"]]
+        else:
+            # Skip citations with unknown doc_ids
+            continue
         formatted_citations.append(citation)
         
     all_relevant_segments = []

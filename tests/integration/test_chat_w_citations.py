@@ -23,10 +23,17 @@ class TestChat(unittest.TestCase):
         kb_id = "levels_of_agi"
         vector_db = ChromaDB(kb_id=kb_id)
         reranker = NoReranker() 
-        cls.kb = KnowledgeBase(kb_id=kb_id, vector_db=vector_db, reranker=reranker, exists_ok=False)
+        cls.kb = KnowledgeBase(
+            kb_id=kb_id, 
+            vector_db=vector_db, 
+            reranker=reranker, 
+            title="Levels of AGI",
+            description="Paper about the levels of AGI, written by Google DeepMind",
+            exists_ok=False
+        )
 
         file_parsing_config = {
-            "use_vlm": True
+            "use_vlm": False
         }
 
         cls.kb.add_document(
