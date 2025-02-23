@@ -70,18 +70,12 @@ def get_search_queries(chat_messages: list[dict], kb_info: list[dict], auto_quer
     - queries: list of dictionaries, where each dictionary has the keys "query" and "knowledge_base_id"
     """
     knowledge_base_descriptions = get_knowledge_base_descriptions_str(kb_info)
-
-    # DEBUG
-    print (f"Knowledge base descriptions:\n{knowledge_base_descriptions}")
     
     system_message = SYSTEM_MESSAGE.format(
         max_queries=max_queries,
         auto_query_guidance=auto_query_guidance,
         knowledge_base_descriptions=knowledge_base_descriptions
     )
-
-    # DEBUG
-    print (f"System message:\n{system_message}")
     
     messages = [{"role": "system", "content": system_message}] + chat_messages
 
@@ -104,9 +98,6 @@ def get_search_queries(chat_messages: list[dict], kb_info: list[dict], auto_quer
             max_tokens=600,
             temperature=0.0
         )
-
-    # DEBUG
-    print (f"Queries:\n{queries}")
 
     # Validate and potentially modify the queries
     validated_queries = validate_queries(queries.queries[:max_queries], kb_info)[:max_queries]

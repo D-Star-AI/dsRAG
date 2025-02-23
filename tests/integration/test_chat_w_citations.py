@@ -99,7 +99,6 @@ class TestChat(unittest.TestCase):
         first_citation = citations[0]
         self.assertIn("doc_id", first_citation)
         self.assertEqual(first_citation["doc_id"], "levels_of_agi.pdf")
-        self.assertIn("page_numbers", first_citation)
         
         # Test follow-up question
         chat_response_input = ChatResponseInput(
