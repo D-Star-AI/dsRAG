@@ -5,6 +5,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__))))
 from dsrag.database.chat_thread.db import ChatThreadDB
 from dsrag.chat.chat_types import ChatThreadParams, MetadataFilter, ChatResponseInput
 from dsrag.chat.auto_query import get_search_queries
+from dsrag.chat.citations import format_sources_for_context, ResponseWithCitations
 from dsrag.utils.llm import get_response
 import tiktoken
 from datetime import datetime
@@ -37,6 +38,21 @@ The following pieces of text are search results from searches you chose to run. 
 NEVER MAKE THINGS UP
 If you do not have sufficient information to respond to the user, then you should either ask the user to clarify their question or tell the user you don't know the answer. DO NOT make things up.
 
+CITATION FORMAT
+When providing your response, you must cite your sources. For each piece of information you use, provide a citation that includes:
+1. The document ID (doc_id)
+2. The page number where the information was found (if available)
+3. The relevant text that supports your response
+
+Your response must be a valid ResponseWithCitations object. It must include these two fields:
+1. response: Your complete response text
+2. citations: An array of citation objects, each containing:
+   - doc_id: The source document ID where the information used to generate the response was found
+   - page_number: The page number where the information used to generate the response was found (or null if not available)
+   - cited_text: The exact text containing the information used to generate the response
+
+Note that an individual citation may only be associated with one page number. If the information used to generate the response was found on multiple pages, then you must provide multiple citations.
+
 {response_length_guidance}
 """.strip()
 
@@ -56,12 +72,9 @@ def create_new_chat_thread(chat_thread_params: ChatThreadParams, chat_thread_db:
     chat_thread_params["thread_id"] = thread_id
     if "supp_id" not in chat_thread_params:
         chat_thread_params["supp_id"] = ""
-    print("Before set_chat_thread_params:", chat_thread_params)  # Debug print
     chat_thread_params = set_chat_thread_params(chat_thread_params)
-    print("After set_chat_thread_params:", chat_thread_params)   # Debug print
+    print ("chat_thread_params: ", chat_thread_params)
     chat_thread_db.create_chat_thread(chat_thread_params=chat_thread_params)
-    thread = chat_thread_db.get_chat_thread(thread_id)
-    print("Retrieved from DB:", thread["params"])                # Debug print
     return thread_id
 
 def get_knowledge_base_descriptions_str(kb_info: list[dict]):
@@ -87,6 +100,8 @@ def count_tokens(text: str) -> int:
 
 def limit_chat_messages(chat_messages: list[dict], max_tokens: int = 8000) -> list[dict]:
     """Limit the total number of tokens in chat_messages."""
+    if max_tokens is None:
+        max_tokens = 8000
     total_tokens = 0
     limited_messages = []
     
@@ -102,45 +117,46 @@ def limit_chat_messages(chat_messages: list[dict], max_tokens: int = 8000) -> li
     return limited_messages
 
 def set_chat_thread_params(chat_thread_params: ChatThreadParams, kb_ids: list[str] = None, model: str = None, temperature: float = None, system_message: str = None, auto_query_model: str = None, auto_query_guidance: str = None, target_output_length: str = None, max_chat_history_tokens: int = None) -> ChatThreadParams:
+    print ("chat_thread_params: ", chat_thread_params)
     # set parameters - override if provided
     if kb_ids is not None:
         chat_thread_params['kb_ids'] = kb_ids
-    elif 'kb_ids' not in chat_thread_params:
+    elif 'kb_ids' not in chat_thread_params or chat_thread_params['kb_ids'] is None:
         chat_thread_params['kb_ids'] = []
     
     if model is not None:
         chat_thread_params['model'] = model
-    elif 'model' not in chat_thread_params:
+    elif 'model' not in chat_thread_params or chat_thread_params['model'] is None:
         chat_thread_params['model'] = "gpt-4o-mini"
     
     if temperature is not None:
         chat_thread_params['temperature'] = temperature
-    elif 'temperature' not in chat_thread_params:
+    elif 'temperature' not in chat_thread_params or chat_thread_params['temperature'] is None:
         chat_thread_params['temperature'] = 0.2
 
     if system_message is not None:
         chat_thread_params['system_message'] = system_message
-    elif 'system_message' not in chat_thread_params:
+    elif 'system_message' not in chat_thread_params or chat_thread_params['system_message'] is None:
         chat_thread_params['system_message'] = ""
 
     if auto_query_model is not None:
         chat_thread_params['auto_query_model'] = auto_query_model
-    elif 'auto_query_model' not in chat_thread_params:
+    elif 'auto_query_model' not in chat_thread_params or chat_thread_params['auto_query_model'] is None:
         chat_thread_params['auto_query_model'] = "gpt-4o-mini"
 
     if auto_query_guidance is not None:
         chat_thread_params['auto_query_guidance'] = auto_query_guidance
-    elif 'auto_query_guidance' not in chat_thread_params:
+    elif 'auto_query_guidance' not in chat_thread_params or chat_thread_params['auto_query_guidance'] is None:
         chat_thread_params['auto_query_guidance'] = ""
 
     if target_output_length is not None:
         chat_thread_params['target_output_length'] = target_output_length
-    elif 'target_output_length' not in chat_thread_params:
+    elif 'target_output_length' not in chat_thread_params or chat_thread_params['target_output_length'] is None:
         chat_thread_params['target_output_length'] = "medium"
 
     if max_chat_history_tokens is not None:
         chat_thread_params['max_chat_history_tokens'] = max_chat_history_tokens
-    elif 'max_chat_history_tokens' not in chat_thread_params:
+    elif 'max_chat_history_tokens' not in chat_thread_params or chat_thread_params['max_chat_history_tokens'] is None:
         chat_thread_params['max_chat_history_tokens'] = 8000
 
     return chat_thread_params
@@ -172,6 +188,7 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
         kb_info.append(
             {
                 "id": kb_id,
+                "title": kb.kb_metadata.get("title", "No title available"),
                 "description": kb.kb_metadata.get("description", "No description available"),
             }
         )
@@ -188,7 +205,7 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
     # limit total number of tokens in chat_messages
     chat_messages = limit_chat_messages(chat_messages, chat_thread_params['max_chat_history_tokens'])
 
-    if kb_info != []:
+    if kb_info:
         # generate search queries
         try:
             search_queries = get_search_queries(chat_messages=chat_messages, kb_info=kb_info, auto_query_guidance=chat_thread_params['auto_query_guidance'], max_queries=5, auto_query_model=chat_thread_params['auto_query_model'])
@@ -215,17 +232,30 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
             kb = kbs.get(kb_id)
             search_results[kb_id] = kb.query(search_queries=queries, metadata_filter=metadata_filter)
 
-        # unpack search results into a list and then combine them into a single string
-        all_relevant_segments = []
+        # unpack search results into a list
+        formatted_relevant_segments = {}
         for kb_id, results in search_results.items():
+            formatted_relevant_segments[kb_id] = []
             for result in results:
                 result["kb_id"] = kb_id
-                all_relevant_segments.append(result)
-        relevant_knowledge_str = format_relevant_knowledge_str(all_relevant_segments)
+                formatted_relevant_segments[kb_id].append(result)
+        
+        # Format search results into citation-friendly context
+        relevant_knowledge_str = ""
+        all_doc_ids = {}
+        for kb_id, result in formatted_relevant_segments.items():
+            kb = kbs.get(kb_id)
+            # Format search results into citation-friendly context
+            [relevant_knowledge_str, doc_ids] = format_sources_for_context(
+                search_results=result,
+                kb_id=kb_id,
+                file_system=kb.file_system
+            )
+            for doc_id in doc_ids:
+                all_doc_ids[doc_id] = kb_id
     else:
         relevant_knowledge_str = "No knowledge bases provided, therefore no relevant knowledge to display."
         search_queries = []
-        all_relevant_segments = []
 
     # deal with target_output_length
     if chat_thread_params['target_output_length'] == "short":
@@ -239,16 +269,41 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
         print (f"ERROR: target_output_length {chat_thread_params['target_output_length']} not recognized. Using medium length output.")
 
     # format system message and add to chat messages
-    formatted_system_message = MAIN_SYSTEM_MESSAGE.format(user_configurable_message=chat_thread_params['system_message'], knowledge_base_descriptions=knowledge_base_descriptions, relevant_knowledge_str=relevant_knowledge_str, response_length_guidance=response_length_guidance)
+    formatted_system_message = MAIN_SYSTEM_MESSAGE.format(
+        user_configurable_message=chat_thread_params['system_message'],
+        knowledge_base_descriptions=knowledge_base_descriptions,
+        relevant_knowledge_str=relevant_knowledge_str,
+        response_length_guidance=response_length_guidance
+    )
     chat_messages = [{"role": "system", "content": formatted_system_message}] + chat_messages
 
-    # get LLM response
-    llm_output = get_response(
+    # get LLM response with structured output
+    response = get_response(
         messages=chat_messages,
         model_name=chat_thread_params['model'],
         temperature=chat_thread_params['temperature'],
-        max_tokens=4000
+        max_tokens=4000,
+        response_model=ResponseWithCitations
     )
+    
+    citations = response.citations
+    # For each citation, add the kb_id to the citation
+    formatted_citations = []
+    for citation in citations:
+        citation = citation.model_dump()
+        # Add error handling for unknown doc_ids
+        if citation["doc_id"] in all_doc_ids:
+            citation["kb_id"] = all_doc_ids[citation["doc_id"]]
+        else:
+            # Skip citations with unknown doc_ids
+            continue
+        formatted_citations.append(citation)
+        
+    all_relevant_segments = []
+    for kb_id, results in formatted_relevant_segments.items():
+        for result in results:
+            result["kb_id"] = kb_id
+            all_relevant_segments.append(result)
 
     # add interaction to chat thread
     interaction = {
@@ -257,7 +312,8 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
             "timestamp": request_timestamp
         },
         "model_response": {
-            "content": llm_output,
+            "content": response.response,
+            "citations": formatted_citations,
             "timestamp": datetime.now().isoformat()
         },
         "search_queries": search_queries,
@@ -319,6 +375,8 @@ def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInp
     formatted_interaction = get_filenames_and_types(interaction, knowledge_bases)
 
     # Add this interaction to the chat thread db
-    chat_thread_db.add_interaction(thread_id, interaction)
+    response = chat_thread_db.add_interaction(thread_id, interaction)
+    message_id = response["message_id"]
+    formatted_interaction["message_id"] = message_id
 
     return formatted_interaction

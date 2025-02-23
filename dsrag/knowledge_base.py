@@ -28,6 +28,7 @@ from dsrag.reranker import Reranker, CohereReranker
 from dsrag.llm import LLM, OpenAIChatAPI
 from dsrag.dsparse.file_parsing.file_system import FileSystem, LocalFileSystem
 from dsrag.metadata import MetadataStorage, LocalMetadataStorage
+from dsrag.chat.citations import convert_elements_to_page_content
 
 class KnowledgeBase:
     def __init__(
@@ -301,6 +302,21 @@ class KnowledgeBase:
             doc_id=doc_id,
         )
 
+        # Convert elements to page content if the document was processed with page numbers
+        if file_path and file_parsing_config.get('use_vlm', False):
+            # NOTE: does this really need to be in a try/except block?
+            try:
+                elements = self.file_system.load_data(kb_id=self.kb_id, doc_id=doc_id, data_name="elements")
+                if elements:
+                    convert_elements_to_page_content(
+                        elements=elements,
+                        kb_id=self.kb_id,
+                        doc_id=doc_id,
+                        file_system=self.file_system
+                    )
+            except Exception as e:
+                print(f"Warning: Failed to load or process elements for page content: {str(e)}")
+
         self.save()  # save to disk after adding a document
 
     def add_documents(
@@ -313,7 +329,7 @@ class KnowledgeBase:
         """
         Add multiple documents to the knowledge base in parallel.
 
-        NOTE: Be sure you are using a thread-safe VectorDB and ChunkDB if you are adding documents in parallel. The default implementations are not thread-safe.
+        NOTE: Be sure you are using a thread-safe VectorDB and ChunkDB if you are adding documents in parallel. BasicVectorDB and BasicChunkDB (the defaults) are not thread-safe.
         
         Args:
             documents: List of document dictionaries. Each dictionary must contain either:
@@ -537,14 +553,14 @@ class KnowledgeBase:
 
         Returns relevant_segment_info, a list of segment_info dictionaries, ordered by relevance, that each contain:
         - doc_id: the document ID of the document that the segment is from
-        - chunk_start: the start index of the segment in the document
-        - chunk_end: the (non-inclusive) end index of the segment in the document
+        - chunk_start: the start chunk index of the segment in the document
+        - chunk_end: the (non-inclusive) end chunk index of the segment in the document
         - content: the content of the segment
             - if return_mode is "text", this will be a string of text
             - if return_mode is "page_images", this will be a list of page image paths
             - if return_mode is "dynamic", this will be either a string of text or a list of page image paths
         - segment_page_start: the page number that the segment starts on
-        - segment_page_end: the page number that the segment ends on
+        - segment_page_end: the page number that the segment ends on (inclusive)
         """
         # check if the rse_params is a preset name and convert it to a dictionary if it is
         if isinstance(rse_params, str) and rse_params in RSE_PARAMS_PRESETS:

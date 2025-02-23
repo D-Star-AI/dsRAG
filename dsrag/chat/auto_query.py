@@ -25,14 +25,43 @@ class Queries(BaseModel):
 def get_knowledge_base_descriptions_str(kb_info: list[dict]):
     kb_descriptions = []
     for kb in kb_info:
-        kb_descriptions.append(f"kb_id: {kb['id']}\ndescription:{kb['description']}")
+        kb_descriptions.append(f"kb_id: {kb['id']}\ndescription: {kb['title']} - {kb['description']}")
     return "\n\n".join(kb_descriptions)
+
+def validate_queries(queries: List[Query], kb_info: list[dict]) -> List[dict]:
+    """
+    Validates and potentially modifies search queries based on knowledge base availability.
+    
+    Args:
+        queries: List of Query objects to validate
+        kb_info: List of available knowledge base information
+        
+    Returns:
+        List of validated query dictionaries
+    """
+    valid_kb_ids = {kb["id"] for kb in kb_info}
+    validated_queries = []
+    
+    for query in queries:
+        if query.knowledge_base_id in valid_kb_ids:
+            validated_queries.append({"query": query.query, "kb_id": query.knowledge_base_id})
+        else:
+            # If invalid KB ID is found
+            if len(kb_info) == 1:
+                # If only one KB exists, use that
+                validated_queries.append({"query": query.query, "kb_id": kb_info[0]["id"]})
+            else:
+                # If multiple KBs exist, create a query for each KB
+                for kb in kb_info:
+                    validated_queries.append({"query": query.query, "kb_id": kb["id"]})
+
+    return validated_queries
 
 def get_search_queries(chat_messages: list[dict], kb_info: list[dict], auto_query_guidance: str = "", max_queries: int = 5, auto_query_model: str = "gpt-4o-mini") -> List[dict]:
     """
     Input:
     - chat_messages: list of dictionaries, where each dictionary has the keys "role" and "content". This should include the current user input as the final message.
-    - kb_info: list of dictionaries, where each dictionary has the keys "id" and "description". This should include information about the available knowledge bases.
+    - kb_info: list of dictionaries, where each dictionary has the keys "id", "title", and "description". This should include information about the available knowledge bases.
     - auto_query_guidance: str, optional additional instructions for the auto_query system
     - max_queries: int, maximum number of queries to generate
     - auto_query_model: str, the model to use for generating queries
@@ -70,4 +99,6 @@ def get_search_queries(chat_messages: list[dict], kb_info: list[dict], auto_quer
             temperature=0.0
         )
 
-    return [{"query": query.query, "kb_id": query.knowledge_base_id} for query in queries.queries[:max_queries]]
+    # Validate and potentially modify the queries
+    validated_queries = validate_queries(queries.queries[:max_queries], kb_info)[:max_queries]
+    return validated_queries

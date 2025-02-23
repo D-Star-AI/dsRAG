@@ -2,15 +2,16 @@ import sqlite3
 import os
 import json
 from .db import ChatThreadDB
+import uuid
 
 class SQLiteChatThreadDB(ChatThreadDB):
 
     def __init__(self, storage_directory: str = "~/dsRAG"):
         # Check if the directory exists, if not create it
         self.chat_thread_columns = ["thread_id", "supp_id", "kb_ids", "model", "temperature", "system_message", "auto_query_model", "auto_query_guidance", "target_output_length", "max_chat_history_tokens"]
-        self.interactions_columns = ["thread_id", "user_input", "user_input_timestamp", "model_response", "model_response_timestamp", "relevant_segments", "search_queries"]
+        self.interactions_columns = ["thread_id", "message_id", "user_input", "user_input_timestamp", "model_response", "model_response_timestamp", "relevant_segments", "search_queries", "citations"]
         self.chat_thread_column_types = ["VARCHAR(256) PRIMARY KEY", "TEXT", "TEXT", "TEXT", "REAL", "TEXT", "TEXT", "TEXT", "TEXT", "INTEGER"]
-        self.interactions_column_types = ["VARCHAR(256)", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT"]
+        self.interactions_column_types = ["VARCHAR(256)", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT"]
         self.storage_directory = os.path.expanduser(storage_directory)
         if not os.path.exists(self.storage_directory):
             os.makedirs(self.storage_directory)
@@ -101,7 +102,8 @@ class SQLiteChatThreadDB(ChatThreadDB):
                 },
                 "model_response": {
                     "content": interaction[3],
-                    "timestamp": interaction[4]
+                    "timestamp": interaction[4],
+                    "citations": json.loads(interaction[7]) if interaction[7] else []
                 },
                 "relevant_segments": json.loads(interaction[5]),
                 "search_queries": json.loads(interaction[6])
@@ -135,15 +137,18 @@ class SQLiteChatThreadDB(ChatThreadDB):
     def add_interaction(self, thread_id: str, interaction: dict) -> dict:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
-
+        message_id = str(uuid.uuid4())
+        
         formatted_interaction = {
             "thread_id": thread_id,
+            "message_id": message_id,
             "user_input": interaction["user_input"]["content"],
             "user_input_timestamp": interaction["user_input"]["timestamp"],
             "model_response": interaction["model_response"]["content"],
             "model_response_timestamp": interaction["model_response"]["timestamp"],
             "relevant_segments": json.dumps(interaction["relevant_segments"]),
-            "search_queries": json.dumps(interaction["search_queries"])
+            "search_queries": json.dumps(interaction["search_queries"]),
+            "citations": json.dumps(interaction["model_response"].get("citations", []))
         }
 
         # Create the interaction
@@ -151,3 +156,19 @@ class SQLiteChatThreadDB(ChatThreadDB):
         interaction_tuple = tuple([formatted_interaction[column] for column in self.interactions_columns])
         c.execute(query_statement, interaction_tuple)
         conn.commit()
+        conn.close()
+        return interaction
+
+    def _check_and_migrate_db(self):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        
+        # Check if citations column exists
+        result = c.execute("PRAGMA table_info(interactions)")
+        columns = [row[1] for row in result.fetchall()]
+        
+        if "citations" not in columns:
+            c.execute("ALTER TABLE interactions ADD COLUMN citations TEXT")
+            conn.commit()
+        
+        conn.close()

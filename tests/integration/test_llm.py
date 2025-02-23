@@ -1,7 +1,7 @@
 import unittest
 import os
 import base64
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from dsrag.utils.llm import get_response
 
 
@@ -101,6 +101,30 @@ class TestLLM(unittest.TestCase):
                 self.assertIsInstance(result, UserModel)
                 self.assertGreater(result.age, 0)
                 self.assertGreater(len(result.name), 1)
+
+    def test_anthropic_system_message_instructor(self):
+        """Test that system messages work with Anthropic when using Instructor"""
+        if self.skip_tests["anthropic"]:
+            self.skipTest("Missing ANTHROPIC API key")
+        
+        class Response(BaseModel):
+            tone: str = Field(..., description="The tone of the response - must be either 'formal' or 'casual'")
+            message: str
+        
+        system_message = "You are a very formal butler. Always respond in an extremely formal tone. You MUST begin each response with 'Good day, sir!'"
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": "Say hi and tell me the weather"}
+        ]
+        
+        result = get_response(
+            messages=messages,
+            model_name=self.test_models["anthropic"],
+            response_model=Response
+        )
+        
+        self.assertIsInstance(result, Response)
+        self.assertEqual(result.tone, "formal")
 
     def test_messages_vs_prompt(self):
         """Test both messages and prompt handling"""

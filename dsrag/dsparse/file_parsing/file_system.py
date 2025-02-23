@@ -3,7 +3,7 @@ import boto3
 import io
 import json
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 
@@ -66,9 +66,36 @@ class FileSystem(ABC):
     def log_error(self, kb_id: str, doc_id: str, error: dict) -> None:
         pass
 
+    @abstractmethod
+    def save_page_content(self, kb_id: str, doc_id: str, page_number: int, content: str) -> None:
+        """Save the text content of a page to a JSON file"""
+        pass
+
+    @abstractmethod
+    def load_page_content(self, kb_id: str, doc_id: str, page_number: int) -> Optional[str]:
+        """Load the text content of a page from its JSON file"""
+        pass
+
+    @abstractmethod
+    def load_page_content_range(self, kb_id: str, doc_id: str, page_start: int, page_end: int) -> list[str]:
+        """Load the text content for a range of pages"""
+        pass
+
+    @abstractmethod
+    def load_data(self, kb_id: str, doc_id: str, data_name: str) -> Optional[dict]:
+        """Load JSON data from a file
+        Args:
+            kb_id: Knowledge base ID
+            doc_id: Document ID 
+            data_name: Name of the data to load (e.g. "elements" for elements.json)
+        """
+        pass
+
 
 class LocalFileSystem(FileSystem):
-
+    """
+    Uses the local file system to store and retrieve page image files and other data.
+    """
     def __init__(self, base_path: str):
         super().__init__(base_path)
 
@@ -160,16 +187,58 @@ class LocalFileSystem(FileSystem):
     def log_error(self, kb_id: str, doc_id: str, error: dict) -> None:
         pass
 
+    def save_page_content(self, kb_id: str, doc_id: str, page_number: int, content: str) -> None:
+        """Save the text content of a page to a JSON file"""
+        page_content_path = os.path.join(self.base_path, kb_id, doc_id, f'page_content_{page_number}.json')
+        with open(page_content_path, 'w') as f:
+            json.dump({"content": content}, f)
+
+    def load_page_content(self, kb_id: str, doc_id: str, page_number: int) -> Optional[str]:
+        """Load the text content of a page from its JSON file"""
+        page_content_path = os.path.join(self.base_path, kb_id, doc_id, f'page_content_{page_number}.json')
+        try:
+            with open(page_content_path, 'r') as f:
+                data = json.load(f)
+                return data["content"]
+        except FileNotFoundError:
+            return None
+
+    def load_page_content_range(self, kb_id: str, doc_id: str, page_start: int, page_end: int) -> list[str]:
+        """Load the text content for a range of pages"""
+        page_contents = []
+        for page_num in range(page_start, page_end + 1):
+            content = self.load_page_content(kb_id, doc_id, page_num)
+            if content is not None:
+                page_contents.append(content)
+        return page_contents
+
+    def load_data(self, kb_id: str, doc_id: str, data_name: str) -> Optional[dict]:
+        """Load JSON data from a file in the local filesystem"""
+        file_path = os.path.join(self.base_path, kb_id, doc_id, f"{data_name}.json")
+        try:
+            with open(file_path, 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            print(f"File not found: {file_path}")
+            return None
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from {file_path}: {str(e)}")
+            return None
+
 
 class S3FileSystem(FileSystem):
-
-    def __init__(self, base_path: str, bucket_name: str, region_name: str, access_key: str, secret_key: str, error_table: str = None):
+    """
+    Uses S3 and DynamoDB to store and retrieve page image files and other data.
+    """
+    def __init__(self, base_path: str, bucket_name: str, region_name: str, access_key: str, secret_key: str, error_table: str = None, dynamodb_table_name: str = None, dynamodb_client_data_table_name: str = None):
         super().__init__(base_path)
         self.bucket_name = bucket_name
         self.region_name = region_name
         self.access_key = access_key
         self.secret_key = secret_key
         self.error_table = error_table
+        self.dynamodb_table_name = dynamodb_table_name
+        self.dynamodb_client_data_table_name = dynamodb_client_data_table_name
 
     def create_s3_client(self):
         return boto3.client(
@@ -385,9 +454,48 @@ class S3FileSystem(FileSystem):
             'error': error,
             'timestamp': timestamp
         }
-        table.put_item(Item=item)
-    
+        table.put_item(Item=item) 
 
+    def save_page_content(self, kb_id: str, doc_id: str, page_number: int, content: str) -> None:
+        """Save the text content of a page to S3"""
+        file_name = f"{kb_id}/{doc_id}/page_content_{page_number}.json"
+        data = json.dumps({"content": content})
+
+        s3_client = self.create_s3_client()
+        try:
+            s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=file_name,
+                Body=data,
+                ContentType='application/json'
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to upload page content to S3.") from e
+
+    def load_page_content(self, kb_id: str, doc_id: str, page_number: int) -> Optional[str]:
+        """Load the text content of a page from S3"""
+        file_name = f"{kb_id}/{doc_id}/page_content_{page_number}.json"
+        s3_client = self.create_s3_client()
+        
+        try:
+            response = s3_client.get_object(Bucket=self.bucket_name, Key=file_name)
+            data = json.loads(response['Body'].read().decode('utf-8'))
+            return data["content"]
+        except s3_client.exceptions.NoSuchKey:
+            return None
+        except Exception as e:
+            print(f"Error loading page content from S3: {e}")
+            return None
+
+    def load_page_content_range(self, kb_id: str, doc_id: str, page_start: int, page_end: int) -> list[str]:
+        """Load the text content for a range of pages from S3"""
+        page_contents = []
+        for page_num in range(page_start, page_end + 1):
+            content = self.load_page_content(kb_id, doc_id, page_num)
+            if content is not None:
+                page_contents.append(content)
+        return page_contents
+    
     def to_dict(self):
         base_dict = super().to_dict()
         base_dict.update({
@@ -398,3 +506,21 @@ class S3FileSystem(FileSystem):
             "error_table": self.error_table
         })
         return base_dict
+
+    def load_data(self, kb_id: str, doc_id: str, data_name: str) -> Optional[dict]:
+        """Load JSON data from a file in S3"""
+        s3_key = f"{kb_id}/{doc_id}/{data_name}.json"
+        s3_client = self.create_s3_client()
+        
+        try:
+            response = s3_client.get_object(Bucket=self.bucket_name, Key=s3_key)
+            return json.loads(response['Body'].read().decode('utf-8'))
+        except s3_client.exceptions.NoSuchKey:
+            print(f"File not found in S3: {s3_key}")
+            return None
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from S3 file {s3_key}: {str(e)}")
+            return None
+        except Exception as e:
+            print(f"Error loading data from S3: {str(e)}")
+            return None
