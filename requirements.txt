@@ -456,7 +456,7 @@ rich==13.7.1
     #   typer
 rsa==4.9
     # via google-auth
-s3transfer==0.10.2
+s3transfer>=0.10.2
     # via
     #   boto3
     #   dsrag (pyproject.toml)

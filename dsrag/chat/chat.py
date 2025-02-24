@@ -44,6 +44,14 @@ When providing your response, you must cite your sources. For each piece of info
 2. The page number where the information was found (if available)
 3. The relevant text that supports your response
 
+The doc_id and page_number will be in the following format:
+<doc_id: some_random_long_id>
+<page_N>
+Text content from the page
+</page_N>
+</doc_id: some_random_long_id>
+The page number is N in the above format.
+
 Your response must be a valid ResponseWithCitations object. It must include these two fields:
 1. response: Your complete response text
 2. citations: An array of citation objects, each containing:
