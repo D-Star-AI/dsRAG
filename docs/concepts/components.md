@@ -7,6 +7,7 @@ There are six key components that define the configuration of a KnowledgeBase. E
 The VectorDB component stores embedding vectors and associated metadata.
 
 Available options:
+
 - `BasicVectorDB`
 - `WeaviateVectorDB`
 - `ChromaDB`
@@ -19,6 +20,7 @@ Available options:
 The ChunkDB stores the content of text chunks in a nested dictionary format, keyed on `doc_id` and `chunk_index`. This is used by RSE to retrieve the full text associated with specific chunks.
 
 Available options:
+
 - `BasicChunkDB`
 - `SQLiteDB`
 
@@ -27,6 +29,7 @@ Available options:
 The Embedding component defines the embedding model used for vectorizing text.
 
 Available options:
+
 - `OpenAIEmbedding`
 - `CohereEmbedding`
 - `VoyageAIEmbedding`
@@ -37,35 +40,40 @@ Available options:
 The Reranker component provides more accurate ranking of chunks after vector database search and before RSE. This is optional but highly recommended.
 
 Available options:
+
 - `CohereReranker`
 - `VoyageReranker`
 - `NoReranker`
 
 ## LLM
 
-The LLM component is used for:
+The LLM component is used in AutoContext for:
+
 - Document title generation
 - Document summarization
-- Section summarization in AutoContext
+- Section summarization
 
 Available options:
+
 - `OpenAIChatAPI`
 - `AnthropicChatAPI`
 - `OllamaChatAPI`
 
 ## FileSystem
 
-The FileSystem component defines where to save PDF images for VLM file parsing.
+The FileSystem component defines where to save PDF images and extracted elementsfor VLM file parsing.
 
 Available options:
+
 - `LocalFileSystem`
 - `S3FileSystem`
 
-### LocalFileSystem Configuration
+#### LocalFileSystem Configuration
 Only requires a `base_path` parameter to define where files will be stored on the system.
 
-### S3FileSystem Configuration
+#### S3FileSystem Configuration
 Requires the following parameters:
+
 - `base_path`: Used when downloading files from S3
 - `bucket_name`: S3 bucket name
 - `region_name`: AWS region

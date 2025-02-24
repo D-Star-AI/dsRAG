@@ -24,10 +24,12 @@ This process provides additional context to the ranking models (embeddings and r
 ### AutoContext (Contextual Chunk Headers)
 
 AutoContext creates contextual chunk headers that contain:
+
 - Document-level context
 - Section-level context
 
 These headers are prepended to chunks before embedding. Benefits include:
+
 - More accurate and complete representation of text content and meaning
 - Dramatic improvement in retrieval quality
 - Reduced rate of irrelevant results
@@ -36,13 +38,15 @@ These headers are prepended to chunks before embedding. Benefits include:
 ### Relevant Segment Extraction (RSE)
 
 RSE is a query-time post-processing step that:
+
 1. Takes clusters of relevant chunks
 2. Intelligently combines them into longer sections (segments)
 3. Provides better context to the LLM than individual chunks
 
 RSE is particularly effective for:
+
 - Complex questions where answers span multiple chunks
-- Identifying appropriate context length based on query type
+- Adapting the context length based on query type
 - Maintaining coherent context while avoiding irrelevant information
 
 ## Document Processing Flow
