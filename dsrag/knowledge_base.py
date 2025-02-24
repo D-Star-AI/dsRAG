@@ -445,7 +445,7 @@ class KnowledgeBase:
             except Exception as e:
                 print(f"Warning: Failed to load or process elements for page content: {str(e)}")
 
-        self.save()  # save to disk after adding a document
+        self._save()  # save to disk after adding a document
 
     def add_documents(
         self,
