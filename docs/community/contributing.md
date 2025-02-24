@@ -91,26 +91,27 @@ class TestYourFeature(unittest.TestCase):
 ## Submitting Changes
 
 1. Commit your changes:
-   ```bash
-   git add .
-   git commit -m "Description of your changes"
-   ```
+    ```bash
+    git add .
+    git commit -m "Description of your changes"
+    ```
 
 2. Push to your fork:
-   ```bash
-   git push origin feature/your-feature-name
-   ```
+    ```bash
+    git push origin feature/your-feature-name
+    ```
 
 3. Open a Pull Request:
-   - Go to the dsRAG repository on GitHub
-   - Click "Pull Request"
-   - Select your feature branch
-   - Describe your changes and their purpose
-   - Reference any related issues
+    - Go to the dsRAG repository on GitHub
+    - Click "Pull Request"
+    - Select your feature branch
+    - Describe your changes and their purpose
+    - Reference any related issues
 
 ## Pull Request Guidelines
 
 Your PR should:
+
 - Focus on a single feature or fix
 - Include appropriate tests
 - Update relevant documentation
@@ -121,6 +122,7 @@ Your PR should:
 ## Getting Help
 
 If you need help with your contribution:
+
 - Join our [Discord](https://discord.gg/NTUVX9DmQ3)
 - Ask questions in the PR
 - Tag maintainers if you need specific guidance

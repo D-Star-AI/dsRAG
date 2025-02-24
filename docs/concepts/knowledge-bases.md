@@ -83,8 +83,9 @@ results = kb.query(
         "Configuration prerequisites"
     ],
     metadata_filter={
-        "type": "manual",
-        "version": "latest"
+        "field": "doc_id",
+        "operator": "equals",
+        "value": "user_manual"
     },
     rse_params="precise",  # Use preset RSE parameters
     return_mode="text"     # Return text content
@@ -116,6 +117,55 @@ results = kb.query(
         "overall_max_length": 20,       # Total length limit across all segments (in number of chunks)
         "minimum_value": 0.5,           # Minimum relevance score
         "irrelevant_chunk_penalty": 0.2 # Penalty for irrelevant chunks in a segment - higher penalty leads to shorter segments
+    }
+)
+```
+
+## Metadata Query Filters
+
+Certain vector DBs support metadata filtering when running a query (currently only ChromaDB). This allows you to have more control over what document(s) get searched. A common use case would be asking questions about a single document in a knowledge base, in which case you would supply the `doc_id` as a metadata filter.
+
+The metadata filter should be a dictionary with the following structure:
+
+```python
+metadata_filter = {
+    "field": "doc_id",      # The metadata field to filter on
+    "operator": "equals",   # The comparison operator
+    "value": "doc123"      # The value to compare against
+}
+```
+
+Supported operators:
+- `equals`
+- `not_equals` 
+- `in`
+- `not_in`
+- `greater_than`
+- `less_than`
+- `greater_than_equals`
+- `less_than_equals`
+
+For operators that take multiple values (`in` and `not_in`), the value should be a list where all items are of the same type (string, integer, or float).
+
+Example usage:
+```python
+# Query a specific document
+results = kb.query(
+    search_queries=["system requirements"],
+    metadata_filter={
+        "field": "doc_id",
+        "operator": "equals",
+        "value": "technical_spec_v1"
+    }
+)
+
+# Query documents from multiple departments
+results = kb.query(
+    search_queries=["security protocols"],
+    metadata_filter={
+        "field": "department",
+        "operator": "in", 
+        "value": ["security", "compliance"]
     }
 )
 ```

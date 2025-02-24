@@ -7,6 +7,7 @@ The creators of dsRAG, Zach and Nick McCormick, run a specialized applied AI con
 ## Our Expertise
 
 We specialize in:
+
 - Building high-performance RAG-based applications
 - Optimizing existing RAG systems
 - Integrating advanced retrieval techniques
@@ -15,6 +16,7 @@ We specialize in:
 ## Services Offered
 
 We provide:
+
 - Advisory services
 - Implementation work
 - Performance optimization
@@ -24,6 +26,7 @@ We provide:
 ## Getting Started
 
 If you need professional assistance with:
+
 - Implementing dsRAG in your production environment
 - Optimizing your RAG-based application
 - Custom feature development

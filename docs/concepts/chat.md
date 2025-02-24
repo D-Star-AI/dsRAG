@@ -5,6 +5,7 @@ The Chat functionality in dsRAG provides a powerful way to interact with your kn
 ## Overview
 
 The chat system works by:
+
 1. Maintaining a chat thread with message history
 2. Automatically generating relevant search queries based on user input
 3. Searching knowledge bases for relevant information
@@ -62,8 +63,9 @@ from dsrag.chat.chat_types import ChatResponseInput
 response_input = ChatResponseInput(
     user_input="What are the key features of XYZ product?",
     metadata_filter={
-        "document_type": "technical_spec",
-        "version": "latest"
+        "field": "doc_id",
+        "operator": "equals",
+        "value": "user_manual"
     }
 )
 
@@ -107,24 +109,7 @@ Chat responses include:
 - Model response with citations
 - Search queries used
 - Relevant segments found
-- File names and types for citations
 
-## Metadata Filtering
-
-You can filter knowledge base searches using metadata:
-
-```python
-metadata_filter = {
-    "document_type": "manual",
-    "department": "engineering",
-    "status": "approved"
-}
-
-response_input = ChatResponseInput(
-    user_input="How do I configure the system?",
-    metadata_filter=metadata_filter
-)
-```
 ## Best Practices
 
 1. Set appropriate `target_output_length` based on your use case

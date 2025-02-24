@@ -1,18 +1,19 @@
 # Citations
 
-dsRAG's citation system ensures that responses are grounded in your knowledge base content and provides transparency about information sources.
+dsRAG's citation system ensures that responses are grounded in your knowledge base content and provides transparency about information sources. Citations are included automatically in chat responses.
 
 ## Overview
 
 Citations in dsRAG:
+
 - Track the source of information in responses
 - Include document IDs and page numbers
 - Provide exact quoted text from sources
-- Link back to original documents
 
 ## Citation Structure
 
 Each citation includes:
+
 - `doc_id`: Unique identifier of the source document
 - `page_number`: Page where the information was found (if available)
 - `cited_text`: Exact text containing the cited information

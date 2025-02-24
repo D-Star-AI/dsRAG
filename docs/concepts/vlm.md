@@ -5,15 +5,15 @@ dsRAG supports Vision Language Model (VLM) integration for enhanced PDF parsing 
 ## Overview
 
 When VLM parsing is enabled:
+
 1. The PDF is converted to images (one per page)
-2. Each page image is analyzed by the VLM to identify and extract:
-   - Text elements (paragraphs, titles, lists, etc.)
-   - Visual elements (figures, tables, diagrams, etc.)
+2. Each page image is analyzed by the VLM to identify and extract text and visual elements
 3. The extracted elements are converted to a structured format with page numbers preserved
 
 ## Supported Providers
 
 Currently supported VLM providers:
+
 - Google's Gemini (default)
 - Google Cloud Vertex AI
 
@@ -56,15 +56,17 @@ kb.add_document(
 
 ## Element Types
 
-The VLM identifies several types of elements in the document:
+The VLM is prompted to categorize page content into the following element types:
 
 Text Elements:
+
 - NarrativeText: Main text content including paragraphs, lists, and titles
 - Header: Page header content (typically at top of page)
 - Footnote: References or notes at bottom of content
 - Footer: Page footer content (at very bottom of page)
 
 Visual Elements:
+
 - Figure: Charts, graphs, and diagrams with associated titles and legends
 - Image: Photos, illustrations, and other visual content
 - Table: Tabular data arrangements with titles and captions
@@ -75,15 +77,15 @@ By default, Header and Footer elements are excluded from parsing as they rarely 
 ## Best Practices
 
 1. Use VLM parsing for documents with:
-   - Complex layouts
-   - Important visual elements
-   - Tables that need precise formatting
-   - Mathematical formulas
-   - Scanned documents that need OCR
+    - Complex layouts
+    - Important visual elements
+    - Tables that need precise formatting
+    - Mathematical formulas
+    - Scanned documents that need OCR
 
 2. Consider traditional parsing for:
-   - Simple text documents
-   - Documents where visual layout isn't critical
-   - Large volumes of documents (VLM parsing is slower and more expensive)
+    - Simple text documents
+    - Documents where visual layout isn't critical
+    - Large volumes of documents (VLM parsing is slower and more expensive)
 
 3. Configure `exclude_elements` to ignore irrelevant elements like headers/footers
