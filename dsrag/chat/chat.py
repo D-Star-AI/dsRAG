@@ -1,7 +1,3 @@
-import os
-import sys
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__))))
-
 from dsrag.database.chat_thread.db import ChatThreadDB
 from dsrag.chat.chat_types import ChatThreadParams, MetadataFilter, ChatResponseInput
 from dsrag.chat.auto_query import get_search_queries
@@ -68,11 +64,50 @@ Please provide as much detail as possible in your response. If the question is v
 
     
 def create_new_chat_thread(chat_thread_params: ChatThreadParams, chat_thread_db: ChatThreadDB) -> str:
+    """Create a new chat thread in the database.
+
+    Args:
+        chat_thread_params (ChatThreadParams): Parameters for the chat thread. Example:
+            ```python
+            {
+                # Knowledge base IDs to use
+                "kb_ids": ["kb1", "kb2"],
+                
+                # LLM model to use
+                "model": "gpt-4o-mini",
+                
+                # Temperature for LLM sampling
+                "temperature": 0.2,
+                
+                # System message for LLM
+                "system_message": "You are a helpful assistant",
+                
+                # Model for auto-query generation
+                "auto_query_model": "gpt-4o-mini",
+                
+                # Guidance for auto-query generation
+                "auto_query_guidance": "",
+                
+                # Target response length (short/medium/long)
+                "target_output_length": "medium",
+                
+                # Maximum tokens in chat history
+                "max_chat_history_tokens": 8000,
+                
+                # Optional supplementary ID
+                "supp_id": ""
+            }
+            ```
+        chat_thread_db (ChatThreadDB): Database instance for storing chat threads.
+
+    Returns:
+        str: Unique identifier for the created chat thread.
+    """
     thread_id = str(uuid.uuid4())
     chat_thread_params["thread_id"] = thread_id
     if "supp_id" not in chat_thread_params:
         chat_thread_params["supp_id"] = ""
-    chat_thread_params = set_chat_thread_params(chat_thread_params)
+    chat_thread_params = _set_chat_thread_params(chat_thread_params)
     print ("chat_thread_params: ", chat_thread_params)
     chat_thread_db.create_chat_thread(chat_thread_params=chat_thread_params)
     return thread_id
@@ -116,8 +151,25 @@ def limit_chat_messages(chat_messages: list[dict], max_tokens: int = 8000) -> li
     
     return limited_messages
 
-def set_chat_thread_params(chat_thread_params: ChatThreadParams, kb_ids: list[str] = None, model: str = None, temperature: float = None, system_message: str = None, auto_query_model: str = None, auto_query_guidance: str = None, target_output_length: str = None, max_chat_history_tokens: int = None) -> ChatThreadParams:
-    print ("chat_thread_params: ", chat_thread_params)
+def _set_chat_thread_params(chat_thread_params: ChatThreadParams, kb_ids: list[str] = None, model: str = None, temperature: float = None, system_message: str = None, auto_query_model: str = None, auto_query_guidance: str = None, target_output_length: str = None, max_chat_history_tokens: int = None) -> ChatThreadParams:
+    """Set and validate chat thread parameters.
+
+    Internal method to ensure all required parameters are set with appropriate defaults.
+
+    Args:
+        chat_thread_params (ChatThreadParams): Base parameters dictionary
+        kb_ids (list[str], optional): Knowledge base IDs. Defaults to None.
+        model (str, optional): LLM model name. Defaults to None.
+        temperature (float, optional): LLM temperature. Defaults to None.
+        system_message (str, optional): System message for LLM. Defaults to None.
+        auto_query_model (str, optional): Model for query generation. Defaults to None.
+        auto_query_guidance (str, optional): Guidance for query generation. Defaults to None.
+        target_output_length (str, optional): Target response length. Defaults to None.
+        max_chat_history_tokens (int, optional): Maximum chat history tokens. Defaults to None.
+
+    Returns:
+        ChatThreadParams: Updated parameters with defaults filled in.
+    """
     # set parameters - override if provided
     if kb_ids is not None:
         chat_thread_params['kb_ids'] = kb_ids
@@ -161,14 +213,32 @@ def set_chat_thread_params(chat_thread_params: ChatThreadParams, kb_ids: list[st
 
     return chat_thread_params
 
-def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParams, chat_thread_interactions: list[dict], metadata_filter: MetadataFilter = None) -> dict:
+def _get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParams, chat_thread_interactions: list[dict], metadata_filter: MetadataFilter = None) -> dict:
+    """Generate a response to a chat input using knowledge base search.
+
+    Args:
+        input (str): User input text to respond to.
+        kbs (dict): Dictionary of knowledge base instances keyed by ID.
+        chat_thread_params (ChatThreadParams): Chat thread configuration parameters.
+        chat_thread_interactions (list[dict]): Previous chat interactions, each containing:
+            - user_input (dict): User message with content and timestamp
+            - model_response (dict): Model response with content and timestamp
+        metadata_filter (MetadataFilter, optional): Filter for knowledge base search. Defaults to None.
+
+    Returns:
+        dict: Interaction dictionary containing:
+            - user_input (dict): User message with content and timestamp
+            - model_response (dict): Model response with content and timestamp
+            - search_queries (list): Generated search queries
+            - relevant_segments (list): Retrieved relevant segments
+    """
     # make note of the timestamp of the request
     request_timestamp = datetime.now().isoformat()
 
     kb_ids = chat_thread_params['kb_ids']
 
     # set parameters - override if provided
-    chat_thread_params = set_chat_thread_params(
+    chat_thread_params = _set_chat_thread_params(
         chat_thread_params=chat_thread_params, 
         kb_ids=kb_ids,
         model=chat_thread_params.get("model"),
@@ -322,7 +392,18 @@ def get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParam
 
     return interaction
 
-def get_filenames_and_types(interaction: dict, kbs: dict):
+def _get_filenames_and_types(interaction: dict, kbs: dict) -> dict:
+    """Add file names and types to relevant segments.
+
+    Internal method to enrich search results with file metadata.
+
+    Args:
+        interaction (dict): Chat interaction containing relevant segments.
+        kbs (dict): Dictionary of knowledge base instances.
+
+    Returns:
+        dict: Updated interaction with file names and types added to segments.
+    """
     ranked_results = interaction.get("relevant_segments", [])
     formatted_results = []
     for result in ranked_results:
@@ -351,8 +432,24 @@ def get_filenames_and_types(interaction: dict, kbs: dict):
     return interaction
 
 def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict):
-    """
-    - knowledge_bases: dict of knowledge base id to knowledge base object
+    """Get a response for a chat thread using knowledge base search.
+
+    Args:
+        thread_id (str): Unique identifier for the chat thread.
+        get_response_input (ChatResponseInput): Input parameters containing:
+            - user_input (str): User's message text
+            - chat_thread_params (Optional[ChatThreadParams]): Optional parameter overrides
+            - metadata_filter (Optional[MetadataFilter]): Optional search filter
+        chat_thread_db (ChatThreadDB): Database instance for chat threads.
+        knowledge_bases (dict): Dictionary mapping knowledge base IDs to instances.
+
+    Returns:
+        dict: Formatted interaction containing:
+            - user_input (dict): User message with content and timestamp
+            - model_response (dict): Model response with content and timestamp
+            - search_queries (list): Generated search queries
+            - relevant_segments (list): Retrieved relevant segments with file names and types
+            - message (str, optional): Error message if something went wrong
     """
     user_input = get_response_input.user_input
     chat_thread_params_override = get_response_input.chat_thread_params
@@ -371,8 +468,8 @@ def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInp
     kbs = {kb_id: knowledge_bases[kb_id] for kb_id in chat_thread_params["kb_ids"]}
 
     # Get the chat response
-    interaction = get_chat_response(user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
-    formatted_interaction = get_filenames_and_types(interaction, knowledge_bases)
+    interaction = _get_chat_response(user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
+    formatted_interaction = _get_filenames_and_types(interaction, knowledge_bases)
 
     # Add this interaction to the chat thread db
     response = chat_thread_db.add_interaction(thread_id, interaction)

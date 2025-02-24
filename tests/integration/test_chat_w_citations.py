@@ -1,9 +1,5 @@
 import os
-import sys
 import unittest
-
-# add ../../ to sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from dsrag.chat.chat import create_new_chat_thread, get_chat_thread_response, ChatResponseInput
 from dsrag.database.chat_thread.basic_db import BasicChatThreadDB

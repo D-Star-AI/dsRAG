@@ -1,5 +1,6 @@
 # dsRAG
 [![Discord](https://img.shields.io/discord/1234629280755875881.svg?label=Discord&logo=discord&color=7289DA)](https://discord.gg/NTUVX9DmQ3)
+[![Documentation](https://img.shields.io/badge/docs-online-green.svg)](https://d-star-ai.github.io/dsRAG/)
 
 The two creators of dsRAG, Zach and Nick McCormick, run a small applied AI consulting firm. We specialize in building high-performance RAG-based applications (naturally). As former startup founders and YC alums, we bring a business and product-centric perspective to the projects we work on. We do a mix of advisory and implementation work. If you'd like to hire us, fill out this [form](https://forms.gle/zbQwDJp7pBQKtqVT8) and we'll be in touch.
 
