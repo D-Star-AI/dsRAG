@@ -60,7 +60,7 @@ response_schema = {
     },
 }
 
-def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSystem, dpi=200) -> list[str]:
+def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSystem, dpi=200, thread_count: int=2) -> list[str]:
     """
     Convert a PDF to images and save them to a folder. Uses pdf2image (which relies on poppler).
 
@@ -76,14 +76,16 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
     file_system.create_directory(kb_id, doc_id)
 
     # Convert PDF to images
-    images = convert_from_path(pdf_path, dpi=dpi)
+    images = convert_from_path(pdf_path, dpi=dpi, thread_count=thread_count)
 
-    # Save each image
-    image_file_paths = []
-    for i, image in enumerate(images):
+    def save_single_image(args):
+        i, image = args
         file_system.save_image(kb_id, doc_id, f'page_{i+1}.png', image)
-        image_file_path = f'/{kb_id}/{doc_id}/page_{i+1}.png'
-        image_file_paths.append(image_file_path)
+        return f'/{kb_id}/{doc_id}/page_{i+1}.png'
+
+    # Save images in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        image_file_paths = list(executor.map(save_single_image, enumerate(images)))
 
     print(f"Converted {len(images)} pages to images")
     return image_file_paths
@@ -201,7 +203,7 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
 
     return page_content
 
-def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, file_system: FileSystem) -> list[Element]:
+def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, file_system: FileSystem, thread_count: int=2) -> list[Element]:
     """
     Given a PDF file, extract the content of each page using a VLM model.
     
@@ -223,13 +225,16 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     if images_already_exist:
         image_file_paths = file_system.get_all_png_files(kb_id, doc_id)
     else:
-        image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system)
+        image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system, thread_count=thread_count)
     
     all_page_content_dict = {}
 
     element_types = vlm_config.get("element_types", default_element_types)
     if len(element_types) == 0:
         element_types = default_element_types
+
+    # Get max_workers from config or use CPU count * 4 as default for I/O bound tasks
+    max_workers = vlm_config.get("max_workers", min(32, len(image_file_paths) * 4))
 
     def process_page(page_number):
         tries = 0
@@ -251,13 +256,13 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
                 return page_number, content
 
     # Use ThreadPoolExecutor to process pages in parallel
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=96) as executor:
         futures = {executor.submit(process_page, i + 1): i for i in range(len(image_file_paths))}
         for future in concurrent.futures.as_completed(futures):
-            page_content = future.result()
             # Add the page content to the dictionary, keyed on the page number
             page_number, page_content = future.result()
             all_page_content_dict[page_number] = page_content
+            print (f"Processed page {page_number}")
 
     all_page_content = []
     for key in sorted(all_page_content_dict.keys()):

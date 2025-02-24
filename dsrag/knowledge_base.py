@@ -204,6 +204,7 @@ class KnowledgeBase:
         min_length_for_chunking: int = None,
         supp_id: str = "",
         metadata: dict = {},
+        thread_count: int = 2
     ):
         """
         Inputs:
@@ -270,6 +271,7 @@ class KnowledgeBase:
             semantic_sectioning_config=semantic_sectioning_config, 
             chunking_config=chunking_config,
             file_system=self.file_system,
+            thread_count=thread_count
         )
         chunks, chunks_to_embed = auto_context(
             auto_context_model=self.auto_context_model, 
