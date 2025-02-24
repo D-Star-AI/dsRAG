@@ -19,8 +19,6 @@ pip install dsrag
 
 If you prefer not to use Cohere for reranking, you can configure dsRAG to use only OpenAI services. See the [Basic Usage](basic-usage.md) guide for details on customizing your configuration.
 
-Available Model Providers:
-
 ### Vector Databases
 - BasicVectorDB
 - WeaviateVectorDB
@@ -44,11 +42,11 @@ Available Model Providers:
 - VoyageReranker
 - NoReranker
 
-### LLM Providers
+### LLM Providers (for AutoContext)
 - OpenAIChatAPI
 - AnthropicChatAPI
 - OllamaChatAPI
 
-### File Systems
+### File Systems (for storing page images)
 - LocalFileSystem
 - S3FileSystem 

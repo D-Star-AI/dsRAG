@@ -33,16 +33,17 @@ nav:
   - Getting Started:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
-    - Basic Usage: getting-started/basic-usage.md
   - Concepts:
     - Overview: concepts/overview.md
-    - Knowledge Base: concepts/knowledge-base.md
+    - Knowledge Bases: concepts/knowledge-bases.md
     - Components: concepts/components.md
     - Configuration: concepts/config.md
-  - Guides:
-    - VLM Integration: guides/vlm.md
+    - Chat: concepts/chat.md
+    - Citations: concepts/citations.md
+    - VLM File Parsing: concepts/vlm.md
   - API:
-    - Reference: api/reference.md
+    - KnowledgeBase: api/knowledge_base.md
+    - Chat: api/chat.md
   - Community:
     - Contributing: community/contributing.md
     - Support: community/support.md
