@@ -1,12 +1,5 @@
 # Installation
 
-## Prerequisites
-
-Before installing dsRAG, you'll need to set up API keys for the following services (using default configuration):
-
-- `OPENAI_API_KEY`: Required for embeddings and AutoContext
-- `CO_API_KEY`: Required for reranking
-
 ## Installing dsRAG
 
 Install the package using pip:
@@ -15,38 +8,16 @@ Install the package using pip:
 pip install dsrag
 ```
 
-## Alternative Configurations
+If you want to use VLM file parsing, you will need one non-Python dependency: poppler. This is used for converting PDFs to images. On MacOS, you can install it using Homebrew:
 
-If you prefer not to use Cohere for reranking, you can configure dsRAG to use only OpenAI services. See the [Basic Usage](basic-usage.md) guide for details on customizing your configuration.
+```bash
+brew install poppler
+```
 
-### Vector Databases
-- BasicVectorDB
-- WeaviateVectorDB
-- ChromaDB
-- QdrantVectorDB
-- MilvusDB
-- PineconeDB
+## Third-party dependencies
 
-### Chunk Databases
-- BasicChunkDB
-- SQLiteDB
+To get the most out of dsRAG, you'll need a few third-party API keys set as environment variables. Here are the most important ones:
 
-### Embedding Models
-- OpenAIEmbedding
-- CohereEmbedding
-- VoyageAIEmbedding
-- OllamaEmbedding
-
-### Rerankers
-- CohereReranker
-- VoyageReranker
-- NoReranker
-
-### LLM Providers (for AutoContext)
-- OpenAIChatAPI
-- AnthropicChatAPI
-- OllamaChatAPI
-
-### File Systems (for storing page images)
-- LocalFileSystem
-- S3FileSystem 
+- `OPENAI_API_KEY`: Recommended for embeddings, AutoContext, and semantic sectioning
+- `CO_API_KEY`: Recommended for reranking
+- `GEMINI_API_KEY`: Recommended for VLM file parsing
