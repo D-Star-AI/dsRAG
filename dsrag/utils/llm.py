@@ -1,5 +1,5 @@
 import os
-import instructor
+from dsrag.utils.imports import instructor
 from openai import OpenAI
 from anthropic import Anthropic
 import google.generativeai as genai

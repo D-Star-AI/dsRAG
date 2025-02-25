@@ -59,3 +59,6 @@ class LazyLoader:
                 raise AttributeError(
                     f"Module '{self._module_name}' has no attribute '{name}'"
                 ) 
+
+# Create lazy loaders for commonly used optional dependencies
+instructor = LazyLoader("instructor") 
