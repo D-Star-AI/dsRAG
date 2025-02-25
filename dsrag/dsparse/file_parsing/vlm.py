@@ -1,9 +1,9 @@
 import PIL.Image
 import os
 import io
+from ..utils.imports import genai, vertexai
 
 def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gemini-1.5-pro-002", response_schema: dict = None, max_tokens: int = 4000) -> str:
-    import google.generativeai as genai
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
     generation_config = {
         "temperature": 0,
@@ -35,19 +35,17 @@ def make_llm_call_vertex(image_path: str, system_message: str, model: str, proje
     """
     This function calls the Vertex AI Gemini API (not to be confused with the Gemini API) with an image and a system message and returns the response text.
     """
-    import vertexai
-    import vertexai.generative_models as gm
     vertexai.init(project=project_id, location=location)
-    model = gm.GenerativeModel(model)
+    model = vertexai.generative_models.GenerativeModel(model)
     
     if response_schema is not None:
-        generation_config = gm.GenerationConfig(temperature=0.0, max_output_tokens=max_tokens, response_mime_type="application/json", response_schema=response_schema)
+        generation_config = vertexai.generative_models.GenerationConfig(temperature=0.0, max_output_tokens=max_tokens, response_mime_type="application/json", response_schema=response_schema)
     else:
-        generation_config = gm.GenerationConfig(temperature=0.0, max_output_tokens=max_tokens)
+        generation_config = vertexai.generative_models.GenerationConfig(temperature=0.0, max_output_tokens=max_tokens)
     
     response = model.generate_content(
         [
-            gm.Part.from_image(gm.Image.load_from_file(image_path)),
+            vertexai.generative_models.Part.from_image(vertexai.generative_models.Image.load_from_file(image_path)),
             system_message,
         ],
         generation_config=generation_config,

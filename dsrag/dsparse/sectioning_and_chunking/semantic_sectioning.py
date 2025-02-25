@@ -1,7 +1,7 @@
 import os
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
-from dsrag.utils.imports import instructor
+from ..utils.imports import instructor
 from ..models.types import SemanticSectioningConfig, Line, Section, Element, ElementType
 
 class DocumentSection(BaseModel):
