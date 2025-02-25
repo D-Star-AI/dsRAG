@@ -38,12 +38,12 @@ class TestChunkAndSegmentHeaders(unittest.TestCase):
 
         # verify that the chunk headers are as expected by running searches and looking at the chunk_header in the results
         search_query = "What are the Levels of AGI and why were they defined this way?"
-        search_results = kb.search(search_query, top_k=1)
+        search_results = kb._search(search_query, top_k=1)
         chunk_header = search_results[0]['metadata']['chunk_header']
         print (f"\nCHUNK HEADER\n{chunk_header}")
         
         # verify that the segment headers are as expected
-        segment_header = kb.get_segment_header(doc_id="doc_1", chunk_index=0)
+        segment_header = kb._get_segment_header(doc_id="doc_1", chunk_index=0)
 
         assert "Section context" in chunk_header
         assert "AGI" in segment_header
@@ -79,12 +79,12 @@ class TestChunkAndSegmentHeaders(unittest.TestCase):
 
         # verify that the chunk headers are as expected by running searches and looking at the chunk_header in the results
         search_query = "What are the Levels of AGI and why were they defined this way?"
-        search_results = kb.search(search_query, top_k=1)
+        search_results = kb._search(search_query, top_k=1)
         chunk_header = search_results[0]['metadata']['chunk_header']
         print (f"\nCHUNK HEADER\n{chunk_header}")
         
         # verify that the segment headers are as expected
-        segment_header = kb.get_segment_header(doc_id="doc_1", chunk_index=0)
+        segment_header = kb._get_segment_header(doc_id="doc_1", chunk_index=0)
 
         assert "Section context" not in chunk_header
         assert "AGI" not in segment_header

@@ -119,8 +119,14 @@ def validate_and_fix_sections(sections: List[DocumentSection], document_length: 
     if not sections:
         return sections
 
-    # Remove sections with duplicate start_indices
-    sections = [s for s in sections if s.start_index not in [s.start_index for s in sections if s != s]]
+    # Remove sections with duplicate start_indices (keep first occurrence)
+    seen_indices = set()
+    unique_sections = []
+    for s in sections:
+        if s.start_index not in seen_indices:
+            seen_indices.add(s.start_index)
+            unique_sections.append(s)
+    sections = unique_sections
 
     # Sort sections by start_index to ensure proper ordering
     original_order = [s.start_index for s in sections]
@@ -136,9 +142,15 @@ def validate_and_fix_sections(sections: List[DocumentSection], document_length: 
     
     for section in sections:
         original_start = section.start_index
+        
+        # Skip sections that start beyond document length
+        if original_start >= document_length:
+            print(f"Warning: Skipping section '{section.title}' as it starts beyond document length")
+            continue
+            
         # Ensure start index is valid and after the previous section
         start = max(last_start + 1, min(section.start_index, document_length - 1))
-        
+            
         if start != original_start:
             print(f"Warning: Section '{section.title}' start index adjusted from {original_start} to {start}")
         
@@ -147,6 +159,13 @@ def validate_and_fix_sections(sections: List[DocumentSection], document_length: 
             start_index=start
         ))
         last_start = start
+    
+    # Ensure we have at least one section
+    if not fixed_sections:
+        fixed_sections.append(DocumentSection(
+            title="Document",
+            start_index=0
+        ))
     
     return fixed_sections
 
@@ -212,25 +231,35 @@ def get_sections_text(sections: List[DocumentSection], document_lines: List[Line
     with content and properly computed end indices.
     """
     section_dicts = []
+    doc_length = len(document_lines)
+    
     for i, s in enumerate(sections):
         if i == len(sections) - 1:
-            end_index = len(document_lines) - 1  # Last section ends at document end
+            end_index = doc_length - 1  # Last section ends at document end
         else:
-            end_index = sections[i+1].start_index - 1  # Section ends right before next section starts
+            end_index = min(sections[i+1].start_index - 1, doc_length - 1)  # Section ends right before next section starts
+            
+        # Double check bounds
+        start_index = min(s.start_index, doc_length - 1)
+        end_index = min(end_index, doc_length - 1)
+        
+        if start_index > end_index:
+            print(f"Warning: Section '{s.title}' has invalid bounds: {start_index} > {end_index}")
+            continue
             
         try:
-            contents = [document_lines[j]["content"] for j in range(s.start_index, end_index+1)]
+            contents = [document_lines[j]["content"] for j in range(start_index, end_index+1)]
         except Exception as e:
             print(f"Error in get_sections_text: {e}")
             print(f"Section: {s}")
-            print(f"Start: {s.start_index}, End: {end_index}")
-            print(f"Document length: {len(document_lines)}")
+            print(f"Start: {start_index}, End: {end_index}")
+            print(f"Document length: {doc_length}")
             raise e
 
         section_dicts.append(Section(
             title=s.title,
             content="\n".join(contents),
-            start=s.start_index,
+            start=start_index,
             end=end_index
         ))
     return section_dicts
