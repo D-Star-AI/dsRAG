@@ -3,8 +3,10 @@ from dsrag.database.vector.types import VectorSearchResult, MetadataFilter
 from typing import Optional
 import os
 import numpy as np
-from pinecone import Pinecone
-from pinecone import ServerlessSpec
+from dsrag.utils.imports import LazyLoader
+
+# Lazy load pinecone
+pinecone = LazyLoader("pinecone")
 
 
 def format_metadata_filter(metadata_filter: MetadataFilter) -> dict:
@@ -57,7 +59,7 @@ class PineconeDB(VectorDB):
         kb_id = kb_id.replace(" ", "-")
 
         self.kb_id = kb_id
-        self.pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
+        self.pc = pinecone.Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 
         if table_name is not None:
             self.table_name = table_name
@@ -71,7 +73,7 @@ class PineconeDB(VectorDB):
             if dimension is None:
                 raise ValueError("Dimension must be specified when creating a new index.")
             print ("Creating Pinecone DB")
-            self.pc.create_index(name=self.table_name, dimension=dimension, metric="cosine", spec=ServerlessSpec(cloud=cloud, region=region))
+            self.pc.create_index(name=self.table_name, dimension=dimension, metric="cosine", spec=pinecone.ServerlessSpec(cloud=cloud, region=region))
 
     def add_vectors(self, vectors: list, metadata: list):
         # Convert NumPy arrays to lists

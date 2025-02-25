@@ -3,9 +3,11 @@ from typing import Optional, Sequence
 
 from dsrag.database.vector import VectorSearchResult
 from dsrag.database.vector.db import VectorDB
-
 from dsrag.database.vector.types import MetadataFilter, Vector, ChunkMetadata
+from dsrag.utils.imports import LazyLoader
 
+# Lazy load pymilvus
+pymilvus = LazyLoader("pymilvus")
 
 def _convert_metadata_to_expr(metadata_filter: MetadataFilter) -> str:
     """
@@ -46,53 +48,55 @@ def _convert_metadata_to_expr(metadata_filter: MetadataFilter) -> str:
 class MilvusDB(VectorDB):
     def __init__(self, kb_id: str, storage_directory: str = '~/dsRAG',
                  dimension: int = 768):
-        try:
-            from pymilvus import MilvusClient
-        except ImportError:
-            raise ImportError(
-                "MilvusDB requires the pymilvus library. "
-                "Please install it by running `pip install pymilvus`."
-            )
+        """
+        Initialize a MilvusDB instance.
+
+        Args:
+            kb_id (str): The knowledge base ID.
+            storage_directory (str, optional): The storage directory. Defaults to '~/dsRAG'.
+            dimension (int, optional): The dimension of the vectors. Defaults to 768.
+        """
         self.kb_id = kb_id
-        # Expand user path and ensure directory exists
         self.storage_directory = os.path.expanduser(storage_directory)
-        self.vector_storage_path = os.path.join(self.storage_directory,
-                                                'vector_storage')
-        os.makedirs(self.vector_storage_path,
-                    exist_ok=True)  # Create directory if it doesn't exist
+        self.collection_name = kb_id
+        self.dimension = dimension
 
         # Initialize Milvus client
-        self.client = MilvusClient(uri=f"{self.vector_storage_path}.db")
-        self._create_collection(collection_name=self.kb_id, dimension=dimension)
+        self.client = pymilvus.MilvusClient(uri='http://localhost:19530')
+
+        # Create collection if it doesn't exist
+        try:
+            if not self.client.has_collection(self.collection_name):
+                self._create_collection(self.collection_name, dimension)
+        except Exception as e:
+            print(f"Error initializing Milvus: {e}")
+            raise
 
     def _create_collection(self, collection_name: str, dimension: int = 768):
-        from pymilvus import DataType
-        if self.client.has_collection(collection_name=collection_name):
-            return
+        """
+        Create a collection in Milvus.
 
-        schema = self.client.create_schema(
-            auto_id=False,
-            enable_dynamic_field=False,
-        )
-        schema.add_field(field_name="doc_id", datatype=DataType.VARCHAR,
-                         is_primary=True, max_length=100)
-        schema.add_field(field_name="vector", datatype=DataType.FLOAT_VECTOR,
-                         dim=dimension)
-        schema.add_field(field_name="metadata", datatype=DataType.JSON,
-                         enable_dynamic_field=True)
-
-        index_params = self.client.prepare_index_params()
-        index_params.add_index(
-            field_name="vector",
-            index_type="AUTOINDEX",
-            metric_type="COSINE"
-        )
-
+        Args:
+            collection_name (str): The name of the collection.
+            dimension (int, optional): The dimension of the vectors. Defaults to 768.
+        """
+        schema = {
+            "id": {"data_type": pymilvus.DataType.VARCHAR, "is_primary": True, "max_length": 100},
+            "doc_id": {"data_type": pymilvus.DataType.VARCHAR, "max_length": 100},
+            "chunk_index": {"data_type": pymilvus.DataType.INT64},
+            "text": {"data_type": pymilvus.DataType.VARCHAR, "max_length": 65535},
+            "embedding": {"data_type": pymilvus.DataType.FLOAT_VECTOR, "dim": dimension}
+        }
+        
         self.client.create_collection(
             collection_name=collection_name,
             schema=schema,
-            index_params=index_params,
-            enable_dynamic_field=True
+            index_params={
+                "field_name": "embedding",
+                "index_type": "HNSW",
+                "metric_type": "COSINE",
+                "params": {"M": 8, "efConstruction": 64}
+            }
         )
 
     def add_vectors(self, vectors: Sequence[Vector], metadata: Sequence[ChunkMetadata]):
