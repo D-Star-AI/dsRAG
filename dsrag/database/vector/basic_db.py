@@ -5,10 +5,7 @@ from dsrag.database.vector.types import ChunkMetadata, Vector, VectorSearchResul
 from sklearn.metrics.pairwise import cosine_similarity
 import os
 import numpy as np
-from dsrag.utils.imports import LazyLoader
-
-# Lazy load faiss
-faiss = LazyLoader("faiss")
+from dsrag.utils.imports import faiss
 
 
 class BasicVectorDB(VectorDB):
