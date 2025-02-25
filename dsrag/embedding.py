@@ -2,10 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import Optional
 from dsrag.database.vector.types import Vector
-from openai import OpenAI
-import cohere
-import voyageai
-import ollama
+from dsrag.utils.imports import openai, cohere, voyageai, ollama
 
 
 dimensionality = {
@@ -61,9 +58,9 @@ class OpenAIEmbedding(Embedding):
         self.model = model
         base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
         if base_url is not None:
-            self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
+            self.client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
         else:
-            self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+            self.client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
     def get_embeddings(self, text: list[str], input_type: Optional[str] = None) -> list[Vector]:
         response = self.client.embeddings.create(
@@ -155,7 +152,7 @@ class OllamaEmbedding(Embedding):
         self,
         model: str = "llama3",
         dimension: Optional[int] = None,
-        client: ollama.Client = None,
+        client: "ollama.Client" = None,
     ):
         super().__init__(dimension)
         self.model = model

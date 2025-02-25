@@ -61,4 +61,8 @@ class LazyLoader:
                 ) 
 
 # Create lazy loaders for commonly used optional dependencies
-instructor = LazyLoader("instructor") 
+instructor = LazyLoader("instructor")
+openai = LazyLoader("openai")
+cohere = LazyLoader("cohere")
+voyageai = LazyLoader("voyageai")
+ollama = LazyLoader("ollama") 
