@@ -1,5 +1,6 @@
 site_name: dsRAG
 site_description: Documentation for the dsRAG library
+site_url: https://d-star-ai.github.io/dsRAG/
 theme:
   name: material
   logo: logo.png
