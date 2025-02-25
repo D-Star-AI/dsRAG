@@ -1,12 +1,15 @@
 import os
-import boto3
 from typing import Any, Optional
 from decimal import Decimal
-from boto3.dynamodb.conditions import Key
 import time
-
+from dsrag.utils.imports import boto3
 from dsrag.database.chunk.db import ChunkDB
 from dsrag.database.chunk.types import FormattedDocument
+
+
+def get_key():
+    """Helper function to get the Key class from boto3.dynamodb.conditions"""
+    return boto3.dynamodb.conditions.Key
 
 
 def process_items(items):
@@ -217,7 +220,7 @@ class DynamoDB(ChunkDB):
         
         # Get all items from the table with the given doc_id
         response = table.query(
-            KeyConditionExpression=Key('doc_id').eq(doc_id),
+            KeyConditionExpression=get_key()('doc_id').eq(doc_id),
             ProjectionExpression='doc_id, chunk_index'
         )
         items = response.get('Items', [])
@@ -254,7 +257,7 @@ class DynamoDB(ChunkDB):
         try:
             # Query the table for all items with the given doc_id
             response = table.query(
-                KeyConditionExpression=Key('doc_id').eq(doc_id),
+                KeyConditionExpression=get_key()('doc_id').eq(doc_id),
                 ProjectionExpression=projection_expression,
                 ExpressionAttributeNames=expression_attribute_names
             )
@@ -264,7 +267,7 @@ class DynamoDB(ChunkDB):
             # Handle pagination
             while 'LastEvaluatedKey' in response:
                 response = table.query(
-                    KeyConditionExpression=Key('doc_id').eq(doc_id),
+                    KeyConditionExpression=get_key()('doc_id').eq(doc_id),
                     ProjectionExpression=projection_expression,
                     ExpressionAttributeNames=expression_attribute_names,
                     ExclusiveStartKey=response['LastEvaluatedKey']
@@ -457,7 +460,7 @@ class DynamoDB(ChunkDB):
                 # Query the GSI 'SuppIdIndex'
                 response = table.query(
                     IndexName='SuppIdIndex',
-                    KeyConditionExpression=Key('supp_id').eq(supp_id),
+                    KeyConditionExpression=get_key()('supp_id').eq(supp_id),
                     ProjectionExpression='doc_id',
                 )
             else:
@@ -475,7 +478,7 @@ class DynamoDB(ChunkDB):
                 if supp_id:
                     response = table.query(
                         IndexName='SuppIdIndex',
-                        KeyConditionExpression=Key('supp_id').eq(supp_id),
+                        KeyConditionExpression=get_key()('supp_id').eq(supp_id),
                         ProjectionExpression='doc_id',
                         ExclusiveStartKey=response['LastEvaluatedKey']
                     )

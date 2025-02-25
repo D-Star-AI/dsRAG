@@ -1,8 +1,5 @@
 import os
-from dsrag.utils.imports import instructor
-from openai import OpenAI
-from anthropic import Anthropic
-import google.generativeai as genai
+from dsrag.utils.imports import instructor, openai, anthropic, genai
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import warnings
@@ -111,7 +108,7 @@ def _handle_standard_mode(messages: List[Dict], model_name: str, temperature: fl
 
 # OpenAI Handlers
 def _handle_openai_instructor(messages, model_name, response_model, temperature, max_tokens):
-    client = instructor.from_openai(OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
+    client = instructor.from_openai(openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
     formatted = _format_openai_messages(messages)
     return client.chat.completions.create(
         model=model_name,
@@ -122,7 +119,7 @@ def _handle_openai_instructor(messages, model_name, response_model, temperature,
     )
 
 def _handle_openai_standard(messages, model_name, temperature, max_tokens):
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     formatted = _format_openai_messages(messages)
     response = client.chat.completions.create(
         model=model_name,
@@ -152,7 +149,7 @@ def _format_openai_messages(messages):
 # Anthropic Handlers (with multimodal support)
 def _handle_anthropic_instructor(messages, model_name, response_model, temperature, max_tokens):
     client = instructor.from_anthropic(
-        Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]),
+        anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]),
         mode=instructor.Mode.ANTHROPIC_JSON
     )
     
@@ -181,7 +178,7 @@ def _handle_anthropic_instructor(messages, model_name, response_model, temperatu
     return client.messages.create(**kwargs)
 
 def _handle_anthropic_standard(messages, model_name, temperature, max_tokens):
-    client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     
     # Extract system message if present
     system = None
