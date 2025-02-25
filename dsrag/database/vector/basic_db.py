@@ -13,7 +13,7 @@ faiss = LazyLoader("faiss")
 
 class BasicVectorDB(VectorDB):
     def __init__(
-        self, kb_id: str, storage_directory: str = "~/dsRAG", use_faiss: bool = True
+        self, kb_id: str, storage_directory: str = "~/dsRAG", use_faiss: bool = False
     ) -> None:
         self.kb_id = kb_id
         self.storage_directory = storage_directory

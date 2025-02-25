@@ -36,6 +36,35 @@ Homepage = "https://github.com/D-Star-AI/dsRAG"
 Documentation = "https://github.com/D-Star-AI/dsRAG"
 Contact = "https://github.com/D-Star-AI/dsRAG"
 
+[project.optional-dependencies]
+# Vector database optional dependencies
+faiss = ["faiss-cpu>=1.8.0"]
+chroma = ["chromadb>=0.5.5"]
+weaviate = ["weaviate-client>=4.6.0"]
+qdrant = ["qdrant-client>=1.8.0"]
+milvus = ["pymilvus>=2.3.5"]
+pinecone = ["pinecone-client>=3.0.0"]
+
+# Convenience groups
+all-vector-dbs = [
+    "faiss-cpu>=1.8.0",
+    "chromadb>=0.5.5",
+    "weaviate-client>=4.6.0",
+    "qdrant-client>=1.8.0",
+    "pymilvus>=2.3.5",
+    "pinecone-client>=3.0.0"
+]
+
+# Complete installation with all optional dependencies
+all = [
+    "faiss-cpu>=1.8.0",
+    "chromadb>=0.5.5",
+    "weaviate-client>=4.6.0",
+    "qdrant-client>=1.8.0",
+    "pymilvus>=2.3.5",
+    "pinecone-client>=3.0.0"
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["dsrag", "dsrag.*"]
