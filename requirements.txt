@@ -55,6 +55,8 @@ jiter==0.4.2
     # via
     #   instructor
     #   openai
+joblib==1.4.2
+    # via scikit-learn
 jsonpatch==1.33
     # via langchain-core
 jsonpointer==3.0.0
@@ -77,6 +79,8 @@ numpy==1.26.4
     # via
     #   -r requirements.in
     #   pandas
+    #   scikit-learn
+    #   scipy
 openai==1.64.0
     # via instructor
 orjson==3.10.15
@@ -124,6 +128,12 @@ rich==13.7.1
     # via
     #   instructor
     #   typer
+scikit-learn==1.6.1
+    # via -r requirements.in
+scipy==1.15.2
+    # via
+    #   -r requirements.in
+    #   scikit-learn
 shellingham==1.5.4
     # via typer
 six==1.16.0
@@ -137,6 +147,8 @@ tenacity==8.5.0
     # via
     #   instructor
     #   langchain-core
+threadpoolctl==3.5.0
+    # via scikit-learn
 tiktoken==0.9.0
     # via -r requirements.in
 tqdm==4.67.1

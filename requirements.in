@@ -12,3 +12,5 @@ requests>=2.30.0
 python-dotenv>=1.0.0
 typing-extensions>=4.5.0
 instructor>=0.4.0
+scipy>=1.10.0
+scikit-learn>=1.2.0
