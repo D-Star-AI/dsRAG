@@ -45,7 +45,7 @@ chroma = ["chromadb>=0.5.5"]
 weaviate = ["weaviate-client>=4.6.0"]
 qdrant = ["qdrant-client>=1.8.0"]
 milvus = ["pymilvus>=2.3.5"]
-pinecone = ["pinecone-client>=3.0.0"]
+pinecone = ["pinecone>=3.0.0"]
 boto3 = ["boto3>=1.28.0"]
 
 # LLM/embedding/reranker optional dependencies
@@ -66,7 +66,7 @@ all-dbs = [
     "weaviate-client>=4.6.0",
     "qdrant-client>=1.8.0",
     "pymilvus>=2.3.5",
-    "pinecone-client>=3.0.0",
+    "pinecone>=3.0.0",
     "boto3>=1.28.0"
 ]
 
@@ -86,7 +86,7 @@ all = [
     "weaviate-client>=4.6.0",
     "qdrant-client>=1.8.0",
     "pymilvus>=2.3.5",
-    "pinecone-client>=3.0.0",
+    "pinecone>=3.0.0",
     "openai>=1.0.0",
     "cohere>=4.0.0",
     "voyageai>=0.1.0",
