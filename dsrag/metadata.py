@@ -1,11 +1,10 @@
 # Metadata storage handling
 import os
-import sys
 from decimal import Decimal
-import boto3
 import json
 from typing import Any
 from abc import ABC, abstractmethod
+from dsrag.utils.imports import boto3
 
 class MetadataStorage(ABC):
 
