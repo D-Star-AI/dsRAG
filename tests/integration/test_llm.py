@@ -16,7 +16,7 @@ class TestLLM(unittest.TestCase):
         # Test configurations
         cls.test_models = {
             "openai": "gpt-4o-mini",
-            "anthropic": "claude-3-5-sonnet-20241022",
+            "anthropic": "claude-3-7-sonnet-20250219",
             "gemini": "gemini-2.0-flash"
         }
         
@@ -79,8 +79,8 @@ class TestLLM(unittest.TestCase):
         """Test structured output with response model"""
         test_cases = [
             ("gpt-4o-mini", "Extract name and age from the following text: John is 30 years old"),
-            ("claude-3-5-sonnet-20241022", "Extract name and age from the following text: Sarah, age 28"),
-            ("gemini-2.0-flash", "Extract name and age from the following text: Mike, 42 years old")
+            ("claude-3-7-sonnet-20250219", "Extract name and age from the following text: Sarah, age 28"),
+            ("gemini-2.0-flash", "Extract name and age from the following text:\n<text>Mike, 42 years old</text>")
         ]
 
         class UserModel(BaseModel):
