@@ -6,6 +6,7 @@ ANTHROPIC_MODEL_NAMES = [
     "claude-3-5-sonnet-20241022",
     "claude-3-5-sonnet-latest",
     "claude-3-7-sonnet-latest",
+    "claude-3-7-sonnet-20250219",
 ]
 
 GEMINI_MODEL_NAMES = [
@@ -29,4 +30,5 @@ OPENAI_MODEL_NAMES = [
     "o1-preview-2024-09-12",
     "o3-mini",
     "o3-mini-2025-01-31",
+    "gpt-4.5",
 ]
