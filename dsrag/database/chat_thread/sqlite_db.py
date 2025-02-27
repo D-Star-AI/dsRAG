@@ -8,9 +8,9 @@ class SQLiteChatThreadDB(ChatThreadDB):
 
     def __init__(self, storage_directory: str = "~/dsRAG"):
         # Check if the directory exists, if not create it
-        self.chat_thread_columns = ["thread_id", "supp_id", "kb_ids", "model", "temperature", "system_message", "auto_query_model", "auto_query_guidance", "target_output_length", "max_chat_history_tokens"]
+        self.chat_thread_columns = ["thread_id", "supp_id", "kb_ids", "model", "temperature", "system_message", "auto_query_model", "auto_query_guidance", "target_output_length", "max_chat_history_tokens", "rse_params"]
         self.interactions_columns = ["thread_id", "message_id", "user_input", "user_input_timestamp", "model_response", "model_response_timestamp", "relevant_segments", "search_queries", "citations"]
-        self.chat_thread_column_types = ["VARCHAR(256) PRIMARY KEY", "TEXT", "TEXT", "TEXT", "REAL", "TEXT", "TEXT", "TEXT", "TEXT", "INTEGER"]
+        self.chat_thread_column_types = ["VARCHAR(256) PRIMARY KEY", "TEXT", "TEXT", "TEXT", "REAL", "TEXT", "TEXT", "TEXT", "TEXT", "INTEGER", "TEXT"]
         self.interactions_column_types = ["VARCHAR(256)", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT"]
         self.storage_directory = os.path.expanduser(storage_directory)
         if not os.path.exists(self.storage_directory):
@@ -36,6 +36,9 @@ class SQLiteChatThreadDB(ChatThreadDB):
         c = conn.cursor()
         # Convert the kb_ids list to a string
         chat_thread_params["kb_ids"] = ",".join(chat_thread_params["kb_ids"])
+        # Convert rse_params dict to JSON string if it exists
+        if "rse_params" in chat_thread_params and chat_thread_params["rse_params"]:
+            chat_thread_params["rse_params"] = json.dumps(chat_thread_params["rse_params"])
         # Create the chat thread, using the self.chat_thread_columns list to specify the order of the columns
         query_statement = f"INSERT INTO chat_threads ({', '.join(self.chat_thread_columns)}) VALUES ({'?, '.join(['']*len(self.chat_thread_columns))}?)"
         chat_thread_params_tuple = tuple([chat_thread_params.get(column, "") for column in self.chat_thread_columns])
@@ -67,6 +70,14 @@ class SQLiteChatThreadDB(ChatThreadDB):
             # Remove the thread_id key
             del formatted_chat_thread["thread_id"]
             formatted_chat_thread["kb_ids"] = formatted_chat_thread["kb_ids"].split(",")
+            # Parse rse_params from JSON if it exists and is not empty
+            if formatted_chat_thread["rse_params"]:
+                try:
+                    formatted_chat_thread["rse_params"] = json.loads(formatted_chat_thread["rse_params"])
+                except json.JSONDecodeError:
+                    formatted_chat_thread["rse_params"] = {}
+            else:
+                formatted_chat_thread["rse_params"] = {}
             formatted_chat_threads.append(formatted_chat_thread)
 
         return formatted_chat_threads
@@ -88,6 +99,14 @@ class SQLiteChatThreadDB(ChatThreadDB):
         chat_thread["kb_ids"] = chat_thread["kb_ids"].split(",")
         chat_thread["id"] = chat_thread["thread_id"]
         del chat_thread["thread_id"]
+        # Parse rse_params from JSON if it exists and is not empty
+        if chat_thread["rse_params"]:
+            try:
+                chat_thread["rse_params"] = json.loads(chat_thread["rse_params"])
+            except json.JSONDecodeError:
+                chat_thread["rse_params"] = {}
+        else:
+            chat_thread["rse_params"] = {}
         # Now get the interactions
         query_statement = f"SELECT {', '.join(self.interactions_columns)} FROM interactions WHERE thread_id = ?"
         c.execute(query_statement, (thread_id,))
@@ -120,7 +139,16 @@ class SQLiteChatThreadDB(ChatThreadDB):
         c = conn.cursor()
         # Convert the kb_ids list to a string
         chat_thread_params["kb_ids"] = ",".join(chat_thread_params["kb_ids"])
-        c.execute("UPDATE chat_threads SET supp_id = ?, kb_ids = ?, model = ?, temperature = ?, system_message = ?, auto_query_guidance = ?, target_output_length = ?, max_chat_history_tokens = ? WHERE thread_id = ?", (chat_thread_params["supp_id"], chat_thread_params["kb_ids"], chat_thread_params["model"], chat_thread_params["temperature"], chat_thread_params["system_message"], chat_thread_params["auto_query_guidance"], chat_thread_params["target_output_length"], chat_thread_params["max_chat_history_tokens"], thread_id))
+        # Convert rse_params dict to JSON string if it exists
+        if "rse_params" in chat_thread_params and chat_thread_params["rse_params"]:
+            chat_thread_params["rse_params"] = json.dumps(chat_thread_params["rse_params"])
+        else:
+            chat_thread_params["rse_params"] = ""
+            
+        c.execute("UPDATE chat_threads SET supp_id = ?, kb_ids = ?, model = ?, temperature = ?, system_message = ?, auto_query_guidance = ?, target_output_length = ?, max_chat_history_tokens = ?, rse_params = ? WHERE thread_id = ?", 
+                 (chat_thread_params["supp_id"], chat_thread_params["kb_ids"], chat_thread_params["model"], chat_thread_params["temperature"], 
+                  chat_thread_params["system_message"], chat_thread_params["auto_query_guidance"], chat_thread_params["target_output_length"], 
+                  chat_thread_params["max_chat_history_tokens"], chat_thread_params["rse_params"], thread_id))
         conn.commit()
         conn.close()
 
@@ -160,15 +188,26 @@ class SQLiteChatThreadDB(ChatThreadDB):
         return interaction
 
     def _check_and_migrate_db(self):
+        """
+        For backwards compatibility, check if the citations and rse_params columns exist in the interactions and chat_threads tables, and add them if they don't.
+        """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         
-        # Check if citations column exists
+        # Check if citations column exists in interactions table
         result = c.execute("PRAGMA table_info(interactions)")
         columns = [row[1] for row in result.fetchall()]
         
         if "citations" not in columns:
             c.execute("ALTER TABLE interactions ADD COLUMN citations TEXT")
+            conn.commit()
+        
+        # Check if rse_params column exists in chat_threads table
+        result = c.execute("PRAGMA table_info(chat_threads)")
+        columns = [row[1] for row in result.fetchall()]
+        
+        if "rse_params" not in columns:
+            c.execute("ALTER TABLE chat_threads ADD COLUMN rse_params TEXT")
             conn.commit()
         
         conn.close()
