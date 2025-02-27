@@ -3,10 +3,10 @@ from dsrag.database.vector.types import ChunkMetadata, Vector, VectorSearchResul
 from dsrag.database.vector.db import VectorDB
 import numpy as np
 from typing import Optional
-import weaviate
-import weaviate.classes as wvc
-from weaviate.util import generate_uuid5
+from dsrag.utils.imports import LazyLoader
 
+# Lazy load weaviate
+weaviate = LazyLoader("weaviate")
 
 class WeaviateVectorDB(VectorDB):
     """
@@ -59,42 +59,46 @@ class WeaviateVectorDB(VectorDB):
         self.insert_timeout = insert_timeout
         self.use_embedded_weaviate = use_embedded_weaviate
 
-        additional_headers = {}
+        # Initialize Weaviate client
+        # Use the v4 client API
         if use_embedded_weaviate:
-            additional_headers["ENABLE_MODULES"] = (
-                "backup-filesystem,text2vec-openai,text2vec-cohere,text2vec-huggingface,ref2vec-centroid,generative-openai,qna-openai"
+            embedded_options = weaviate.embedded.EmbeddedOptions(
+                persistence_data_path="./weaviate/data",
             )
-            additional_headers["BACKUP_FILESYSTEM_PATH"] = "./weaviate/backups"
             self.client = weaviate.WeaviateClient(
-                embedded_options=weaviate.embedded.EmbeddedOptions(
-                    persistence_data_path="./weaviate/data",
-                ),
-                additional_headers=additional_headers,
+                embedded_options=embedded_options
             )
         else:
-            connection_params = weaviate.connect.ConnectionParams.from_params(
-                http_host=http_host,
-                http_port=http_port,
-                http_secure=http_secure,
-                grpc_host=grpc_host,
-                grpc_port=grpc_port,
-                grpc_secure=grpc_secure,
+            connection_params = weaviate.connect.ConnectionParams.from_url(
+                url=f"{'https' if http_secure else 'http'}://{http_host}:{http_port}"
             )
             self.client = weaviate.WeaviateClient(
                 connection_params=connection_params,
-                auth_client_secret=weaviate.auth.AuthApiKey(weaviate_secret),
-                additional_headers=additional_headers,
-                additional_config=weaviate.classes.init.AdditionalConfig(
-                    timeout=weaviate.classes.init.Timeout(
-                        init=init_timeout, query=query_timeout, insert=insert_timeout
-                    )
-                ),
+                auth_client_secret=weaviate.auth.AuthApiKey(weaviate_secret)
             )
-
+            
+        # Explicitly connect to the client
         self.client.connect()
-        self.collection = self.client.collections.get(
-            kb_id
-        )  # assume this creates a new collection if it doesn't exist
+
+        # Create collection if it doesn't exist
+        try:
+            self.collection = self.client.collections.get(kb_id)
+        except Exception as e:
+            # Create collection
+            try:
+                self.collection = self.client.collections.create(
+                    name=kb_id,
+                    properties=[
+                        weaviate.classes.Property(name="doc_id", data_type=weaviate.classes.DataType.TEXT),
+                        weaviate.classes.Property(name="chunk_text", data_type=weaviate.classes.DataType.TEXT),
+                        weaviate.classes.Property(name="chunk_index", data_type=weaviate.classes.DataType.INT),
+                        weaviate.classes.Property(name="metadata", data_type=weaviate.classes.DataType.OBJECT),
+                    ],
+                    vectorizer_config=weaviate.classes.config.Configure.Vectorizer.none(),
+                )
+            except Exception as e:
+                print(f"Error creating collection: {e}")
+                raise
 
     def close(self):
         """
@@ -122,16 +126,17 @@ class WeaviateVectorDB(VectorDB):
                 "Error in add_vectors: the number of vectors and metadata items must be the same."
             ) from exc
 
+        # Updated to use v4 API
         with self.collection.batch.dynamic() as batch:
             for vector, meta in zip(vectors, metadata):
                 doc_id = meta.get("doc_id", "")
                 chunk_text = meta.get("chunk_text", "")
                 chunk_index = meta.get("chunk_index", 0)
-                uuid = generate_uuid5(f"{doc_id}_{chunk_index}")
+                uuid = weaviate.util.generate_uuid5(f"{doc_id}_{chunk_index}")
                 batch.add_object(
                     properties={
-                        "content": chunk_text,
                         "doc_id": doc_id,
+                        "chunk_text": chunk_text,
                         "chunk_index": chunk_index,
                         "metadata": meta,
                     },
@@ -146,8 +151,9 @@ class WeaviateVectorDB(VectorDB):
         Args:
             doc_id: The UUID of the document to remove.
         """
+        # Updated to use v4 API
         self.collection.data.delete_many(
-            where=wvc.query.Filter.by_property("doc_id").contains_any([doc_id])
+            where=weaviate.classes.query.Filter.by_property("doc_id").equal(doc_id)
         )
 
     def search(self, query_vector: list, top_k: int=10, metadata_filter: Optional[dict] = None) -> list[VectorSearchResult]:
@@ -167,11 +173,14 @@ class WeaviateVectorDB(VectorDB):
             query_vector = query_vector.tolist()
 
         results: list[VectorSearchResult] = []
+        
+        # Updated to use v4 API
         response = self.collection.query.near_vector(
             near_vector=query_vector,
             limit=top_k,
-            return_metadata=wvc.query.MetadataQuery(distance=True),
+            return_metadata=weaviate.classes.query.MetadataQuery(distance=True),
         )
+        
         for obj in response.objects:
             results.append(
                 VectorSearchResult(

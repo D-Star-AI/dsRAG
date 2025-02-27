@@ -21,7 +21,45 @@ AutoContext creates contextual chunk headers that contain document-level and sec
 #### Relevant Segment Extraction
 Relevant Segment Extraction (RSE) is a query-time post-processing step that takes clusters of relevant chunks and intelligently combines them into longer sections of text that we call segments. These segments provide better context to the LLM than any individual chunk can. For simple factual questions, the answer is usually contained in a single chunk; but for more complex questions, the answer usually spans a longer section of text. The goal of RSE is to intelligently identify the section(s) of text that provide the most relevant information, without being constrained to fixed length chunks.
 
-For example, suppose you have a bunch of SEC filings in a knowledge base and you ask “What were Apple’s key financial results in the most recent fiscal year?” RSE will identify the most relevant segment as the entire “Consolidated Statement of Operations” section, which will be 5-10 chunks long. Whereas if you ask “Who is Apple’s CEO?” the most relevant segment will be identified as a single chunk that mentions “Tim Cook, CEO.”
+For example, suppose you have a bunch of SEC filings in a knowledge base and you ask "What were Apple's key financial results in the most recent fiscal year?" RSE will identify the most relevant segment as the entire "Consolidated Statement of Operations" section, which will be 5-10 chunks long. Whereas if you ask "Who is Apple's CEO?" the most relevant segment will be identified as a single chunk that mentions "Tim Cook, CEO."
+
+## Installation
+
+### Basic Installation
+
+```bash
+pip install dsrag
+```
+
+### Vector Database Support
+
+dsRAG supports multiple vector databases, which are now available as optional dependencies. You can install the specific vector database support you need:
+
+```bash
+# Install with Faiss support
+pip install dsrag[faiss]
+
+# Install with Chroma support
+pip install dsrag[chroma]
+
+# Install with Weaviate support
+pip install dsrag[weaviate]
+
+# Install with Qdrant support
+pip install dsrag[qdrant]
+
+# Install with Milvus support
+pip install dsrag[milvus]
+
+# Install with Pinecone support
+pip install dsrag[pinecone]
+
+# Install with all vector database support
+pip install dsrag[all-vector-dbs]
+
+# Install all optional dependencies
+pip install dsrag[all]
+```
 
 # Eval results
 We've evaluated dsRAG on a couple of end-to-end RAG benchmarks.

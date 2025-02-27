@@ -7,7 +7,7 @@ from dsrag.create_kb import create_kb_from_file
 from dsrag.knowledge_base import KnowledgeBase
 from dsrag.reranker import NoReranker, CohereReranker, VoyageReranker
 from dsrag.embedding import OpenAIEmbedding, CohereEmbedding
-from dsrag.document_parsing import extract_text_from_pdf
+from dsrag.dsparse.file_parsing.non_vlm_file_parsing import extract_text_from_pdf
 
  
 def test_create_kb_from_file():

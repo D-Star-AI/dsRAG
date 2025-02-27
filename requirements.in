@@ -1,0 +1,20 @@
+# Core dependencies for dsRAG
+# Generate requirements.txt with: pip-compile requirements.in
+
+# Core functionality - only include direct dependencies here, not transitive ones
+langchain-text-splitters>=0.2.0
+pydantic>=2.0.0
+numpy>=1.20.0
+pandas>=2.0.0
+tiktoken>=0.5.0
+tqdm>=4.65.0
+requests>=2.30.0
+python-dotenv>=1.0.0
+typing-extensions>=4.5.0
+instructor>=0.4.0
+scipy>=1.10.0
+scikit-learn>=1.2.0
+pillow>=10.0.0
+pdf2image>=1.16.0
+docx2txt>=0.8
+PyPDF2>=3.0.1
