@@ -72,6 +72,12 @@ class SQLiteChatThreadDB(ChatThreadDB):
         return formatted_chat_threads
 
     def get_chat_thread(self, thread_id: str) -> dict:
+        """
+        Returns a formatted chat thread dictionary with the following keys:
+        - id: str
+        - params: dict
+        - interactions: list[dict]
+        """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         # Get the chat thread by thread_id and the interactions for this thread. The interactions have a foreign key constraint on the thread_id column
@@ -110,10 +116,21 @@ class SQLiteChatThreadDB(ChatThreadDB):
             }
             formatted_interactions.append(formatted_interaction)
         
-        chat_thread["interactions"] = formatted_interactions
+        formatted_chat_thread = {}
+        formatted_chat_thread["interactions"] = formatted_interactions
+
+        # Format the chat thread params
+        params = {}
+        keys = [key for key in self.chat_thread_columns if key != "thread_id"]
+        for key in keys:
+            params[key] = chat_thread[key]
+        formatted_chat_thread["params"] = params
+
+        # Add the id key
+        formatted_chat_thread["id"] = chat_thread["id"]
 
         conn.close()
-        return chat_thread
+        return formatted_chat_thread
 
     def update_chat_thread(self, thread_id: str, chat_thread_params: dict) -> dict:
         conn = sqlite3.connect(self.db_path)
@@ -138,6 +155,9 @@ class SQLiteChatThreadDB(ChatThreadDB):
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         message_id = str(uuid.uuid4())
+        
+        # add message_id to the interaction
+        interaction["message_id"] = message_id
         
         formatted_interaction = {
             "thread_id": thread_id,
