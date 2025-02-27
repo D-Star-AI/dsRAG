@@ -323,8 +323,6 @@ def _get_chat_response(
         # run searches
         search_results = {}
         for kb_id, queries in search_queries_by_kb.items():
-            print (f"Running search for KB: {kb_id}")
-            print (f"Queries: {queries}")
             kb = kbs.get(kb_id)
             search_results[kb_id] = kb.query(search_queries=queries, rse_params=rse_params, metadata_filter=metadata_filter)
 
