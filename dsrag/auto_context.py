@@ -84,7 +84,12 @@ def get_document_title(auto_context_model: LLM, document_text: str, document_tit
         non_english_addendum = ""
 
     # get document title
-    prompt = DOCUMENT_TITLE_PROMPT.format(document_title_guidance=document_title_guidance, non_english_addendum=non_english_addendum, document_text=document_text, truncation_message=truncation_message)
+    prompt = DOCUMENT_TITLE_PROMPT.format(
+        document_title_guidance=document_title_guidance, 
+        non_english_addendum=non_english_addendum, 
+        document_text=document_text, 
+        truncation_message=truncation_message
+    )
     chat_messages = [{"role": "user", "content": prompt}]
     document_title = auto_context_model.make_llm_call(chat_messages)
     return document_title
@@ -105,7 +110,13 @@ def get_document_summary(auto_context_model: LLM, document_text: str, document_t
         non_english_addendum = ""
 
     # get document summary
-    prompt = DOCUMENT_SUMMARIZATION_PROMPT.format(document_summarization_guidance=document_summarization_guidance, non_english_addendum=non_english_addendum, document_text=document_text, document_title=document_title, truncation_message=truncation_message)
+    prompt = DOCUMENT_SUMMARIZATION_PROMPT.format(
+        document_summarization_guidance=document_summarization_guidance, 
+        non_english_addendum=non_english_addendum, 
+        document_text=document_text, 
+        document_title=document_title, 
+        truncation_message=truncation_message
+    )
     chat_messages = [{"role": "user", "content": prompt}]
     document_summary = auto_context_model.make_llm_call(chat_messages)
     return document_summary

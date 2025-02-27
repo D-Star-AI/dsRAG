@@ -377,6 +377,7 @@ class KnowledgeBase:
         if min_length_for_chunking is not None:
             chunking_config["min_length_for_chunking"] = min_length_for_chunking
         
+        # verify that either text or file_path is provided
         if text == "" and file_path == "":
             raise ValueError("Either text or file_path must be provided")
 
@@ -399,11 +400,17 @@ class KnowledgeBase:
             chunking_config=chunking_config,
             file_system=self.file_system,
         )
+
+        # construct full document text from sections (for auto_context)
+        document_text = ""
+        for section in sections:
+            document_text += section["content"]
+
         chunks, chunks_to_embed = auto_context(
             auto_context_model=self.auto_context_model, 
             sections=sections, 
             chunks=chunks, 
-            text=text, 
+            text=document_text, 
             doc_id=doc_id, 
             document_title=document_title, 
             auto_context_config=auto_context_config, 
