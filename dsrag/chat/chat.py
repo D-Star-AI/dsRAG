@@ -151,7 +151,18 @@ def limit_chat_messages(chat_messages: list[dict], max_tokens: int = 8000) -> li
     
     return limited_messages
 
-def _set_chat_thread_params(chat_thread_params: ChatThreadParams, kb_ids: list[str] = None, model: str = None, temperature: float = None, system_message: str = None, auto_query_model: str = None, auto_query_guidance: str = None, target_output_length: str = None, max_chat_history_tokens: int = None) -> ChatThreadParams:
+def _set_chat_thread_params(
+    chat_thread_params: ChatThreadParams,
+    kb_ids: list[str] = None,
+    model: str = None,
+    temperature: float = None,
+    system_message: str = None,
+    auto_query_model: str = None,
+    auto_query_guidance: str = None,
+    target_output_length: str = None,
+    max_chat_history_tokens: int = None,
+    rse_params: dict = None
+) -> ChatThreadParams:
     """Set and validate chat thread parameters.
 
     Internal method to ensure all required parameters are set with appropriate defaults.
@@ -166,6 +177,7 @@ def _set_chat_thread_params(chat_thread_params: ChatThreadParams, kb_ids: list[s
         auto_query_guidance (str, optional): Guidance for query generation. Defaults to None.
         target_output_length (str, optional): Target response length. Defaults to None.
         max_chat_history_tokens (int, optional): Maximum chat history tokens. Defaults to None.
+        rse_params (dict, optional): Parameters for response evaluation. Defaults to None.
 
     Returns:
         ChatThreadParams: Updated parameters with defaults filled in.
@@ -211,9 +223,20 @@ def _set_chat_thread_params(chat_thread_params: ChatThreadParams, kb_ids: list[s
     elif 'max_chat_history_tokens' not in chat_thread_params or chat_thread_params['max_chat_history_tokens'] is None:
         chat_thread_params['max_chat_history_tokens'] = 8000
 
+    if rse_params is not None:
+        chat_thread_params['rse_params'] = rse_params
+    elif 'rse_params' not in chat_thread_params or chat_thread_params['rse_params'] is None:
+        chat_thread_params['rse_params'] = {}
+
     return chat_thread_params
 
-def _get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParams, chat_thread_interactions: list[dict], metadata_filter: MetadataFilter = None) -> dict:
+def _get_chat_response(
+    input: str,
+    kbs: dict,
+    chat_thread_params: ChatThreadParams,
+    chat_thread_interactions: list[dict],
+    metadata_filter: MetadataFilter = None
+) -> dict:
     """Generate a response to a chat input using knowledge base search.
 
     Args:
@@ -247,7 +270,8 @@ def _get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadPara
         auto_query_model=chat_thread_params.get("auto_query_model"),
         auto_query_guidance=chat_thread_params.get("auto_query_guidance"),
         target_output_length=chat_thread_params.get("target_output_length"),
-        max_chat_history_tokens=chat_thread_params.get("max_chat_history_tokens")
+        max_chat_history_tokens=chat_thread_params.get("max_chat_history_tokens"),
+        rse_params=chat_thread_params.get("rse_params")
     )
 
     kb_info = []
@@ -294,13 +318,13 @@ def _get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadPara
 
         print (f"Search queries by KB: {search_queries_by_kb}")
 
+        rse_params = chat_thread_params['rse_params']
+
         # run searches
         search_results = {}
         for kb_id, queries in search_queries_by_kb.items():
-            print (f"Running search for KB: {kb_id}")
-            print (f"Queries: {queries}")
             kb = kbs.get(kb_id)
-            search_results[kb_id] = kb.query(search_queries=queries, metadata_filter=metadata_filter)
+            search_results[kb_id] = kb.query(search_queries=queries, rse_params=rse_params, metadata_filter=metadata_filter)
 
         # unpack search results into a list
         formatted_relevant_segments = {}
@@ -456,6 +480,7 @@ def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInp
     metadata_filter = get_response_input.metadata_filter
     thread = chat_thread_db.get_chat_thread(thread_id)
     if chat_thread_params_override is not None:
+        # NOTE: this does a complete override of the chat thread params, and will use system defaults for any parameters not provided in the override
         chat_thread_params = chat_thread_params_override
     else:
         chat_thread_params = thread["params"]
