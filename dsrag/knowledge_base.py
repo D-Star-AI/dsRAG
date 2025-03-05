@@ -257,7 +257,6 @@ class KnowledgeBase:
         min_length_for_chunking: int = None,
         supp_id: str = "",
         metadata: dict = {},
-        thread_count: int = 2
     ):
         """Add a document to the knowledge base.
 
@@ -400,7 +399,6 @@ class KnowledgeBase:
             semantic_sectioning_config=semantic_sectioning_config, 
             chunking_config=chunking_config,
             file_system=self.file_system,
-            thread_count=thread_count
         )
 
         # construct full document text from sections (for auto_context)

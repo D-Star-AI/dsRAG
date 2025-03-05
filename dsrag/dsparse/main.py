@@ -22,7 +22,6 @@ def parse_and_chunk(
     file_system: FileSystem = {}, 
     file_path: str = None, 
     text: str = None,
-    thread_count: int = 2
 ) -> Tuple[List[Section], List[Chunk]]:
     """
     Inputs
@@ -94,7 +93,6 @@ def parse_and_chunk(
             vlm_config=vlm_config,
             semantic_sectioning_config=semantic_sectioning_config,
             chunking_config=chunking_config,
-            thread_count=thread_count,
         )
     else:
         if file_path:
@@ -122,7 +120,7 @@ def parse_and_chunk(
 def parse_and_chunk_vlm(
     file_path: str, kb_id: str, doc_id: str, file_system: FileSystem, vlm_config: VLMConfig,
     semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig,
-    testing_mode: bool = False, thread_count: int = 2) -> Tuple[List[Section], List[Chunk]]:
+    testing_mode: bool = False) -> Tuple[List[Section], List[Chunk]]:
     # Step 1: Parse the file
 
     #save_path = vlm_config["save_path"]
@@ -132,7 +130,6 @@ def parse_and_chunk_vlm(
         doc_id=doc_id, 
         vlm_config=vlm_config, 
         file_system=file_system,
-        thread_count=thread_count
     )
     
     if testing_mode:
