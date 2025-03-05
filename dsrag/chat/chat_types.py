@@ -9,6 +9,7 @@ class ChatThreadParams(TypedDict):
     system_message: Optional[str]
     auto_query_model: Optional[str]
     auto_query_guidance: Optional[str]
+    rse_params: Optional[dict]
     target_output_length: Optional[str]
     max_chat_history_tokens: Optional[int]
 
