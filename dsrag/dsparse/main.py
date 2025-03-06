@@ -117,11 +117,20 @@ def parse_and_chunk(
     return sections, chunks
 
 
-def parse_and_chunk_vlm(file_path: str, kb_id: str, doc_id: str, file_system: FileSystem, vlm_config: VLMConfig, semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, testing_mode: bool = False) -> Tuple[List[Section], List[Chunk]]:
+def parse_and_chunk_vlm(
+    file_path: str, kb_id: str, doc_id: str, file_system: FileSystem, vlm_config: VLMConfig,
+    semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig,
+    testing_mode: bool = False) -> Tuple[List[Section], List[Chunk]]:
     # Step 1: Parse the file
 
     #save_path = vlm_config["save_path"]
-    elements = parse_file(pdf_path=file_path, kb_id=kb_id, doc_id=doc_id, vlm_config=vlm_config, file_system=file_system)
+    elements = parse_file(
+        pdf_path=file_path, 
+        kb_id=kb_id, 
+        doc_id=doc_id, 
+        vlm_config=vlm_config, 
+        file_system=file_system,
+    )
     
     if testing_mode:
         # dump to json for testing

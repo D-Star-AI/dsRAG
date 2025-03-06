@@ -39,6 +39,7 @@ class VLMConfig(TypedDict):
     location: Optional[str]
     exclude_elements: Optional[list[str]]
     element_types: Optional[list[ElementType]]
+    max_workers: Optional[int] = None
 
 class SemanticSectioningConfig(TypedDict):
     use_semantic_sectioning: Optional[bool]
