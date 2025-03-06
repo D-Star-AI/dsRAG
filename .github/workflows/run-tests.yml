@@ -19,6 +19,10 @@ jobs:
       AWS_S3_ACCESS_KEY: ${{ secrets.AWS_S3_ACCESS_KEY }}
       AWS_S3_SECRET_KEY: ${{ secrets.AWS_S3_SECRET_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_DYNAMO_ACCESS_KEY: ${{ secrets.AWS_DYNAMO_ACCESS_KEY }}
+      AWS_DYNAMO_SECRET_KEY: ${{ secrets.AWS_DYNAMO_SECRET_KEY }}
+      PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
 
     steps:
       - name: Checkout code
@@ -27,7 +31,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.x'
+          python-version: '3.12'
 
       - name: Install Poppler
         run: sudo apt-get install -y poppler-utils

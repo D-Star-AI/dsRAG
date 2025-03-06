@@ -1,3 +1,5 @@
+# NOTE: This is a legacy file and is not used in the current implementation. Will be removed in the future.
+
 import os
 import instructor
 from anthropic import Anthropic
@@ -24,7 +26,7 @@ def get_search_queries(user_input: str, auto_query_guidance: str = "", max_queri
         queries: List[str]
 
     resp = client.messages.create(
-        model="claude-3-sonnet-20240229",
+        model="claude-3-5-sonnet-20241022",
         max_tokens=400,
         temperature=0.2,
         system=SYSTEM_MESSAGE.format(max_queries=max_queries, auto_query_guidance=auto_query_guidance),

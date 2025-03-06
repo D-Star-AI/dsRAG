@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dsrag"
-version = "0.3.8"
+version = "0.5.0"
 description = "State-of-the-art RAG pipeline from D-Star AI"
 readme = "README.md"
 authors = [{ name = "Zach McCormick", email = "zach@d-star.ai" }, { name = "Nick McCormick", email = "nick@d-star.ai" }]
@@ -39,3 +39,4 @@ Contact = "https://github.com/D-Star-AI/dsRAG"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["dsrag", "dsrag.*"]
+exclude = ["dsrag.dsparse.tests", "dsrag.dsparse.tests.*", "dsrag.dsparse.dist", "dsrag.dsparse.dist.*"]

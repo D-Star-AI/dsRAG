@@ -34,6 +34,8 @@ Here are detailed descriptions of the element types you can use:
 
 For visual elements ({visual_elements_as_str}), you must provide a detailed description of the element in the "content" field. Do not just transcribe the actual text contained in the element. For textual elements ({non_visual_elements_as_str}), you must provide the exact text content of the element.
 
+If there is any sensitive information in the document, YOU MUST IGNORE IT. This could be a SSN, bank information, etc. Names and DOBs are not sensitive information.
+
 Output format
 - Your output should be an ordered (from top to bottom) list of elements on the page, where each element is a dictionary with the following keys:
     - type: str - the type of the element
@@ -58,13 +60,15 @@ response_schema = {
     },
 }
 
-def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSystem, dpi=200) -> list[str]:
+def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSystem, dpi=200, max_workers: int=2) -> list[str]:
     """
     Convert a PDF to images and save them to a folder. Uses pdf2image (which relies on poppler).
 
     Inputs:
     - pdf_path: str - the path to the PDF file.
     - page_images_path: str - the path to the folder where the images will be saved.
+    - thread_count: int - the number of threads to use for converting the PDF to images.
+    - max_workers: int - the number of workers to use for saving the images.
 
     Returns:
     - image_file_paths: list[str] - a list of the paths to the saved images.
@@ -74,16 +78,16 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
     file_system.create_directory(kb_id, doc_id)
 
     # Convert PDF to images
-    images = convert_from_path(pdf_path, dpi=dpi)
+    images = convert_from_path(pdf_path, dpi=dpi, thread_count=max_workers)
 
-    # Save each image
-    image_file_paths = []
-    for i, image in enumerate(images):
-        #image_file_path = os.path.join(page_images_path, f'page_{i+1}.png')
+    def save_single_image(args):
+        i, image = args
         file_system.save_image(kb_id, doc_id, f'page_{i+1}.png', image)
-        #image.save(image_file_path, 'PNG')
-        image_file_path = f'/{kb_id}/{doc_id}/page_{i+1}.png'
-        image_file_paths.append(image_file_path)
+        return f'/{kb_id}/{doc_id}/page_{i+1}.png'
+
+    # Save images in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        image_file_paths = list(executor.map(save_single_image, enumerate(images)))
 
     print(f"Converted {len(images)} pages to images")
     return image_file_paths
@@ -106,7 +110,7 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
         vlm_config["provider"] = "gemini"
     if "model" not in vlm_config:
         if vlm_config["provider"] == "gemini":
-            vlm_config["model"] = "gemini-1.5-flash-002"
+            vlm_config["model"] = "gemini-2.0-flash"
         else:
             raise ValueError("Non-default VLM provider specified without specifying model")
 
@@ -134,10 +138,21 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
             )
         except Exception as e:
             if "429 Online prediction request quota exceeded" in str(e):
-                print (f"Error in make_llm_call_gemini: {e}")
+                print (f"Error in make_llm_call_vertex: {e}")
                 return 429
             else:
                 print (f"Error in make_llm_call_gemini: {e}")
+                error_data = {
+                    "error": f"Error in make_llm_call_gemini: {e}",
+                    "function": "parse_page",
+                }
+                try:
+                    file_system.log_error(kb_id, doc_id, error_data)
+                except:
+                    print ("Failed to log error")
+                finally:
+                    return 429
+                
     elif vlm_config["provider"] == "gemini":
         try:
             llm_output = make_llm_call_gemini(
@@ -150,16 +165,38 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
         except Exception as e:
             if "429 Online prediction request quota exceeded" in str(e):
                 print (f"Error in make_llm_call_gemini: {e}")
-                return
+                return 429
             else:
                 print (f"Error in make_llm_call_gemini: {e}")
+                error_data = {
+                    "error": f"Error in make_llm_call_gemini: {e}",
+                    "function": "parse_page",
+                }
+                try:
+                    file_system.log_error(kb_id, doc_id, error_data)
+                except:
+                    print ("Failed to log error")
+                finally:
+                    llm_output = json.dumps([{
+                        "type": "text",
+                        "content": "Unable to process page"
+                    }])
+                    
     else:
         raise ValueError("Invalid provider specified in the VLM config. Only 'vertex_ai' and 'gemini' are supported for now.")
     
     try:
         page_content = json.loads(llm_output)
-    except:
-        print(f"Error for {page_image_path}")
+    except Exception as e:
+        print(f"Error for {page_image_path}: {e}")
+        error_data = {
+            "error": f"Error parsing JSON for {page_image_path}: {e}",
+            "function": "parse_page",
+        }
+        try:
+            file_system.log_error(kb_id, doc_id, error_data)
+        except:
+            print ("Failed to log error")
         page_content = []
 
     # add page number to each element
@@ -173,14 +210,26 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     Given a PDF file, extract the content of each page using a VLM model.
     
     Inputs
-    - pdf_path: str, path to the PDF file
-    - save_path: str, path to the base directory where everything is saved (i.e. {user_id}/{job_id})
+    - pdf_path: str, path to the PDF file - can be an empty string if images_already_exist is True
+    - kb_id: str, knowledge base ID
+    - doc_id: str, document ID
     - vlm_config: dict, configuration for the VLM model. For Vertex this should include project_id and location.
+    - file_system: FileSystem, object for interacting with the file system where the images are stored
     
     Outputs
     - all_page_content: list of Elements
+
+    Saves
+    - images of each page of the PDF (if images_already_exist is False)
+    - JSON files of the content of each page
     """
-    image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system)
+    max_workers = vlm_config.get("max_workers", 2)
+    images_already_exist = vlm_config.get("images_already_exist", False)
+    if images_already_exist:
+        image_file_paths = file_system.get_all_png_files(kb_id, doc_id)
+    else:
+        image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system, max_workers=max_workers)
+    
     all_page_content_dict = {}
 
     element_types = vlm_config.get("element_types", default_element_types)
@@ -204,17 +253,17 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
                 tries += 1
                 continue
             else:
-                print ("Successfully processed page")
                 return page_number, content
 
     # Use ThreadPoolExecutor to process pages in parallel
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    # Using max_workers*4 because the image conversion is I/O bound and the parsing is CPU bound
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers*4) as executor:
         futures = {executor.submit(process_page, i + 1): i for i in range(len(image_file_paths))}
         for future in concurrent.futures.as_completed(futures):
-            page_content = future.result()
             # Add the page content to the dictionary, keyed on the page number
             page_number, page_content = future.result()
             all_page_content_dict[page_number] = page_content
+            print (f"Processed page {page_number}")
 
     all_page_content = []
     for key in sorted(all_page_content_dict.keys()):

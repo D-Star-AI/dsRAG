@@ -3,6 +3,7 @@ import sys
 import unittest
 import shutil
 import psycopg2
+import time
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
@@ -10,6 +11,8 @@ from dsrag.database.chunk.basic_db import BasicChunkDB
 from dsrag.database.chunk.sqlite_db import SQLiteDB
 from dsrag.database.chunk.db import ChunkDB
 from dsrag.database.chunk.postgres_db import PostgresChunkDB
+from dsrag.database.chunk import DynamoDB
+
 
 class TestChunkDB(unittest.TestCase):
     def setUp(self):

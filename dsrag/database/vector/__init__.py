@@ -6,3 +6,4 @@ from .weaviate_db import WeaviateVectorDB
 from .qdrant_db import QdrantVectorDB
 from .milvus_db import MilvusDB
 from .postgres_db import PostgresVectorDB
+from .pinecone_db import PineconeDB

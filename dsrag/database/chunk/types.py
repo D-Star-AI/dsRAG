@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import Optional
 from typing_extensions import TypedDict
 
-
 class FormattedDocument(TypedDict):
     id: str
     title: str
@@ -11,3 +10,4 @@ class FormattedDocument(TypedDict):
     created_on: Optional[datetime]
     supp_id: Optional[str]
     metadata: Optional[dict]
+    chunk_count: int

@@ -37,6 +37,7 @@ def parse_and_chunk(
             - exclude_elements: a list of element types to exclude from the parsed text. Default is ["Header", "Footer"].
             - element_types: a list of dictionaries, each containing 'name', 'instructions', and 'is_visual' keys
                 - default (defined in element_types.py) will be used if not provided
+            - images_already_exist: bool, whether the images have already been extracted and saved (default is False)
         - always_save_page_images: bool - whether to save page images even if VLM is not used (default is False)
     - semantic_sectioning_config: a dictionary with configuration for the semantic sectioning model (defaults will be used if not provided)
         - use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
@@ -72,7 +73,7 @@ def parse_and_chunk(
     use_vlm = file_parsing_config.get("use_vlm", False)
 
     # We can only run VLM file parsing on .pdf files
-    if use_vlm and file_path and not file_path.endswith(".pdf"):
+    if use_vlm and file_path and not file_path.lower().endswith(".pdf"):
         raise ValueError("VLM parsing requires a .pdf file. Please provide a .pdf file_path.")
     
     # Create a FileSystem object if not provided
@@ -116,11 +117,20 @@ def parse_and_chunk(
     return sections, chunks
 
 
-def parse_and_chunk_vlm(file_path: str, kb_id: str, doc_id: str, file_system: FileSystem, vlm_config: VLMConfig, semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig, testing_mode: bool = False) -> Tuple[List[Section], List[Chunk]]:
+def parse_and_chunk_vlm(
+    file_path: str, kb_id: str, doc_id: str, file_system: FileSystem, vlm_config: VLMConfig,
+    semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig,
+    testing_mode: bool = False) -> Tuple[List[Section], List[Chunk]]:
     # Step 1: Parse the file
 
     #save_path = vlm_config["save_path"]
-    elements = parse_file(pdf_path=file_path, kb_id=kb_id, doc_id=doc_id, vlm_config=vlm_config, file_system=file_system)
+    elements = parse_file(
+        pdf_path=file_path, 
+        kb_id=kb_id, 
+        doc_id=doc_id, 
+        vlm_config=vlm_config, 
+        file_system=file_system,
+    )
     
     if testing_mode:
         # dump to json for testing

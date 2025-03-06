@@ -49,7 +49,7 @@ class BasicChunkDB(ChunkDB):
                 self.data[doc_id][chunk_index].get("chunk_page_start", None),
                 self.data[doc_id][chunk_index].get("chunk_page_end", None),
             )
-        return None
+        return None, None
 
     def get_document(
         self, doc_id: str, include_content: bool = False
@@ -71,6 +71,7 @@ class BasicChunkDB(ChunkDB):
                 content=full_document_string if include_content else None,
                 summary=cast(str, document[0].get("document_summary", "")),
                 created_on=None,
+                chunk_count=len(document.items())
             )
 
         else:

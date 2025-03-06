@@ -28,7 +28,7 @@ class TestVLMFileParsing(unittest.TestCase):
 
         vlm_config = {
             "provider": "gemini",
-            "model": "gemini-1.5-flash-002",
+            "model": "gemini-2.0-flash",
         }
         semantic_sectioning_config = {
             "llm_provider": "openai",

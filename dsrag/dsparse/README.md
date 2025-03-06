@@ -9,7 +9,7 @@ sections, chunks = parse_and_chunk(
         "use_vlm": True,
         "vlm_config": {
             "provider": "gemini",
-            "model": "gemini-1.5-pro-002",
+            "model": "gemini-2.0-flash",
         }
     }
     file_path="path/to/file.pdf",
@@ -27,14 +27,17 @@ kb.add_document(
     file_parsing_config={
         "use_vlm": True,
         "vlm_config": {
-            "provider": "vertex_ai",
-            "model": "gemini-1.5-pro-002",
-            "project_id": os.environ["VERTEX_PROJECT_ID"],
-            "location": "us-central1",
+            "provider": "gemini",
+            "model": "gemini-2.0-flash",
         }
     }
 )
 ```
+
+## Installation
+If you want to use dsParse on its own, without installing the full `dsrag` package, there is a standalone Python package available for dsParse, which can be installed with `pip install dsparse`. If you already have `dsrag` installed, you DO NOT need to separately install `dsparse`.
+
+To use the VLM file parsing functionality, you'll need to install one external dependency: poppler. This is used to convert PDFs to page images. On a Mac you can install it with `brew install poppler`.
 
 ## Multimodal file parsing
 dsParse uses a vision language model (VLM) to parse documents. This has a few advantages:
@@ -45,7 +48,7 @@ dsParse uses a vision language model (VLM) to parse documents. This has a few ad
 
 When it comes across an element on the page that can't be accurately represented with text alone, like an image or figure (chart, graph, diagram, etc.), it provides a text description of it. This can then be used in the embedding and retrieval pipeline. 
 
-The default model, `gemini-1.5-flash-002`, is a fast and cost-effective option. `gemini-1.5-pro-002` is also supported, and works extremely well, but at a higher cost. These models can be accessed through either the Gemini API or the Vertex API.
+The default model, `gemini-2.0-flash`, is a fast and cost-effective option with roughly state-of-the-art performance.
 
 ### Element types
 Page content is categorized into the following eight categories by default:
@@ -70,22 +73,24 @@ For all of these element types, it’s more reliable to just send in the origina
 ## Semantic sectioning and chunking
 Semantic sectioning uses an LLM to break a document into sections. It works by annotating the document with line numbers and then prompting an LLM to identify the starting lines for each “semantically cohesive section.” These sections should be anywhere from a few paragraphs to a few pages long. The sections then get broken into smaller chunks if needed. The LLM also generates descriptive titles for each section. When using dsParse with a dsRAG knowledge base, these section titles get used in the contextual chunk headers created by AutoContext, which provides additional context to the ranking models (embeddings and reranker), enabling better retrieval.
 
-The default model for semantic sectioning is `gpt-4o-mini`, but similarly strong models like `gemini-1.5-flash-002` will also work well.
+The default model for semantic sectioning is `gpt-4o-mini`, but similar or stronger models like `gemini-2.0-flash` will also work well.
 
 ## Cost and latency/throughput estimation
-An obvious concern with using a large model like `gemini-1.5-pro-002` to parse documents is the cost. Let's run the numbers:
 
-VLM file parsing cost calculation (`gemini-1.5-pro-002`)
-- Image input: 1 image x $0.00032875 per image = $0.00032875
-- Text input (prompt): 400 tokens x $1.25/10^6 per token = $0.000500
-- Text output: 600 tokens x $5.00/10^6 per token = $0.003000
-- Total: $0.00382875/page or **$3.83 per 1000 pages**
+### VLM file parsing
+An obvious concern with using a VLM to parse documents is the cost. Let's run the numbers:
 
-This is actually cheaper than many commercially available PDF parsing services. Unstructured, for example, costs $10 per 1000 pages.
+VLM file parsing cost calculation (`gemini-2.0-flash`)
+- Text input (prompt) + image input: 400 (text) + 258 (image) tokens x $0.10/10^6 per token = $0.000066
+- Text output: 600 tokens x $0.40/10^6 per token = $0.000240
+- Total: $0.000306/page or **$0.31 per 1000 pages**
 
-What about latency and throughput? Since each page is processed independently, this is a highly parallelizable problem. The main limiting factor then is the rate limits imposed by the VLM provider. The current rate limit for `gemini-1.5-pro-002` is 1000 requests per minute. Since dsParse uses one request per page, that means the limit is 1000 pages per minute. Processing a single page takes around 15-20 seconds, so that's the minimum latency for processing a document.
+This is substantially cheaper than commercially available OCR/PDF parsing services. Unstructured and Azure Document Intelligence, for example, both cost $10 per 1000 pages. 
 
-Semantic sectioning uses a much cheaper model, and it also uses far fewer output tokens, so it ends up being far cheaper than the file parsing step.
+What about latency and throughput? Since each page is processed independently, this is a highly parallelizable problem. The main limiting factor then is the rate limits imposed by the VLM provider. The current rate limit for `gemini-2.0-flash` is 2000 requests per minute. Since dsParse uses one request per page, that means the limit is 2000 pages per minute. Processing a single page takes around 15-20 seconds, so that's the minimum latency for processing a document.
+
+### Semantic sectioning
+Semantic sectioning produces far fewer output tokens, so it ends up being a bit cheaper than the file parsing step.
 
 Semantic sectioning cost calculation (`gpt-4o-mini`)
 - Input: 800 tokens x $0.15/10^6 per token = $0.00012
