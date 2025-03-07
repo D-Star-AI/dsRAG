@@ -354,6 +354,7 @@ pdf2image==1.17.0
     # via -r requirements.in
 pillow==11.0.0
 pinecone>=5.4.0
+pgvector>=0.3.5
 portalocker==2.10.1
     # via qdrant-client
 posthog==3.7.0
@@ -366,6 +367,7 @@ protobuf>=4.25.0
     #   grpcio-tools
     #   onnxruntime
     #   opentelemetry-proto
+psycopg2>=2.9.10
 pyarrow>=14.0.1
     # via dsrag (pyproject.toml)
 pyasn1>=0.5.0
