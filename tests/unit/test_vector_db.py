@@ -18,7 +18,7 @@ from dsrag.database.vector import (
 from dsrag.database.vector.types import ChunkMetadata
 
 
-"""class TestVectorDB(unittest.TestCase):
+class TestVectorDB(unittest.TestCase):
     def setUp(self):
         self.storage_directory = "~/test__vector_db_dsRAG"
         self.kb_id = "test_db"
@@ -659,7 +659,7 @@ class TestQdrantDB(unittest.TestCase):
         self.assertTrue(
             "Error in add_vectors: the number of vectors and metadata items must be the same."
             in str(context.exception)
-        )"""
+        )
 
 
 
