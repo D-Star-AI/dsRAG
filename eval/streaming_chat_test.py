@@ -198,4 +198,4 @@ def streaming_chat_test(test_streaming=True):
     console.print("[green]Test complete[/green]")
 
 if __name__ == "__main__":    
-    streaming_chat_test(test_streaming=False)
+    streaming_chat_test(test_streaming=True)
