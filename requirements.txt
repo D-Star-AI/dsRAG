@@ -31,6 +31,8 @@ distro==1.9.0
     # via openai
 docstring-parser==0.16
     # via instructor
+docx2txt==0.8
+    # via -r requirements.in
 frozenlist==1.5.0
     # via
     #   aiohttp
@@ -62,7 +64,9 @@ jsonpatch==1.33
 jsonpointer==3.0.0
     # via jsonpatch
 langchain-core==0.2.43
-    # via langchain-text-splitters
+    # via
+    #   -r requirements.in
+    #   langchain-text-splitters
 langchain-text-splitters==0.2.2
     # via -r requirements.in
 langsmith==0.1.147
@@ -89,6 +93,12 @@ packaging==24.1
     # via langchain-core
 pandas==2.2.3
     # via -r requirements.in
+pdf2image==1.16.0
+    # via -r requirements.in
+pillow==10.0.0
+    # via
+    #   -r requirements.in
+    #   pdf2image
 propcache==0.3.0
     # via
     #   aiohttp
@@ -106,6 +116,8 @@ pydantic-core==2.20.1
     #   pydantic
 pygments==2.18.0
     # via rich
+pypdf2==3.0.1
+    # via -r requirements.in
 python-dateutil==2.9.0.post0
     # via pandas
 python-dotenv==1.0.1
@@ -145,6 +157,7 @@ sniffio==1.3.1
     #   openai
 tenacity==8.5.0
     # via
+    #   -r requirements.in
     #   instructor
     #   langchain-core
 threadpoolctl==3.5.0

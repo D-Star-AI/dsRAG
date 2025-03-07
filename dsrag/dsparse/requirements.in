@@ -1,10 +1,13 @@
-anthropic>=0.30.1
-docx2txt>=0.8
-google-generativeai>=0.8.3
-instructor>=1.3.4
-langchain-text-splitters>=0.2.2
-openai>=1.35.12
-pdf2image>=1.17.0
-pillow>=11.0.0
-pydantic>=2.8.2
-PyPDF2>=3.0.1
+# dsparse specific dependencies - use exact versions to avoid conflicts
+anthropic==0.37.1
+docx2txt==0.8
+google-generativeai==0.8.3
+instructor==1.3.4  # Pinned to match root and avoid tenacity conflict
+langchain-text-splitters==0.2.2  # Match root requirements 
+langchain-core==0.2.43  # Explicitly pin to match what langchain-text-splitters 0.2.2 requires
+openai==1.52.2
+pdf2image==1.16.0  # Match root requirements
+pillow==10.0.0  # Match root requirements
+pydantic==2.8.2  # Compatible with both root requirements and other dependencies
+PyPDF2==3.0.1
+tenacity==8.5.0  # Explicitly pin to what works with both instructor and langchain-core

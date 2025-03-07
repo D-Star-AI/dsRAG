@@ -2,8 +2,9 @@
 # Generate requirements.txt with: pip-compile requirements.in
 
 # Core functionality - only include direct dependencies here, not transitive ones
-langchain-text-splitters>=0.2.0
-pydantic>=2.0.0
+langchain-text-splitters==0.2.2
+langchain-core==0.2.43  # Explicitly pin to avoid conflicts
+pydantic==2.8.2  # Pinned to be compatible with all dependencies
 numpy>=1.20.0
 pandas>=2.0.0
 tiktoken>=0.5.0
@@ -11,10 +12,11 @@ tqdm>=4.65.0
 requests>=2.30.0
 python-dotenv>=1.0.0
 typing-extensions>=4.5.0
-instructor>=0.4.0
+instructor==1.3.4  # Pinned to avoid tenacity conflict
+tenacity==8.5.0  # Explicitly pin to avoid conflicts
 scipy>=1.10.0
 scikit-learn>=1.2.0
-pillow>=10.0.0
-pdf2image>=1.16.0
-docx2txt>=0.8
-PyPDF2>=3.0.1
+pillow==10.0.0  # Match dsparse requirements
+pdf2image==1.16.0
+docx2txt==0.8
+PyPDF2==3.0.1
