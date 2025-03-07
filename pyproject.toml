@@ -26,15 +26,64 @@ classifiers=[
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 requires-python = ">=3.9"
-dynamic = ["dependencies"]
-
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
+# Core dependencies are included directly (matching requirements.in)
+dependencies = [
+    "langchain-text-splitters>=0.3.0",
+    "langchain-core>=0.3.0",
+    "pydantic>=2.8.2",
+    "numpy>=1.20.0",
+    "pandas>=2.0.0",
+    "tiktoken>=0.5.0",
+    "tqdm>=4.65.0",
+    "requests>=2.30.0",
+    "python-dotenv>=1.0.0",
+    "typing-extensions>=4.5.0",
+    "instructor>=1.7.0",
+    "scipy>=1.10.0",
+    "scikit-learn>=1.2.0",
+    "pillow>=10.0.0",
+    "pdf2image>=1.16.0",
+    "docx2txt>=0.8",
+    "PyPDF2>=3.0.1"
+]
 
 [project.urls]
 Homepage = "https://github.com/D-Star-AI/dsRAG"
 Documentation = "https://github.com/D-Star-AI/dsRAG"
 Contact = "https://github.com/D-Star-AI/dsRAG"
+
+[project.optional-dependencies]
+# Database optional dependencies
+faiss = ["faiss-cpu>=1.8.0"]
+chroma = ["chromadb>=0.5.5"]
+weaviate = ["weaviate-client>=4.6.0"]
+qdrant = ["qdrant-client>=1.8.0"]
+milvus = ["pymilvus>=2.3.5"]
+pinecone = ["pinecone>=3.0.0"]
+postgres = ["psycopg2-binary>=2.9.0", "pgvector>=0.2.0"]
+boto3 = ["boto3>=1.28.0"]
+
+# LLM/embedding/reranker optional dependencies
+openai = ["openai>=1.52.2"]
+cohere = ["cohere>=4.0.0"]
+voyageai = ["voyageai>=0.1.0"]
+ollama = ["ollama>=0.1.0"]
+anthropic = ["anthropic>=0.37.1"]
+google-generativeai = ["google-generativeai>=0.8.3"]
+
+# Convenience groups
+all-dbs = [
+    "dsrag[faiss,chroma,weaviate,qdrant,milvus,pinecone,postgres,boto3]"
+]
+
+all-models = [
+    "dsrag[openai,cohere,voyageai,ollama,anthropic,google-generativeai]"
+]
+
+# Complete installation with all optional dependencies
+all = [
+    "dsrag[all-dbs,all-models]"
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

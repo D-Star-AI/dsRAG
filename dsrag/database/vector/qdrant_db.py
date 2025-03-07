@@ -4,7 +4,10 @@ from dsrag.database.vector.types import ChunkMetadata, Vector, VectorSearchResul
 from dsrag.database.vector.db import VectorDB
 import numpy as np
 from typing import Optional
-from qdrant_client import QdrantClient, models
+from dsrag.utils.imports import LazyLoader
+
+# Lazy load qdrant_client
+qdrant_client = LazyLoader("qdrant_client")
 
 
 def convert_id(_id: str) -> str:
@@ -79,7 +82,7 @@ class QdrantVectorDB(VectorDB):
             "host": host,
             "path": path,
         }
-        self.client = QdrantClient(**self.client_options)
+        self.client = qdrant_client.QdrantClient(**self.client_options)
 
     def close(self):
         """
@@ -110,8 +113,8 @@ class QdrantVectorDB(VectorDB):
         if not self.client.collection_exists(self.kb_id):
             self.client.create_collection(
                 self.kb_id,
-                vectors_config=models.VectorParams(
-                    size=len(vectors[0]), distance=models.Distance.COSINE
+                vectors_config=qdrant_client.models.VectorParams(
+                    size=len(vectors[0]), distance=qdrant_client.models.Distance.COSINE
                 ),
             )
         points = []
@@ -121,7 +124,7 @@ class QdrantVectorDB(VectorDB):
             chunk_index = meta.get("chunk_index", 0)
             uuid = convert_id(f"{doc_id}_{chunk_index}")
             points.append(
-                models.PointStruct(
+                qdrant_client.models.PointStruct(
                     id=uuid,
                     vector=vector,
                     payload={
@@ -144,10 +147,10 @@ class QdrantVectorDB(VectorDB):
         """
         self.client.delete(
             self.kb_id,
-            models.Filter(
+            qdrant_client.models.Filter(
                 must=[
-                    models.FieldCondition(
-                        key="doc_id", match=models.MatchValue(value=doc_id)
+                    qdrant_client.models.FieldCondition(
+                        key="doc_id", match=qdrant_client.models.MatchValue(value=doc_id)
                     )
                 ]
             ),

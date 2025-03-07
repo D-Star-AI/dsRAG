@@ -2,8 +2,11 @@ from dsrag.database.vector.db import VectorDB
 from dsrag.database.vector.types import VectorSearchResult, MetadataFilter
 from typing import Optional
 import os
-import chromadb
 import numpy as np
+from dsrag.utils.imports import LazyLoader
+
+# Lazy load chromadb
+chromadb = LazyLoader("chromadb")
 
 
 def format_metadata_filter(metadata_filter: MetadataFilter) -> dict:

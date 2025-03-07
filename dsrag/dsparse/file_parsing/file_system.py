@@ -1,5 +1,5 @@
 import os
-import boto3
+from ..utils.imports import boto3
 import io
 import json
 from abc import ABC, abstractmethod

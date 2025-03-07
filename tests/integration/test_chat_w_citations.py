@@ -7,9 +7,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 
 from dsrag.chat.chat import create_new_chat_thread, get_chat_thread_response, ChatResponseInput
 from dsrag.database.chat_thread.basic_db import BasicChatThreadDB
-from dsrag.database.chat_thread.sqlite_db import SQLiteChatThreadDB
 from dsrag.knowledge_base import KnowledgeBase
-from dsrag.database.vector import ChromaDB
+#from dsrag.database.vector.chroma_db import ChromaDB
 from dsrag.reranker import NoReranker
 
 class TestChat(unittest.TestCase):
@@ -22,11 +21,11 @@ class TestChat(unittest.TestCase):
         file_path = os.path.join(script_dir, "../data/levels_of_agi.pdf")
         
         kb_id = "levels_of_agi"
-        vector_db = ChromaDB(kb_id=kb_id)
+        #vector_db = ChromaDB(kb_id=kb_id)
         reranker = NoReranker() 
         cls.kb = KnowledgeBase(
             kb_id=kb_id, 
-            vector_db=vector_db, 
+            #vector_db=vector_db, 
             reranker=reranker, 
             title="Levels of AGI",
             description="Paper about the levels of AGI, written by Google DeepMind",

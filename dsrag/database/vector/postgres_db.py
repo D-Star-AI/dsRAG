@@ -1,11 +1,16 @@
 from typing import Optional, Sequence
 import json
-from pgvector.psycopg2 import register_vector
-import psycopg2
 import numpy as np
 
 from dsrag.database.vector.db import VectorDB
 from dsrag.database.vector.types import VectorSearchResult, MetadataFilter, ChunkMetadata, Vector
+from dsrag.utils.imports import LazyLoader
+
+# Lazy load PostgreSQL dependencies
+psycopg2 = LazyLoader("psycopg2", "psycopg2-binary")
+pgvector = LazyLoader("pgvector")
+
+# We'll import register_vector when needed to avoid immediate import
 
 
 def format_metadata_filter(metadata_filter: MetadataFilter) -> dict:
@@ -79,6 +84,9 @@ class PostgresVectorDB(VectorDB):
         cur = conn.cursor()
         cur.execute('CREATE EXTENSION IF NOT EXISTS vector')
         conn.commit()
+        
+        # Import register_vector only when needed
+        from pgvector.psycopg2 import register_vector
         register_vector(conn)
 
         cur.execute(f"SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = '{kb_id}_vectors')")

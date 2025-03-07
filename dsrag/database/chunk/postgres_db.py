@@ -1,9 +1,12 @@
 import time
-import psycopg2
 from typing import Any, Optional
 
 from dsrag.database.chunk.db import ChunkDB
 from dsrag.database.chunk.types import FormattedDocument
+from dsrag.utils.imports import LazyLoader
+
+# Lazy load PostgreSQL dependencies
+psycopg2 = LazyLoader("psycopg2", "psycopg2-binary")
 
 
 class PostgresChunkDB(ChunkDB):

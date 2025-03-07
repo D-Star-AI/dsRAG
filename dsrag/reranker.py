@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
-import cohere
-import voyageai
 import os
+from dsrag.utils.imports import cohere, voyageai
 from scipy.stats import beta
-from typing import Optional
 
 
 class Reranker(ABC):

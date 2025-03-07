@@ -1,8 +1,5 @@
 import os
-import instructor
-from openai import OpenAI
-from anthropic import Anthropic
-import google.generativeai as genai
+from dsrag.utils.imports import instructor, openai, anthropic, genai
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import warnings
@@ -144,7 +141,7 @@ def _handle_standard_streaming(messages: List[Dict], model_name: str, temperatur
 
 # OpenAI Handlers
 def _handle_openai_instructor(messages, model_name, response_model, temperature, max_tokens):
-    client = instructor.from_openai(OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
+    client = instructor.from_openai(openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
     formatted = _format_openai_messages(messages)
     return client.chat.completions.create(
         model=model_name,
@@ -162,7 +159,7 @@ def _handle_openai_instructor_streaming(messages, model_name, response_model, te
     # For ResponseWithCitations specifically, use our partial version
     partial_model = PartialResponseWithCitations if response_model.__name__ == "ResponseWithCitations" else instructor.Partial[response_model]
     
-    client = instructor.from_openai(OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
+    client = instructor.from_openai(openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
     formatted = _format_openai_messages(messages)
     
     # Create streaming request
@@ -179,7 +176,7 @@ def _handle_openai_instructor_streaming(messages, model_name, response_model, te
     return stream
 
 def _handle_openai_standard(messages, model_name, temperature, max_tokens):
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     formatted = _format_openai_messages(messages)
     response = client.chat.completions.create(
         model=model_name,
@@ -191,7 +188,7 @@ def _handle_openai_standard(messages, model_name, temperature, max_tokens):
 
 def _handle_openai_standard_streaming(messages, model_name, temperature, max_tokens):
     """Handle standard text streaming with OpenAI"""
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     formatted = _format_openai_messages(messages)
     
     # Create streaming request
@@ -228,7 +225,7 @@ def _format_openai_messages(messages):
 # Anthropic Handlers (with multimodal support)
 def _handle_anthropic_instructor(messages, model_name, response_model, temperature, max_tokens):
     client = instructor.from_anthropic(
-        Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]),
+        anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]),
         mode=instructor.Mode.ANTHROPIC_JSON
     )
     
@@ -265,7 +262,7 @@ def _handle_anthropic_instructor_streaming(messages, model_name, response_model,
     partial_model = PartialResponseWithCitations if response_model.__name__ == "ResponseWithCitations" else instructor.Partial[response_model]
     
     client = instructor.from_anthropic(
-        Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]),
+        anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]),
         mode=instructor.Mode.ANTHROPIC_JSON
     )
     
@@ -296,7 +293,7 @@ def _handle_anthropic_instructor_streaming(messages, model_name, response_model,
     return client.messages.create(**kwargs)
 
 def _handle_anthropic_standard(messages, model_name, temperature, max_tokens):
-    client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     
     # Extract system message if present
     system = None
@@ -324,7 +321,7 @@ def _handle_anthropic_standard(messages, model_name, temperature, max_tokens):
 
 def _handle_anthropic_standard_streaming(messages, model_name, temperature, max_tokens):
     """Handle standard text streaming with Anthropic"""
-    client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     
     # Extract system message if present
     system = None

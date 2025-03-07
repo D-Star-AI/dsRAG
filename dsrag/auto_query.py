@@ -1,7 +1,7 @@
 # NOTE: This is a legacy file and is not used in the current implementation. Will be removed in the future.
 
 import os
-import instructor
+from dsrag.utils.imports import instructor
 from anthropic import Anthropic
 from pydantic import BaseModel
 from typing import List

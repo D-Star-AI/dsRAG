@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 import os
-import ollama
+from dsrag.utils.imports import openai, anthropic, ollama
 
 
 class LLM(ABC):
@@ -39,12 +39,11 @@ class OpenAIChatAPI(LLM):
         self.max_tokens = max_tokens
 
     def make_llm_call(self, chat_messages: list[dict]) -> str:
-        from openai import OpenAI
         base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
         if base_url is not None:
-            client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
+            client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
         else:
-            client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+            client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
         response = client.chat.completions.create(
             model=self.model,
             messages=chat_messages,
@@ -70,12 +69,11 @@ class AnthropicChatAPI(LLM):
         self.max_tokens = max_tokens
 
     def make_llm_call(self, chat_messages: list[dict]) -> str:
-        from anthropic import Anthropic
         base_url = os.environ.get("DSRAG_ANTHROPIC_BASE_URL", None)
         if base_url is not None:
-            client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url)
+            client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url)
         else:
-            client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+            client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         system_message = ""
         num_system_messages = 0
         normal_chat_messages = []
@@ -108,7 +106,7 @@ class AnthropicChatAPI(LLM):
 
 class OllamaAPI(LLM):
     def __init__(
-        self, model: str = "llama3", temperature: float = 0.2, max_tokens: int = 1000, client: ollama.Client = None
+        self, model: str = "llama3", temperature: float = 0.2, max_tokens: int = 1000, client: "ollama.Client" = None
     ):
         self.client = client or ollama.Client()
         self.model = model
