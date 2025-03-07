@@ -81,7 +81,7 @@ class ChromaDB(VectorDB):
             formatted_metadata_filter = format_metadata_filter(metadata_filter)
 
         query_results = self.collection.query(
-                query_embeddings=query_vector,
+                query_embeddings=[query_vector.tolist()],
                 n_results=top_k,
                 include=["distances", "metadatas"],
                 where=formatted_metadata_filter if metadata_filter else None
