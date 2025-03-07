@@ -71,9 +71,6 @@ ollama = ["ollama>=0.1.0"]
 anthropic = ["anthropic>=0.37.1"]
 google-generativeai = ["google-generativeai>=0.8.3"]
 
-# Other optional dependencies
-langchain = ["langchain-core>=0.3.0"]
-
 # Convenience groups
 all-dbs = [
     "dsrag[faiss,chroma,weaviate,qdrant,milvus,pinecone,postgres,boto3]"
@@ -85,7 +82,7 @@ all-models = [
 
 # Complete installation with all optional dependencies
 all = [
-    "dsrag[all-dbs,all-models,langchain]"
+    "dsrag[all-dbs,all-models]"
 ]
 
 [tool.setuptools.packages.find]
