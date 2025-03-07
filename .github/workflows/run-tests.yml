@@ -23,6 +23,10 @@ jobs:
       AWS_DYNAMO_ACCESS_KEY: ${{ secrets.AWS_DYNAMO_ACCESS_KEY }}
       AWS_DYNAMO_SECRET_KEY: ${{ secrets.AWS_DYNAMO_SECRET_KEY }}
       PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
 
     steps:
       - name: Checkout code
