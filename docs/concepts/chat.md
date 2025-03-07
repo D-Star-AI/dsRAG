@@ -110,6 +110,78 @@ Chat responses include:
 - Search queries used
 - Relevant segments found
 
+## Streaming Responses
+
+dsRAG supports streaming responses, which allows you to receive and display partial responses as they're being generated. This provides a better user experience, especially for longer responses.
+
+### How to Use Streaming
+
+To use streaming, simply add the `stream=True` parameter when calling `get_chat_thread_response`:
+
+```python
+# Get streaming response
+for partial_response in get_chat_thread_response(
+    thread_id=thread_id,
+    get_response_input=response_input,
+    chat_thread_db=chat_thread_db,
+    knowledge_bases=knowledge_bases,
+    stream=True  # Enable streaming
+):
+    # Each partial_response contains the cumulative response so far
+    current_content = partial_response["model_response"]["content"]
+    
+    # Update your UI with the new content
+    display_incremental_response(current_content)
+    
+    # Citations may be populated as they become available
+    if partial_response["model_response"]["citations"]:
+        display_citations(partial_response["model_response"]["citations"])
+```
+
+### Streaming Behavior Notes
+
+1. When streaming is enabled, `get_chat_thread_response` returns a generator that yields partial responses
+2. Each partial response has the same structure as a complete response
+3. The final response is automatically saved to the chat thread database
+4. All supported LLM providers (OpenAI, Anthropic, Gemini) work with streaming
+5. Structured outputs with citations are supported in streaming mode
+
+### Example: Displaying Streaming Responses in a CLI
+
+```python
+def display_streaming_response(thread_id, user_input, chat_db, knowledge_bases):
+    """Display a streaming response in the terminal."""
+    import sys
+    
+    response_input = ChatResponseInput(user_input=user_input)
+    
+    print("AI: ", end="", flush=True)
+    
+    # Track previously seen content to only show new tokens
+    previous_content = ""
+    
+    for partial in get_chat_thread_response(
+        thread_id=thread_id,
+        get_response_input=response_input,
+        chat_thread_db=chat_db,
+        knowledge_bases=knowledge_bases,
+        stream=True
+    ):
+        current = partial["model_response"]["content"] or ""
+        
+        # Display only new content
+        if len(current) > len(previous_content):
+            new_content = current[len(previous_content):]
+            print(new_content, end="", flush=True)
+            previous_content = current
+    
+    # Print citations at the end
+    if partial["model_response"]["citations"]:
+        print("\n\nSources:")
+        for citation in partial["model_response"]["citations"]:
+            print(f"- {citation['doc_id']}")
+```
+
 ## Best Practices
 
 1. Set appropriate `target_output_length` based on your use case
@@ -117,3 +189,5 @@ Chat responses include:
 3. Configure `max_chat_history_tokens` based on your needs
 4. Use metadata filters to focus searches on relevant documents
 5. Monitor and adjust `temperature` based on desired response creativity
+6. Enable streaming for a better user experience with longer responses
+7. Handle potential `None` values in streaming partial responses

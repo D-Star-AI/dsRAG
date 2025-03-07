@@ -207,7 +207,7 @@ importlib-metadata==8.0.0
     # via opentelemetry-api
 importlib-resources>=6.0.1
     # via chromadb
-instructor==1.3.4
+instructor==1.7.3
     # via dsrag (pyproject.toml)
 jiter>=0.4.2
     # via
