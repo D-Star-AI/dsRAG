@@ -18,13 +18,15 @@ def get_response(
     model_name: str = "claude-3-5-sonnet-20241022",
     response_model: Optional[BaseModel] = None,
     temperature: float = 0.0,
-    max_tokens: int = 4000
+    max_tokens: int = 4000,
+    stream: bool = False
 ) -> Any:
     """
     Unified LLM response handler supporting:
     - Text and multimodal inputs
     - Structured output (via Instructor)
     - Multiple providers (OpenAI, Anthropic, Gemini)
+    - Streaming responses with Instructor integration
     
     Args:
         messages: List of message dicts (preferred if both messages and prompt provided)
@@ -49,9 +51,11 @@ def get_response(
         response_model: Pydantic model for structured output
         temperature: Generation temperature (0.0-1.0)
         max_tokens: Maximum tokens to generate
+        stream: Whether to stream the response (returns an iterator of responses)
         
     Returns:
-        str if no response_model provided, otherwise instance of response_model
+        - If stream=False (default): str if no response_model provided, otherwise instance of response_model
+        - If stream=True: Iterator of str or Partial[response_model] instances
         
     Example:
         >>> messages = [{
@@ -70,6 +74,10 @@ def get_response(
         >>> }]
         >>> response = get_response(messages=messages, model_name="gpt-4o")
         
+        # Streaming example:
+        >>> for partial_response in get_response(messages=messages, stream=True):
+        >>>     print(partial_response, end="", flush=True)
+        
     Note: The function automatically handles provider-specific formatting for:
         - OpenAI: Converts images to base64 URLs
         - Anthropic: Uses native image format
@@ -86,8 +94,13 @@ def get_response(
     
     # Determine processing mode
     if response_model:
+        if stream:
+            return _handle_instructor_streaming(final_messages, model_name, response_model, temperature, max_tokens)
         return _handle_instructor_mode(final_messages, model_name, response_model, temperature, max_tokens)
-    return _handle_standard_mode(final_messages, model_name, temperature, max_tokens)
+    else:
+        if stream:
+            return _handle_standard_streaming(final_messages, model_name, temperature, max_tokens)
+        return _handle_standard_mode(final_messages, model_name, temperature, max_tokens)
 
 def _handle_instructor_mode(messages: List[Dict], model_name: str, response_model: BaseModel, temperature: float, max_tokens: int) -> BaseModel:
     """Handle structured output using Instructor"""
@@ -99,6 +112,16 @@ def _handle_instructor_mode(messages: List[Dict], model_name: str, response_mode
         return _handle_gemini_instructor(messages, model_name, response_model, temperature, max_tokens)
     raise ValueError(f"Unsupported model for instructor: {model_name}")
 
+def _handle_instructor_streaming(messages: List[Dict], model_name: str, response_model: BaseModel, temperature: float, max_tokens: int):
+    """Handle structured output using Instructor with streaming"""
+    if model_name in ANTHROPIC_MODEL_NAMES:
+        return _handle_anthropic_instructor_streaming(messages, model_name, response_model, temperature, max_tokens)
+    if model_name in OPENAI_MODEL_NAMES:
+        return _handle_openai_instructor_streaming(messages, model_name, response_model, temperature, max_tokens)
+    if model_name in GEMINI_MODEL_NAMES:
+        return _handle_gemini_instructor_streaming(messages, model_name, response_model, temperature, max_tokens)
+    raise ValueError(f"Unsupported model for instructor streaming: {model_name}")
+
 def _handle_standard_mode(messages: List[Dict], model_name: str, temperature: float, max_tokens: int) -> str:
     """Handle standard text output"""
     if model_name in ANTHROPIC_MODEL_NAMES:
@@ -108,6 +131,16 @@ def _handle_standard_mode(messages: List[Dict], model_name: str, temperature: fl
     if model_name in GEMINI_MODEL_NAMES:
         return _handle_gemini_standard(messages, model_name, temperature, max_tokens)
     raise ValueError(f"Unsupported model: {model_name}")
+
+def _handle_standard_streaming(messages: List[Dict], model_name: str, temperature: float, max_tokens: int):
+    """Handle standard text output with streaming"""
+    if model_name in ANTHROPIC_MODEL_NAMES:
+        return _handle_anthropic_standard_streaming(messages, model_name, temperature, max_tokens)
+    if model_name in OPENAI_MODEL_NAMES:
+        return _handle_openai_standard_streaming(messages, model_name, temperature, max_tokens)
+    if model_name in GEMINI_MODEL_NAMES:
+        return _handle_gemini_standard_streaming(messages, model_name, temperature, max_tokens)
+    raise ValueError(f"Unsupported model for streaming: {model_name}")
 
 # OpenAI Handlers
 def _handle_openai_instructor(messages, model_name, response_model, temperature, max_tokens):
@@ -121,6 +154,30 @@ def _handle_openai_instructor(messages, model_name, response_model, temperature,
         max_tokens=max_tokens
     )
 
+def _handle_openai_instructor_streaming(messages, model_name, response_model, temperature, max_tokens):
+    """Handle structured output streaming with OpenAI using Instructor"""
+    # Use the Partial response model for streaming
+    from dsrag.chat.citations import PartialResponseWithCitations
+    
+    # For ResponseWithCitations specifically, use our partial version
+    partial_model = PartialResponseWithCitations if response_model.__name__ == "ResponseWithCitations" else instructor.Partial[response_model]
+    
+    client = instructor.from_openai(OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
+    formatted = _format_openai_messages(messages)
+    
+    # Create streaming request
+    stream = client.chat.completions.create(
+        model=model_name,
+        messages=formatted,
+        response_model=partial_model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        stream=True
+    )
+    
+    # Return the stream directly - caller will iterate through it
+    return stream
+
 def _handle_openai_standard(messages, model_name, temperature, max_tokens):
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     formatted = _format_openai_messages(messages)
@@ -131,6 +188,25 @@ def _handle_openai_standard(messages, model_name, temperature, max_tokens):
         max_tokens=max_tokens
     )
     return response.choices[0].message.content
+
+def _handle_openai_standard_streaming(messages, model_name, temperature, max_tokens):
+    """Handle standard text streaming with OpenAI"""
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    formatted = _format_openai_messages(messages)
+    
+    # Create streaming request
+    stream = client.chat.completions.create(
+        model=model_name,
+        messages=formatted,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        stream=True
+    )
+    
+    # Yield content chunks
+    for chunk in stream:
+        if chunk.choices and chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content
 
 def _format_openai_messages(messages):
     """Handle OpenAI's message format with base64 images only"""
@@ -180,6 +256,45 @@ def _handle_anthropic_instructor(messages, model_name, response_model, temperatu
     
     return client.messages.create(**kwargs)
 
+def _handle_anthropic_instructor_streaming(messages, model_name, response_model, temperature, max_tokens):
+    """Handle structured output streaming with Anthropic using Instructor"""
+    # Use the Partial response model for streaming
+    from dsrag.chat.citations import PartialResponseWithCitations
+    
+    # For ResponseWithCitations specifically, use our partial version
+    partial_model = PartialResponseWithCitations if response_model.__name__ == "ResponseWithCitations" else instructor.Partial[response_model]
+    
+    client = instructor.from_anthropic(
+        Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]),
+        mode=instructor.Mode.ANTHROPIC_JSON
+    )
+    
+    # Extract system message if present
+    system = None
+    filtered_messages = []
+    for msg in messages:
+        if msg["role"] == "system":
+            system = msg["content"] if isinstance(msg["content"], str) else msg["content"][0]
+        else:
+            filtered_messages.append(msg)
+    
+    formatted = _format_anthropic_messages(filtered_messages)
+    
+    # Only include system parameter if we have a system message
+    kwargs = {
+        "model": model_name,
+        "messages": formatted,
+        "response_model": partial_model,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": True
+    }
+    if system is not None:
+        kwargs["system"] = system
+    
+    # Return the stream directly - caller will iterate through it
+    return client.messages.create(**kwargs)
+
 def _handle_anthropic_standard(messages, model_name, temperature, max_tokens):
     client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     
@@ -206,6 +321,39 @@ def _handle_anthropic_standard(messages, model_name, temperature, max_tokens):
         
     response = client.messages.create(**kwargs)
     return response.content[0].text
+
+def _handle_anthropic_standard_streaming(messages, model_name, temperature, max_tokens):
+    """Handle standard text streaming with Anthropic"""
+    client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    
+    # Extract system message if present
+    system = None
+    filtered_messages = []
+    for msg in messages:
+        if msg["role"] == "system":
+            system = msg["content"] if isinstance(msg["content"], str) else msg["content"][0]
+        else:
+            filtered_messages.append(msg)
+    
+    formatted = _format_anthropic_messages(filtered_messages)
+    
+    # Only include system parameter if we have a system message
+    kwargs = {
+        "model": model_name,
+        "messages": formatted,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": True
+    }
+    if system is not None:
+        kwargs["system"] = system
+    
+    stream = client.messages.create(**kwargs)
+    
+    # Yield content chunks
+    for chunk in stream:
+        if chunk.type == "content_block_delta" and chunk.delta.text:
+            yield chunk.delta.text
 
 def _format_anthropic_messages(messages):
     """Handle Anthropic's message format including images with validation"""
@@ -287,12 +435,56 @@ def _handle_gemini_instructor(messages, model_name, response_model, temperature,
         generation_config={"temperature": temperature, "max_output_tokens": max_tokens}
     )
 
+def _handle_gemini_instructor_streaming(messages, model_name, response_model, temperature, max_tokens):
+    """Handle structured output streaming with Gemini using Instructor"""
+    # Use the Partial response model for streaming
+    from dsrag.chat.citations import PartialResponseWithCitations
+    
+    # For ResponseWithCitations specifically, use our partial version
+    partial_model = PartialResponseWithCitations if response_model.__name__ == "ResponseWithCitations" else instructor.Partial[response_model]
+    
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    client = instructor.from_gemini(
+        client=genai.GenerativeModel(model_name=f"models/{model_name}"),
+        mode=instructor.Mode.GEMINI_JSON
+    )
+    formatted = _format_gemini_messages(messages)
+    
+    # Create streaming request
+    stream = client.messages.create(
+        messages=formatted,
+        response_model=partial_model,
+        generation_config={"temperature": temperature, "max_output_tokens": max_tokens},
+        stream=True
+    )
+    
+    # Return the stream directly - caller will iterate through it
+    return stream
+
 def _handle_gemini_standard(messages, model_name, temperature, max_tokens):
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
     model = genai.GenerativeModel(model_name=f"models/{model_name}")
     formatted = _format_gemini_messages(messages)
     response = model.generate_content(formatted)
     return response.text
+
+def _handle_gemini_standard_streaming(messages, model_name, temperature, max_tokens):
+    """Handle standard text streaming with Gemini"""
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    model = genai.GenerativeModel(model_name=f"models/{model_name}")
+    formatted = _format_gemini_messages(messages)
+    
+    # Create streaming request
+    stream = model.generate_content(
+        formatted,
+        generation_config={"temperature": temperature, "max_output_tokens": max_tokens},
+        stream=True
+    )
+    
+    # Yield content chunks
+    for chunk in stream:
+        if chunk.text:
+            yield chunk.text
 
 def _format_gemini_messages(messages):
     """Convert to Gemini's message format with image support and validation"""
