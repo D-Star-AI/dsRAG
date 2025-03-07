@@ -478,7 +478,7 @@ class TestPostgresChunkDB(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         self.kb_id = "test_kb"
-        self.host = "localhost"
+        self.host = os.environ.get("POSTGRES_HOST")
         self.port = 5432
         self.username = os.environ.get("POSTGRES_USER")
         self.password = os.environ.get("POSTGRES_PASSWORD")
