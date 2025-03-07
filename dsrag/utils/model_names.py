@@ -30,5 +30,6 @@ OPENAI_MODEL_NAMES = [
     "o1-preview-2024-09-12",
     "o3-mini",
     "o3-mini-2025-01-31",
-    "gpt-4.5",
+    "gpt-4.5-preview",
+    "gpt-4.5-preview-2025-02-27",
 ]
