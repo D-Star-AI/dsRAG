@@ -6,7 +6,7 @@ import unittest
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from dsrag.knowledge_base import KnowledgeBase
-from dsrag.database.vector import ChromaDB
+from dsrag.database.vector.chroma_db import ChromaDB
 
 class TestCreateKB(unittest.TestCase):
     def test__001_create_kb_and_query(self):

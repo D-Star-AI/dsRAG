@@ -6,7 +6,7 @@ from pathlib import Path
 # Add parent directory to path to import dsrag
 sys.path.append(str(Path(__file__).parent.parent))
 
-from dsrag.chat import create_new_chat_thread, get_chat_thread_response
+from dsrag.chat.chat import create_new_chat_thread, get_chat_thread_response
 from dsrag.chat.chat_types import ChatThreadParams, ChatResponseInput
 from dsrag.database.chat_thread.basic_db import BasicChatThreadDB
 from dsrag.knowledge_base import KnowledgeBase
@@ -163,28 +163,39 @@ def streaming_chat_test(test_streaming=True):
         start_time = time.time()
         
         console.print("Sending message to chat thread...")
-        response = get_chat_thread_response(
-            thread_id=thread_id,
-            get_response_input=response_input,
-            chat_thread_db=chat_db,
-            knowledge_bases={"test_kb": kb}
-        )
-        
-        elapsed = time.time() - start_time
-        console.print(f"[green]Response received in {elapsed:.2f} seconds[/green]")
-        console.print(response["model_response"]["content"])
-        
-        # Print citation information if available
-        if "citations" in response["model_response"] and response["model_response"]["citations"]:
-            console.print("\n[bold]Citations:[/bold]")
-            for citation in response["model_response"]["citations"]:
-                console.print(f"- {citation['doc_id']}: {citation['cited_text'][:100]}...")
+        try:
+            response = get_chat_thread_response(
+                thread_id=thread_id,
+                get_response_input=response_input,
+                chat_thread_db=chat_db,
+                knowledge_bases={"test_kb": kb},
+                stream=False
+            )
+            
+            # Now we've fixed the issue in get_chat_thread_response, this should be a dictionary
+            console.print(f"Response type: {type(response)}")
+            
+            elapsed = time.time() - start_time
+            console.print(f"[green]Response received in {elapsed:.2f} seconds[/green]")
+            
+            if isinstance(response, dict) and "model_response" in response:
+                console.print(response["model_response"]["content"])
+                
+                # Print citation information if available
+                if "citations" in response["model_response"] and response["model_response"]["citations"]:
+                    console.print("\n[bold]Citations:[/bold]")
+                    for citation in response["model_response"]["citations"]:
+                        console.print(f"- {citation['doc_id']}: {citation['cited_text'][:100]}...")
+            else:
+                console.print(f"[bold red]Unexpected response format: {type(response)}[/bold red]")
+                console.print(f"Response: {response}")
+        except Exception as e:
+            console.print(f"[bold red]Error processing response: {str(e)}[/bold red]")
+            import traceback
+            console.print(traceback.format_exc())
     
     # Test complete
     console.print("[green]Test complete[/green]")
 
-if __name__ == "__main__":
-    # Set this to True to enable the streaming test
-    TEST_STREAMING = True
-    
-    streaming_chat_test(test_streaming=TEST_STREAMING)
+if __name__ == "__main__":    
+    streaming_chat_test(test_streaming=False)

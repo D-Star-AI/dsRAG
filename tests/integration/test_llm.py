@@ -192,7 +192,7 @@ class TestLLM(unittest.TestCase):
         
         test_cases = [
             ("gpt-4o-mini", "Tell me about Paris", CityInfo),
-            ("claude-3-5-sonnet-20241022", "Tell me about Rome", CityInfo),
+            ("claude-3-7-sonnet-20250219", "Tell me about Rome", CityInfo),
             ("gemini-2.0-flash", "Tell me about Tokyo", CityInfo)
         ]
         
