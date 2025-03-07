@@ -21,8 +21,8 @@ def auto_context(auto_context_model: LLM, sections, chunks, text, doc_id, docume
             "document_title_guidance", ""
         )
         document_title = get_document_title(
-            auto_context_model,
-            text,
+            auto_context_model=auto_context_model,
+            document_text=text,
             document_title_guidance=document_title_guidance,
             language=language
         )

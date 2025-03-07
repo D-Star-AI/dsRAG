@@ -52,10 +52,10 @@ Create a new chat thread in the database.
 
 ```python
 def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInput, 
-                           chat_thread_db: ChatThreadDB, knowledge_bases: dict)
+                           chat_thread_db: ChatThreadDB, knowledge_bases: dict, stream: bool = False)
 ```
 
-Get a response for a chat thread using knowledge base search.
+Get a response for a chat thread using knowledge base search, with optional streaming support.
 
 **Arguments**:
 - `thread_id`: Unique identifier for the chat thread.
@@ -65,13 +65,20 @@ Get a response for a chat thread using knowledge base search.
   - `metadata_filter`: Optional search filter
 - `chat_thread_db`: Database instance for chat threads.
 - `knowledge_bases`: Dictionary mapping knowledge base IDs to instances.
+- `stream`: Whether to stream the response (defaults to False).
 
-**Returns**: Formatted interaction containing:
-- `user_input`: User message with content and timestamp
-- `model_response`: Model response with content and timestamp
-- `search_queries`: Generated search queries
-- `relevant_segments`: Retrieved relevant segments with file names and types
-- `message`: Error message if something went wrong (optional)
+**Returns**: 
+If `stream=False` (default):
+- Formatted interaction containing:
+  - `user_input`: User message with content and timestamp
+  - `model_response`: Model response with content and timestamp
+  - `search_queries`: Generated search queries
+  - `relevant_segments`: Retrieved relevant segments with file names and types
+  - `message`: Error message if something went wrong (optional)
+
+If `stream=True`:
+- Generator that yields partial response objects with the same structure as above
+- The final response is automatically saved to the chat thread database
 
 ### Chat Types
 

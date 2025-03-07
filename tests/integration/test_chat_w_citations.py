@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 
 from dsrag.chat.chat import create_new_chat_thread, get_chat_thread_response, ChatResponseInput
 from dsrag.database.chat_thread.basic_db import BasicChatThreadDB
+from dsrag.database.chat_thread.sqlite_db import SQLiteChatThreadDB
 from dsrag.knowledge_base import KnowledgeBase
 from dsrag.database.vector import ChromaDB
 from dsrag.reranker import NoReranker
@@ -42,6 +43,17 @@ class TestChat(unittest.TestCase):
             file_path=file_path,
             file_parsing_config=file_parsing_config,
         )
+
+        rse_params = {
+            'max_length': 20,
+            'overall_max_length': 60,
+            'minimum_value': 0.0,
+            'irrelevant_chunk_penalty': 0.15,
+            'overall_max_length_extension': 10,
+            'decay_rate': 50,
+            'top_k_for_document_selection': 30,
+            'chunk_length_adjustment': True,
+        }
         
         # Set up chat thread parameters
         cls.chat_thread_params = {
@@ -50,6 +62,7 @@ class TestChat(unittest.TestCase):
             "temperature": 0.0,
             "system_message": "",
             "auto_query_model": "claude-3-5-sonnet-20241022",
+            "rse_params": rse_params
         }
         
         cls.knowledge_bases = {
@@ -57,6 +70,8 @@ class TestChat(unittest.TestCase):
         }
         
         cls.chat_thread_db = BasicChatThreadDB()
+        #cls.chat_thread_db = SQLiteChatThreadDB()
+        #cls.chat_thread_db._check_and_migrate_db()
 
     def test_001_create_new_chat_thread(self):
         thread_id = create_new_chat_thread(

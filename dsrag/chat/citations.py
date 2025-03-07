@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
+import instructor
 
 class Citation(BaseModel):
     doc_id: str = Field(..., description="The document ID where the information used to generate the response was found.")
@@ -9,6 +10,9 @@ class Citation(BaseModel):
 class ResponseWithCitations(BaseModel):
     response: str = Field(..., description="The response to the user's question")
     citations: List[Citation] = Field(..., description="The citations used to generate the response")
+
+# Create a partial version of ResponseWithCitations for streaming
+PartialResponseWithCitations = instructor.Partial[ResponseWithCitations]
 
 def format_page_content(page_number: int, content: str) -> str:
     """Format a single page's content with page number annotations"""

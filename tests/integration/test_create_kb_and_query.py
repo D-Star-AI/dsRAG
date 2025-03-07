@@ -23,7 +23,14 @@ class TestCreateKB(unittest.TestCase):
         kb = create_kb_from_file(kb_id, file_path)
 
         # verify that the document is in the chunk db
-        self.assertEqual(len(kb.chunk_db.get_all_doc_ids()), 1)
+        doc_ids = kb.chunk_db.get_all_doc_ids()
+        self.assertEqual(len(doc_ids), 1)
+
+        # assert that the document title and summary are present and reasonable
+        document_title = kb.chunk_db.get_document_title(doc_id="levels_of_agi.pdf", chunk_index=0)
+        self.assertIn("agi", document_title.lower())
+        document_summary = kb.chunk_db.get_document_summary(doc_id="levels_of_agi.pdf", chunk_index=0)
+        self.assertIn("agi", document_summary.lower())
 
         # run a query and verify results are returned
         search_queries = ["What are the levels of AGI?", "What is the highest level of AGI?"]

@@ -40,6 +40,14 @@ When providing your response, you must cite your sources. For each piece of info
 2. The page number where the information was found (if available)
 3. The relevant text that supports your response
 
+The doc_id and page_number will be in the following format:
+<doc_id: some_random_long_id>
+<page_N>
+Text content from the page
+</page_N>
+</doc_id: some_random_long_id>
+The page number is N in the above format.
+
 Your response must be a valid ResponseWithCitations object. It must include these two fields:
 1. response: Your complete response text
 2. citations: An array of citation objects, each containing:
@@ -151,7 +159,18 @@ def limit_chat_messages(chat_messages: list[dict], max_tokens: int = 8000) -> li
     
     return limited_messages
 
-def _set_chat_thread_params(chat_thread_params: ChatThreadParams, kb_ids: list[str] = None, model: str = None, temperature: float = None, system_message: str = None, auto_query_model: str = None, auto_query_guidance: str = None, target_output_length: str = None, max_chat_history_tokens: int = None) -> ChatThreadParams:
+def _set_chat_thread_params(
+    chat_thread_params: ChatThreadParams,
+    kb_ids: list[str] = None,
+    model: str = None,
+    temperature: float = None,
+    system_message: str = None,
+    auto_query_model: str = None,
+    auto_query_guidance: str = None,
+    target_output_length: str = None,
+    max_chat_history_tokens: int = None,
+    rse_params: dict = None
+) -> ChatThreadParams:
     """Set and validate chat thread parameters.
 
     Internal method to ensure all required parameters are set with appropriate defaults.
@@ -166,6 +185,7 @@ def _set_chat_thread_params(chat_thread_params: ChatThreadParams, kb_ids: list[s
         auto_query_guidance (str, optional): Guidance for query generation. Defaults to None.
         target_output_length (str, optional): Target response length. Defaults to None.
         max_chat_history_tokens (int, optional): Maximum chat history tokens. Defaults to None.
+        rse_params (dict, optional): Parameters for response evaluation. Defaults to None.
 
     Returns:
         ChatThreadParams: Updated parameters with defaults filled in.
@@ -211,9 +231,21 @@ def _set_chat_thread_params(chat_thread_params: ChatThreadParams, kb_ids: list[s
     elif 'max_chat_history_tokens' not in chat_thread_params or chat_thread_params['max_chat_history_tokens'] is None:
         chat_thread_params['max_chat_history_tokens'] = 8000
 
+    if rse_params is not None:
+        chat_thread_params['rse_params'] = rse_params
+    elif 'rse_params' not in chat_thread_params or chat_thread_params['rse_params'] is None:
+        chat_thread_params['rse_params'] = {}
+
     return chat_thread_params
 
-def _get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadParams, chat_thread_interactions: list[dict], metadata_filter: MetadataFilter = None) -> dict:
+def _get_chat_response(
+    input: str,
+    kbs: dict,
+    chat_thread_params: ChatThreadParams,
+    chat_thread_interactions: list[dict],
+    metadata_filter: MetadataFilter = None,
+    stream: bool = False
+) -> dict:
     """Generate a response to a chat input using knowledge base search.
 
     Args:
@@ -247,7 +279,8 @@ def _get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadPara
         auto_query_model=chat_thread_params.get("auto_query_model"),
         auto_query_guidance=chat_thread_params.get("auto_query_guidance"),
         target_output_length=chat_thread_params.get("target_output_length"),
-        max_chat_history_tokens=chat_thread_params.get("max_chat_history_tokens")
+        max_chat_history_tokens=chat_thread_params.get("max_chat_history_tokens"),
+        rse_params=chat_thread_params.get("rse_params")
     )
 
     kb_info = []
@@ -294,11 +327,13 @@ def _get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadPara
 
         print (f"Search queries by KB: {search_queries_by_kb}")
 
+        rse_params = chat_thread_params['rse_params']
+
         # run searches
         search_results = {}
         for kb_id, queries in search_queries_by_kb.items():
             kb = kbs.get(kb_id)
-            search_results[kb_id] = kb.query(search_queries=queries, metadata_filter=metadata_filter)
+            search_results[kb_id] = kb.query(search_queries=queries, rse_params=rse_params, metadata_filter=metadata_filter)
 
         # unpack search results into a list
         formatted_relevant_segments = {}
@@ -345,50 +380,172 @@ def _get_chat_response(input: str, kbs: dict, chat_thread_params: ChatThreadPara
     )
     chat_messages = [{"role": "system", "content": formatted_system_message}] + chat_messages
 
-    # get LLM response with structured output
-    response = get_response(
-        messages=chat_messages,
-        model_name=chat_thread_params['model'],
-        temperature=chat_thread_params['temperature'],
-        max_tokens=4000,
-        response_model=ResponseWithCitations
-    )
-    
-    citations = response.citations
-    # For each citation, add the kb_id to the citation
-    formatted_citations = []
-    for citation in citations:
-        citation = citation.model_dump()
-        # Add error handling for unknown doc_ids
-        if citation["doc_id"] in all_doc_ids:
-            citation["kb_id"] = all_doc_ids[citation["doc_id"]]
-        else:
-            # Skip citations with unknown doc_ids
-            continue
-        formatted_citations.append(citation)
+    # If streaming, we need to handle the responses differently
+    if stream:
+        # Import here to avoid circular imports
+        from dsrag.chat.citations import PartialResponseWithCitations
         
-    all_relevant_segments = []
-    for kb_id, results in formatted_relevant_segments.items():
-        for result in results:
-            result["kb_id"] = kb_id
-            all_relevant_segments.append(result)
+        # Create a response stream
+        response_stream = get_response(
+            messages=chat_messages,
+            model_name=chat_thread_params['model'],
+            temperature=chat_thread_params['temperature'],
+            max_tokens=4000,
+            response_model=ResponseWithCitations,
+            stream=True
+        )
+        
+        # Create a base interaction that we'll update with each partial response
+        interaction_base = {
+            "user_input": {
+                "content": input,
+                "timestamp": request_timestamp
+            },
+            "search_queries": search_queries,
+            "relevant_segments": []
+        }
+        
+        # Keep track of the final response for later saving
+        final_response = None
+        final_citations = []
+        
+        # Stream the partial responses
+        for partial_response in response_stream:
+            # Create a streaming response with what we have so far
+            current_interaction = interaction_base.copy()
+            
+            # Store the latest partial response for final saving
+            final_response = partial_response
+            
+            # Format the partial response for streaming
+            content = ""
+            # Try different ways to access the response content
+            if hasattr(partial_response, 'response'):
+                content = partial_response.response
+            elif hasattr(partial_response, 'model_fields_set') and 'response' in partial_response.model_fields_set:
+                content = getattr(partial_response, 'response', "")
+            elif isinstance(partial_response, dict) and 'response' in partial_response:
+                content = partial_response['response']
+                
+            current_interaction["model_response"] = {
+                "content": content,
+                "citations": [],
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # If we have citations in this partial response, format them
+            citations_list = []
+            if hasattr(partial_response, 'citations') and partial_response.citations:
+                citations_list = partial_response.citations
+            elif hasattr(partial_response, 'model_fields_set') and 'citations' in partial_response.model_fields_set:
+                citations_list = getattr(partial_response, 'citations', [])
+            elif isinstance(partial_response, dict) and 'citations' in partial_response:
+                citations_list = partial_response['citations']
+                
+            if citations_list:
+                formatted_stream_citations = []
+                for citation in citations_list:
+                    # Try different ways to access citation data
+                    if hasattr(citation, 'model_dump'):
+                        citation_dict = citation.model_dump()
+                    elif hasattr(citation, 'dict'):
+                        citation_dict = citation.dict()
+                    elif isinstance(citation, dict):
+                        citation_dict = citation
+                    else:
+                        # Skip if we can't convert to dict
+                        continue
+                        
+                    # Add error handling for unknown doc_ids
+                    if citation_dict.get("doc_id") in all_doc_ids:
+                        citation_dict["kb_id"] = all_doc_ids[citation_dict["doc_id"]]
+                        formatted_stream_citations.append(citation_dict)
+                        
+                current_interaction["model_response"]["citations"] = formatted_stream_citations
+                final_citations = formatted_stream_citations
+            
+            # Yield the current state
+            yield current_interaction
+        
+        # After streaming is complete, save the final response to the database
+        all_relevant_segments = []
+        for kb_id, results in formatted_relevant_segments.items():
+            for result in results:
+                result["kb_id"] = kb_id
+                all_relevant_segments.append(result)
+                
+        # Create the final interaction for saving to the database
+        # Get the final response content
+        final_content = ""
+        if hasattr(final_response, 'response'):
+            final_content = final_response.response
+        elif hasattr(final_response, 'model_fields_set') and 'response' in final_response.model_fields_set:
+            final_content = getattr(final_response, 'response', "")
+        elif isinstance(final_response, dict) and 'response' in final_response:
+            final_content = final_response['response']
+            
+        final_interaction = {
+            "user_input": {
+                "content": input,
+                "timestamp": request_timestamp
+            },
+            "model_response": {
+                "content": final_content,
+                "citations": final_citations,
+                "timestamp": datetime.now().isoformat()
+            },
+            "search_queries": search_queries,
+            "relevant_segments": all_relevant_segments
+        }
+        
+        # This will be returned to the calling function for saving
+        return final_interaction
+        
+    else:
+        # Non-streaming case - get complete response
+        response = get_response(
+            messages=chat_messages,
+            model_name=chat_thread_params['model'],
+            temperature=chat_thread_params['temperature'],
+            max_tokens=4000,
+            response_model=ResponseWithCitations
+        )
+        
+        citations = response.citations
+        # For each citation, add the kb_id to the citation
+        formatted_citations = []
+        for citation in citations:
+            citation = citation.model_dump()
+            # Add error handling for unknown doc_ids
+            if citation["doc_id"] in all_doc_ids:
+                citation["kb_id"] = all_doc_ids[citation["doc_id"]]
+            else:
+                # Skip citations with unknown doc_ids
+                continue
+            formatted_citations.append(citation)
+            
+        all_relevant_segments = []
+        for kb_id, results in formatted_relevant_segments.items():
+            for result in results:
+                result["kb_id"] = kb_id
+                all_relevant_segments.append(result)
 
-    # add interaction to chat thread
-    interaction = {
-        "user_input": {
-            "content": input,
-            "timestamp": request_timestamp
-        },
-        "model_response": {
-            "content": response.response,
-            "citations": formatted_citations,
-            "timestamp": datetime.now().isoformat()
-        },
-        "search_queries": search_queries,
-        "relevant_segments": all_relevant_segments
-    }
+        # add interaction to chat thread
+        interaction = {
+            "user_input": {
+                "content": input,
+                "timestamp": request_timestamp
+            },
+            "model_response": {
+                "content": response.response,
+                "citations": formatted_citations,
+                "timestamp": datetime.now().isoformat()
+            },
+            "search_queries": search_queries,
+            "relevant_segments": all_relevant_segments
+        }
 
-    return interaction
+        return interaction
 
 def _get_filenames_and_types(interaction: dict, kbs: dict) -> dict:
     """Add file names and types to relevant segments.
@@ -429,7 +586,7 @@ def _get_filenames_and_types(interaction: dict, kbs: dict) -> dict:
     interaction["relevant_segments"] = formatted_results
     return interaction
 
-def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict):
+def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict, stream: bool = False):
     """Get a response for a chat thread using knowledge base search.
 
     Args:
@@ -440,20 +597,26 @@ def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInp
             - metadata_filter (Optional[MetadataFilter]): Optional search filter
         chat_thread_db (ChatThreadDB): Database instance for chat threads.
         knowledge_bases (dict): Dictionary mapping knowledge base IDs to instances.
+        stream (bool, optional): Whether to stream the response. Defaults to False.
 
     Returns:
-        dict: Formatted interaction containing:
-            - user_input (dict): User message with content and timestamp
-            - model_response (dict): Model response with content and timestamp
-            - search_queries (list): Generated search queries
-            - relevant_segments (list): Retrieved relevant segments with file names and types
-            - message (str, optional): Error message if something went wrong
+        If stream=False:
+            dict: Formatted interaction containing:
+                - user_input (dict): User message with content and timestamp
+                - model_response (dict): Model response with content and timestamp
+                - search_queries (list): Generated search queries
+                - relevant_segments (list): Retrieved relevant segments with file names and types
+                - message (str, optional): Error message if something went wrong
+        
+        If stream=True:
+            Iterator: Yields partial response objects during generation
     """
     user_input = get_response_input.user_input
     chat_thread_params_override = get_response_input.chat_thread_params
     metadata_filter = get_response_input.metadata_filter
     thread = chat_thread_db.get_chat_thread(thread_id)
     if chat_thread_params_override is not None:
+        # NOTE: this does a complete override of the chat thread params, and will use system defaults for any parameters not provided in the override
         chat_thread_params = chat_thread_params_override
     else:
         chat_thread_params = thread["params"]
@@ -465,13 +628,45 @@ def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInp
 
     kbs = {kb_id: knowledge_bases[kb_id] for kb_id in chat_thread_params["kb_ids"]}
 
-    # Get the chat response
-    interaction = _get_chat_response(user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
-    formatted_interaction = _get_filenames_and_types(interaction, knowledge_bases)
+    # Handle streaming vs non-streaming differently
+    if stream:
+        # Get a generator for chat responses
+        response_generator = _get_chat_response(
+            user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter, stream=True
+        )
+        
+        # Stream the partial responses, and save the final one
+        last_response = None
+        
+        # Keep a reference to the final formatted response for saving to DB
+        final_formatted_response = None
+        
+        # Stream all partial responses
+        for partial_response in response_generator:
+            # Apply file name and type formatting to partial response
+            formatted_partial = _get_filenames_and_types(partial_response, knowledge_bases)
+            
+            # Keep track of the last full response
+            last_response = partial_response
+            final_formatted_response = formatted_partial
+            
+            # Yield formatted partial response to the caller
+            yield formatted_partial
+            
+        # After streaming is complete, save the final response to DB
+        if last_response:
+            response = chat_thread_db.add_interaction(thread_id, last_response)
+            message_id = response["message_id"]
+            final_formatted_response["message_id"] = message_id
+            
+    else:
+        # Non-streaming case - get complete response
+        interaction = _get_chat_response(user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
+        formatted_interaction = _get_filenames_and_types(interaction, knowledge_bases)
 
-    # Add this interaction to the chat thread db
-    response = chat_thread_db.add_interaction(thread_id, interaction)
-    message_id = response["message_id"]
-    formatted_interaction["message_id"] = message_id
+        # Add this interaction to the chat thread db
+        response = chat_thread_db.add_interaction(thread_id, interaction)
+        message_id = response["message_id"]
+        formatted_interaction["message_id"] = message_id
 
-    return formatted_interaction
+        return formatted_interaction

@@ -42,7 +42,7 @@ class PineconeDB(VectorDB):
     """
 
     def __init__(
-        self, kb_id: str, dimension: int = None, cloud: str = "aws", region: str = "us-east-1", table_name: str = None
+        self, kb_id: str, dimension: int = None, cloud: str = "aws", region: str = "us-east-1", table_name: str = None, namespace: str = None
     ):
         """
         Inputs:
@@ -57,6 +57,8 @@ class PineconeDB(VectorDB):
         # There can't be any underscores in the kb_id
         kb_id = kb_id.replace("_", "-")
         kb_id = kb_id.replace(" ", "-")
+        
+        self.namespace = namespace
 
         self.kb_id = kb_id
         self.pc = pinecone.Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
@@ -102,7 +104,10 @@ class PineconeDB(VectorDB):
         # Batch the vectors into groups of 250
         batch_size = 250
         for i in range(0, len(vectors_to_upsert), batch_size):
-            index.upsert(vectors_to_upsert[i:i+batch_size])
+            if self.namespace is not None:
+                index.upsert(vectors_to_upsert[i:i+batch_size], namespace=self.namespace)
+            else:
+                index.upsert(vectors_to_upsert[i:i+batch_size])
 
     def get_num_vectors(self):
         index = self.pc.Index(self.table_name)
@@ -125,10 +130,17 @@ class PineconeDB(VectorDB):
         if isinstance(query_vector, np.ndarray):
             query_vector = query_vector.tolist()
         if metadata_filter:
-            formatted_metadata_filter = format_metadata_filter(metadata_filter)
-            search_results = index.query(vector=query_vector, top_k=top_k, include_metadata=True, filter=formatted_metadata_filter)
+            if self.namespace is not None:
+                formatted_metadata_filter = format_metadata_filter(metadata_filter)
+                search_results = index.query(vector=query_vector, top_k=top_k, include_metadata=True, filter=formatted_metadata_filter, namespace=self.namespace)
+            else:
+                formatted_metadata_filter = format_metadata_filter(metadata_filter)
+                search_results = index.query(vector=query_vector, top_k=top_k, include_metadata=True, filter=formatted_metadata_filter)
         else:
-            search_results = index.query(vector=query_vector, top_k=top_k, include_metadata=True)
+            if self.namespace is not None:
+                search_results = index.query(vector=query_vector, top_k=top_k, include_metadata=True, namespace=self.namespace)
+            else:
+                search_results = index.query(vector=query_vector, top_k=top_k, include_metadata=True)
 
         results = []
         for match in search_results['matches']:
