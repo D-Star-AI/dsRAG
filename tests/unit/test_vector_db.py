@@ -4,6 +4,7 @@ import os
 import sys
 import unittest
 import time
+import pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from dsrag.database.vector import (
@@ -662,7 +663,7 @@ class TestQdrantDB(unittest.TestCase):
         )
 
 
-
+@pytest.mark.skipif(reason="Postgres is not available on GitHub Actions")
 class TestPostgresVectorDB(unittest.TestCase):
     @classmethod
     def setUpClass(self):

@@ -4,6 +4,7 @@ import unittest
 import shutil
 import psycopg2
 import time
+import pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
@@ -473,6 +474,7 @@ class TestDynamoDB(unittest.TestCase):
         assert db2.kb_id == db.kb_id, "Failed to load kb_id from dict."
         self.assertEqual(db2.kb_id, db.kb_id)
 
+@pytest.mark.skipif(reason="Postgres is not available on GitHub Actions")
 class TestPostgresChunkDB(unittest.TestCase):
     
     @classmethod
