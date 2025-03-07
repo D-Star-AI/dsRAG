@@ -61,6 +61,7 @@ weaviate = ["weaviate-client>=4.6.0"]
 qdrant = ["qdrant-client>=1.8.0"]
 milvus = ["pymilvus>=2.3.5"]
 pinecone = ["pinecone>=3.0.0"]
+postgres = ["psycopg2-binary>=2.9.0", "pgvector>=0.2.0"]
 boto3 = ["boto3>=1.28.0"]
 
 # LLM/embedding/reranker optional dependencies
@@ -76,7 +77,7 @@ langchain = ["langchain-core>=0.2.0"]
 
 # Convenience groups
 all-dbs = [
-    "dsrag[faiss,chroma,weaviate,qdrant,milvus,pinecone,boto3]"
+    "dsrag[faiss,chroma,weaviate,qdrant,milvus,pinecone,postgres,boto3]"
 ]
 
 all-models = [
