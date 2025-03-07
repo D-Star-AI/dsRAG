@@ -159,7 +159,7 @@ def _handle_openai_instructor_streaming(messages, model_name, response_model, te
     # For ResponseWithCitations specifically, use our partial version
     partial_model = PartialResponseWithCitations if response_model.__name__ == "ResponseWithCitations" else instructor.Partial[response_model]
     
-    client = instructor.from_openai(OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
+    client = instructor.from_openai(openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
     formatted = _format_openai_messages(messages)
     
     # Create streaming request
@@ -188,7 +188,7 @@ def _handle_openai_standard(messages, model_name, temperature, max_tokens):
 
 def _handle_openai_standard_streaming(messages, model_name, temperature, max_tokens):
     """Handle standard text streaming with OpenAI"""
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     formatted = _format_openai_messages(messages)
     
     # Create streaming request
@@ -262,7 +262,7 @@ def _handle_anthropic_instructor_streaming(messages, model_name, response_model,
     partial_model = PartialResponseWithCitations if response_model.__name__ == "ResponseWithCitations" else instructor.Partial[response_model]
     
     client = instructor.from_anthropic(
-        Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]),
+        anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]),
         mode=instructor.Mode.ANTHROPIC_JSON
     )
     
@@ -321,7 +321,7 @@ def _handle_anthropic_standard(messages, model_name, temperature, max_tokens):
 
 def _handle_anthropic_standard_streaming(messages, model_name, temperature, max_tokens):
     """Handle standard text streaming with Anthropic"""
-    client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     
     # Extract system message if present
     system = None
