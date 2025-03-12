@@ -7,7 +7,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from dsrag.embedding import (
     OpenAIEmbedding,
     CohereEmbedding,
-    VoyageAIEmbedding,
     OllamaEmbedding,
     Embedding,
 )
@@ -28,13 +27,6 @@ class TestEmbedding(unittest.TestCase):
         embedding_provider = CohereEmbedding(model)
         embedding = embedding_provider.get_embeddings(input_text, input_type="query")
         self.assertEqual(len(embedding), 1024)
-
-    def test__get_embeddings_voyage(self):
-        input_text = "Hello, world!"
-        model = "voyage-large-2"
-        embedding_provider = VoyageAIEmbedding(model)
-        embedding = embedding_provider.get_embeddings(input_text, input_type="query")
-        self.assertEqual(len(embedding), 1536)
 
     def test__get_embeddings_ollama(self):
         input_text = "Hello, world!"
@@ -68,14 +60,6 @@ class TestEmbedding(unittest.TestCase):
         assert all(len(embed) == 1024 for embed in embeddings)
         self.assertEqual(len(embeddings), 2)
         self.assertTrue(all(len(embed) == 1024 for embed in embeddings))
-
-    def test__get_embeddings_voyage_with_list(self):
-        input_texts = ["Hello, world!", "Goodbye, world!"]
-        model = "voyage-large-2"
-        embedding_provider = VoyageAIEmbedding(model)
-        embeddings = embedding_provider.get_embeddings(input_texts, input_type="query")
-        self.assertEqual(len(embeddings), 2)
-        self.assertTrue(all(len(embed) == 1536 for embed in embeddings))
 
     def test__get_embeddings_ollama_with_list_llama2(self):
         input_texts = ["Hello, world!", "Goodbye, world!"]

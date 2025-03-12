@@ -34,6 +34,30 @@ dependencies = {file = ["requirements.txt"]}
 [project.optional-dependencies]
 s3 = ["boto3>=1.34.142", "botocore>=1.34.142"]
 vertexai = ["vertexai>=1.70.0"]
+instructor = ["instructor>=0.4.0"]
+openai = ["openai>=1.0.0"]
+anthropic = ["anthropic>=0.5.0"]
+google-generativeai = ["google-generativeai>=0.3.0"]
+
+# Convenience groups
+all-models = [
+    "instructor>=0.4.0",
+    "openai>=1.0.0",
+    "anthropic>=0.5.0",
+    "google-generativeai>=0.3.0",
+    "vertexai>=1.70.0"
+]
+
+# Complete installation with all optional dependencies
+all = [
+    "boto3>=1.34.142", 
+    "botocore>=1.34.142",
+    "instructor>=0.4.0",
+    "openai>=1.0.0",
+    "anthropic>=0.5.0",
+    "google-generativeai>=0.3.0",
+    "vertexai>=1.70.0"
+]
 
 [project.urls]
 Homepage = "https://github.com/D-Star-AI/dsRAG/blob/main/dsrag/dsparse/README.md"
