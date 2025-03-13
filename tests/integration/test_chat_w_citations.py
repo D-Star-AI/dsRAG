@@ -144,5 +144,60 @@ class TestChat(unittest.TestCase):
     def tearDownClass(cls):
         cls.cleanup()
 
+class TestChatWithNoKBs(unittest.TestCase):
+    def test_001_create_new_chat_thread(self):
+        chat_thread_params = {
+            "kb_ids": [],
+            "model": "claude-3-5-sonnet-20241022",
+        }
+        
+        chat_thread_db = BasicChatThreadDB()
+        thread_id = create_new_chat_thread(
+            chat_thread_params=chat_thread_params,
+            chat_thread_db=chat_thread_db
+        )
+        self.assertIsNotNone(thread_id)
+        return thread_id
+        
+    def test_002_get_chat_response_without_kb(self):
+        chat_thread_db = BasicChatThreadDB()
+        chat_thread_params = {
+            "kb_ids": [],
+            "model": "claude-3-5-sonnet-20241022",
+            "temperature": 0.0,
+        }
+        
+        thread_id = create_new_chat_thread(
+            chat_thread_params=chat_thread_params,
+            chat_thread_db=chat_thread_db
+        )
+        
+        # Test sending a message without knowledge base
+        chat_response_input = ChatResponseInput(
+            user_input="What is the capital of France?",
+            chat_thread_params=None,
+            metadata_filter=None
+        )
+        
+        response = get_chat_thread_response(
+            thread_id=thread_id,
+            get_response_input=chat_response_input,
+            chat_thread_db=chat_thread_db,
+            knowledge_bases={}
+        )
+        
+        # Verify response structure
+        self.assertIn("model_response", response)
+        self.assertIn("content", response["model_response"])
+        
+        # No citations should be present or they should be empty
+        if "citations" in response["model_response"]:
+            self.assertEqual(len(response["model_response"]["citations"]), 0)
+
 if __name__ == "__main__":
+    # Run only the TestChatWithNoKBs class
+    #test_suite = unittest.TestLoader().loadTestsFromTestCase(TestChatWithNoKBs)
+    #unittest.TextTestRunner().run(test_suite)
+    
+    # To run all tests, uncomment the line below and comment out the two lines above
     unittest.main()
