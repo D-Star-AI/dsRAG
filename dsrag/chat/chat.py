@@ -126,7 +126,7 @@ def get_knowledge_base_descriptions_str(kb_info: list[dict]):
         kb_descriptions.append(f"kb_id: {kb['id']}\ndescription:{kb['description']}")
 
     if len(kb_descriptions) == 0:
-        return "No knowledge bases available."
+        return "No knowledge bases available at this time. Please respond using only your built-in knowledge, but be sure not to make things up."
     else:
         return "\n\n".join(kb_descriptions)
 
@@ -358,9 +358,19 @@ def _prepare_chat_context(
             relevant_knowledge_str += formatted_knowledge
             for doc_id in doc_ids:
                 all_doc_ids[doc_id] = kb_id
+
+        # Prepare all relevant segments list
+        all_relevant_segments = []
+        for kb_id, results in formatted_relevant_segments.items():
+            for result in results:
+                result["kb_id"] = kb_id
+                all_relevant_segments.append(result)
+
     else:
         relevant_knowledge_str = "No knowledge bases provided, therefore no relevant knowledge to display."
         search_queries = []
+        formatted_relevant_segments = {}
+        all_relevant_segments = []
 
     # deal with target_output_length
     if chat_thread_params['target_output_length'] == "short":
@@ -381,13 +391,7 @@ def _prepare_chat_context(
         response_length_guidance=response_length_guidance
     )
     chat_messages = [{"role": "system", "content": formatted_system_message}] + chat_messages
-    
-    # Prepare all relevant segments list
-    all_relevant_segments = []
-    for kb_id, results in formatted_relevant_segments.items():
-        for result in results:
-            result["kb_id"] = kb_id
-            all_relevant_segments.append(result)
+
     
     return (
         request_timestamp,
