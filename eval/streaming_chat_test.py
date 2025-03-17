@@ -167,6 +167,7 @@ def streaming_chat_test(test_streaming=True):
                             if interaction.get("message_id") == message_id:
                                 # Store the database response content for verification
                                 db_content = interaction["model_response"]["content"]
+                                db_status = interaction["model_response"].get("status", "unknown")
                                 
                                 # Only add to responses if content is different from last check
                                 add_snapshot = True
@@ -180,9 +181,10 @@ def streaming_chat_test(test_streaming=True):
                                     db_responses.append({
                                         "time": current_time,
                                         "content_length": len(db_content),
-                                        "content_preview": db_content[:50] + "..." if len(db_content) > 50 else db_content
+                                        "content_preview": db_content[:50] + "..." if len(db_content) > 50 else db_content,
+                                        "status": db_status
                                     })
-                                    console.print(f"\n[dim][DB check: {len(db_responses)} - {len(db_content)} chars][/dim]", end="")
+                                    console.print(f"\n[dim][DB check: {len(db_responses)} - {len(db_content)} chars - status: {db_status}][/dim]", end="")
                                 break
                     
                 except Exception as e:
@@ -217,6 +219,21 @@ def streaming_chat_test(test_streaming=True):
                     # Show the length progression
                     console.print("\nContent length progression:")
                     console.print(f"{lengths}")
+                    
+                    # Show the status progression
+                    statuses = [r.get("status", "unknown") for r in db_responses]
+                    unique_statuses = list(set(statuses))
+                    console.print("\n[bold blue]Status progression:[/bold blue]")
+                    console.print(f"Status values: {statuses}")
+                    console.print(f"Unique statuses observed: {unique_statuses}")
+                    
+                    # Verify we have expected status transitions
+                    expected_statuses = ["pending", "streaming", "finished"]
+                    if all(status in statuses for status in expected_statuses):
+                        console.print("[bold green]PASS: All expected status values (pending, streaming, finished) were observed![/bold green]")
+                    else:
+                        console.print("[bold yellow]WARN: Not all expected status values were observed.[/bold yellow]")
+                        console.print(f"Missing: {[s for s in expected_statuses if s not in statuses]}")
                 else:
                     console.print("[bold red]FAIL: Database content length did not change during streaming[/bold red]")
                     console.print(f"All snapshots had same length: {lengths[0]} chars")

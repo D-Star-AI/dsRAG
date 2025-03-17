@@ -28,6 +28,9 @@ class SQLiteChatThreadDB(ChatThreadDB):
             query_statement = f"CREATE TABLE interactions ({', '.join([f'{column} {column_type}' for column, column_type in zip(self.interactions_columns, self.interactions_column_types)])}, FOREIGN KEY(thread_id) REFERENCES chat_threads(thread_id))"
             c.execute(query_statement)
             conn.commit()
+        else:
+            # Check for and migrate existing schema if needed
+            self._check_and_migrate_db()
         conn.close()
 
     
@@ -128,7 +131,8 @@ class SQLiteChatThreadDB(ChatThreadDB):
                 "model_response": {
                     "content": interaction[3],
                     "timestamp": interaction[4],
-                    "citations": json.loads(interaction[7]) if interaction[7] else []
+                    "citations": json.loads(interaction[7]) if interaction[7] else [],
+                    "status": interaction[8] if len(interaction) > 8 and interaction[8] else "finished"
                 },
                 "relevant_segments": json.loads(interaction[5]),
                 "search_queries": json.loads(interaction[6])
@@ -187,6 +191,10 @@ class SQLiteChatThreadDB(ChatThreadDB):
         # add message_id to the interaction
         interaction["message_id"] = message_id
         
+        # Set default status if not provided
+        if "status" not in interaction["model_response"]:
+            interaction["model_response"]["status"] = "pending"
+        
         formatted_interaction = {
             "thread_id": thread_id,
             "message_id": message_id,
@@ -196,7 +204,8 @@ class SQLiteChatThreadDB(ChatThreadDB):
             "model_response_timestamp": interaction["model_response"]["timestamp"],
             "relevant_segments": json.dumps(interaction["relevant_segments"]),
             "search_queries": json.dumps(interaction["search_queries"]),
-            "citations": json.dumps(interaction["model_response"].get("citations", []))
+            "citations": json.dumps(interaction["model_response"].get("citations", [])),
+            "model_response_status": interaction["model_response"]["status"]
         }
 
         # Create the interaction
@@ -225,6 +234,10 @@ class SQLiteChatThreadDB(ChatThreadDB):
             if "citations" in interaction_update["model_response"]:
                 update_fields.append("citations = ?")
                 update_values.append(json.dumps(interaction_update["model_response"]["citations"]))
+                
+            if "status" in interaction_update["model_response"]:
+                update_fields.append("model_response_status = ?")
+                update_values.append(interaction_update["model_response"]["status"])
         
         if not update_fields:
             conn.close()
@@ -244,17 +257,21 @@ class SQLiteChatThreadDB(ChatThreadDB):
 
     def _check_and_migrate_db(self):
         """
-        For backwards compatibility, check if the citations and rse_params columns exist in the interactions and chat_threads tables, and add them if they don't.
+        For backwards compatibility, check if the necessary columns exist in the tables and add them if they don't.
         """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         
-        # Check if citations column exists in interactions table
+        # Check if columns exist in interactions table
         result = c.execute("PRAGMA table_info(interactions)")
         columns = [row[1] for row in result.fetchall()]
         
         if "citations" not in columns:
             c.execute("ALTER TABLE interactions ADD COLUMN citations TEXT")
+            conn.commit()
+            
+        if "model_response_status" not in columns:
+            c.execute("ALTER TABLE interactions ADD COLUMN model_response_status TEXT DEFAULT 'finished'")
             conn.commit()
         
         # Check if rse_params column exists in chat_threads table

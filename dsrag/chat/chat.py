@@ -707,6 +707,10 @@ def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatR
         # Get the first item from the generator
         initial_response = next(response_generator)
         
+        # Set initial status to "pending"
+        if "model_response" in initial_response:
+            initial_response["model_response"]["status"] = "pending"
+        
         # Apply file name and type formatting to initial response
         formatted_initial = _get_filenames_and_types(initial_response, knowledge_bases)
         
@@ -722,6 +726,10 @@ def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatR
         
         # Continue with the rest of the responses, updating the DB each time
         for partial_response in response_generator:
+            # Set status to "streaming" for partial responses
+            if "model_response" in partial_response:
+                partial_response["model_response"]["status"] = "streaming"
+            
             # Apply file name and type formatting to partial response
             formatted_partial = _get_filenames_and_types(partial_response, knowledge_bases)
             formatted_partial["message_id"] = message_id
@@ -737,6 +745,21 @@ def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatR
             
             # Yield formatted partial response to the caller
             yield formatted_partial
+            
+        # Set the final status to "finished" after streaming is complete
+        final_update = {
+            "model_response": {
+                "status": "finished",
+                "content": partial_response["model_response"]["content"],
+                "timestamp": partial_response["model_response"]["timestamp"]
+            }
+        }
+        
+        # Include citations if they exist
+        if "citations" in partial_response["model_response"]:
+            final_update["model_response"]["citations"] = partial_response["model_response"]["citations"]
+            
+        chat_thread_db.update_interaction(thread_id, message_id, final_update)
             
     except StopIteration:
         # Handle case where generator is empty
@@ -778,6 +801,11 @@ def get_chat_thread_response_non_streaming(thread_id: str, get_response_input: C
 
     # Non-streaming case - get complete response with the non-streaming function
     interaction = _get_chat_response(user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
+    
+    # Set status to "finished" for non-streaming responses
+    if "model_response" in interaction:
+        interaction["model_response"]["status"] = "finished"
+    
     formatted_interaction = _get_filenames_and_types(interaction, knowledge_bases)
 
     # Add this interaction to the chat thread db

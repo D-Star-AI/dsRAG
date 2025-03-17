@@ -67,6 +67,7 @@ class BasicChatThreadDB(ChatThreadDB):
                 - page_numbers: list[int]
                 - cited_text: str
             - timestamp: str
+            - status: str (pending, streaming, highlighting_citations, finished, failed)
         - relevant_segments: list[dict]
             - text: str
             - doc_id: str
@@ -77,6 +78,11 @@ class BasicChatThreadDB(ChatThreadDB):
         """
         message_id = str(uuid.uuid4())
         interaction["message_id"] = message_id
+        
+        # Set default status if not provided
+        if "model_response" in interaction and "status" not in interaction["model_response"]:
+            interaction["model_response"]["status"] = "pending"
+            
         self.chat_threads[thread_id]["interactions"].append(interaction)
         self.save()
         return interaction
@@ -92,6 +98,10 @@ class BasicChatThreadDB(ChatThreadDB):
                 # Update only the fields provided in interaction_update
                 if "model_response" in interaction_update:
                     interaction["model_response"].update(interaction_update["model_response"])
+                    
+                    # Ensure status field exists (for backward compatibility)
+                    if "status" not in interaction["model_response"]:
+                        interaction["model_response"]["status"] = "finished"
                 
                 # Save the changes
                 self.save()
