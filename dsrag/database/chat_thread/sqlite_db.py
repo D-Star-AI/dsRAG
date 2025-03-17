@@ -206,6 +206,41 @@ class SQLiteChatThreadDB(ChatThreadDB):
         conn.commit()
         conn.close()
         return interaction
+        
+    def update_interaction(self, thread_id: str, message_id: str, interaction_update: dict) -> dict:
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        
+        # Prepare update statement based on what fields are provided
+        update_fields = []
+        update_values = []
+        
+        if "model_response" in interaction_update:
+            update_fields.append("model_response = ?")
+            update_values.append(interaction_update["model_response"]["content"])
+            
+            update_fields.append("model_response_timestamp = ?")
+            update_values.append(interaction_update["model_response"]["timestamp"])
+            
+            if "citations" in interaction_update["model_response"]:
+                update_fields.append("citations = ?")
+                update_values.append(json.dumps(interaction_update["model_response"]["citations"]))
+        
+        if not update_fields:
+            conn.close()
+            return {"message": "No fields to update"}
+        
+        # Add thread_id and message_id to update_values
+        update_values.append(thread_id)
+        update_values.append(message_id)
+        
+        # Execute update
+        query_statement = f"UPDATE interactions SET {', '.join(update_fields)} WHERE thread_id = ? AND message_id = ?"
+        c.execute(query_statement, tuple(update_values))
+        conn.commit()
+        conn.close()
+        
+        return {"message_id": message_id, "updated": True}
 
     def _check_and_migrate_db(self):
         """

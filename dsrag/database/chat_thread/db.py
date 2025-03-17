@@ -42,3 +42,11 @@ class ChatThreadDB(ABC):
         Adds an interaction to a chat thread.
         """
         pass
+        
+    @abstractmethod
+    def update_interaction(self, thread_id: str, message_id: str, interaction_update: dict) -> dict:
+        """
+        Updates an existing interaction in a chat thread.
+        Only updates the fields provided in interaction_update.
+        """
+        pass

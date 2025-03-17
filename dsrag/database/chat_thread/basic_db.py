@@ -80,6 +80,24 @@ class BasicChatThreadDB(ChatThreadDB):
         self.chat_threads[thread_id]["interactions"].append(interaction)
         self.save()
         return interaction
+        
+    def update_interaction(self, thread_id: str, message_id: str, interaction_update: dict) -> dict:
+        """
+        Updates an existing interaction in a chat thread.
+        Only updates the fields provided in interaction_update.
+        """
+        # Find the interaction with the matching message_id
+        for i, interaction in enumerate(self.chat_threads[thread_id]["interactions"]):
+            if interaction.get("message_id") == message_id:
+                # Update only the fields provided in interaction_update
+                if "model_response" in interaction_update:
+                    interaction["model_response"].update(interaction_update["model_response"])
+                
+                # Save the changes
+                self.save()
+                return {"message_id": message_id, "updated": True}
+        
+        return {"message_id": message_id, "updated": False, "error": "Interaction not found"}
     
     def save(self):
         """

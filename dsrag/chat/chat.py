@@ -701,30 +701,46 @@ def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatR
         user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter
     )
     
-    # Stream the partial responses, and save the final one
-    last_response = None
-    
-    # Keep a reference to the final formatted response for saving to DB
-    final_formatted_response = None
-    
-    # Stream all partial responses
-    for partial_response in response_generator:
-        # Apply file name and type formatting to partial response
-        formatted_partial = _get_filenames_and_types(partial_response, knowledge_bases)
+    # Create initial placeholder interaction to get a message_id
+    # We need to initialize the generator
+    try:
+        # Get the first item from the generator
+        initial_response = next(response_generator)
         
-        # Keep track of the last full response
-        last_response = partial_response
-        final_formatted_response = formatted_partial
+        # Apply file name and type formatting to initial response
+        formatted_initial = _get_filenames_and_types(initial_response, knowledge_bases)
         
-        # Yield formatted partial response to the caller
-        yield formatted_partial
+        # Save initial interaction to DB to get a message_id
+        db_response = chat_thread_db.add_interaction(thread_id, initial_response)
+        message_id = db_response["message_id"]
         
-    # After streaming is complete, save the final response to DB
-    if last_response:
-        response = chat_thread_db.add_interaction(thread_id, last_response)
-        message_id = response["message_id"]
-        if final_formatted_response:
-            final_formatted_response["message_id"] = message_id
+        # Include message_id in the response
+        formatted_initial["message_id"] = message_id
+        
+        # Yield the first formatted response
+        yield formatted_initial
+        
+        # Continue with the rest of the responses, updating the DB each time
+        for partial_response in response_generator:
+            # Apply file name and type formatting to partial response
+            formatted_partial = _get_filenames_and_types(partial_response, knowledge_bases)
+            formatted_partial["message_id"] = message_id
+            
+            # Update the interaction in the DB with each new response
+            chat_thread_db.update_interaction(
+                thread_id,
+                message_id,
+                {
+                    "model_response": partial_response["model_response"]
+                }
+            )
+            
+            # Yield formatted partial response to the caller
+            yield formatted_partial
+            
+    except StopIteration:
+        # Handle case where generator is empty
+        pass
 
 
 def get_chat_thread_response_non_streaming(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict) -> dict:
