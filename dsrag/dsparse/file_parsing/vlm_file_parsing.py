@@ -100,6 +100,7 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
     all_image_paths = []
     
     for i in range(1, page_count + 1, max_pages):
+        print (f"Converting pages {i} to {i + max_pages-1}")
         last_page = min(i + max_pages-1, page_count)
         images = convert_from_path(pdf_path, dpi=dpi, thread_count=max_workers, 
                                  first_page=i, last_page=last_page)
@@ -227,7 +228,7 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
 
     return page_content
 
-def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, file_system: FileSystem, max_pages: int=100) -> list[Element]:
+def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, file_system: FileSystem) -> list[Element]:
     """
     Given a PDF file, extract the content of each page using a VLM model.
     
@@ -245,6 +246,7 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     - images of each page of the PDF (if images_already_exist is False)
     - JSON files of the content of each page
     """
+    max_pages = vlm_config.get("max_pages", 100)
     max_workers = vlm_config.get("max_workers", 2)
     images_already_exist = vlm_config.get("images_already_exist", False)
     if images_already_exist:
