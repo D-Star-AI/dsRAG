@@ -89,6 +89,12 @@ def streaming_chat_test(test_streaming=True):
             
             # Create a variable to accumulate the response for display
             full_response = ""
+            message_id = None
+            db_check_counter = 0
+            db_check_interval = 5  # Check the database every 5 chunks
+            min_time_between_checks = 0.5  # Minimum seconds between DB checks
+            last_check_time = 0
+            db_responses = []  # Store database snapshots
             
             # Process the streaming response
             for partial_response in get_chat_thread_response(
@@ -102,6 +108,11 @@ def streaming_chat_test(test_streaming=True):
                 try:
                     if isinstance(partial_response, dict) and "model_response" in partial_response:
                         current_content = partial_response["model_response"].get("content", "")
+                        
+                        # Store the message_id from the first response for database checks
+                        if message_id is None and "message_id" in partial_response:
+                            message_id = partial_response["message_id"]
+                            console.print(f"[cyan]Got message_id: {message_id}[/cyan]")
                     else:
                         # Fallback for unexpected response format
                         current_content = str(partial_response)
@@ -136,11 +147,98 @@ def streaming_chat_test(test_streaming=True):
                     
                     # Save for next comparison (only if not None)
                     streaming_chat_test.prev_response = full_response
+                    
+                    # Check the database periodically to verify updates are happening
+                    db_check_counter += 1
+                    current_time = time.time()
+                    
+                    # Only check if enough time has passed since last check
+                    if (message_id and 
+                        db_check_counter % db_check_interval == 0 and 
+                        current_time - last_check_time >= min_time_between_checks):
+                        
+                        last_check_time = current_time
+                        
+                        # Get the current state from the database
+                        thread = chat_db.get_chat_thread(thread_id)
+                        
+                        # Find the interaction with our message_id
+                        for interaction in thread["interactions"]:
+                            if interaction.get("message_id") == message_id:
+                                # Store the database response content for verification
+                                db_content = interaction["model_response"]["content"]
+                                db_status = interaction["model_response"].get("status", "unknown")
+                                
+                                # Only add to responses if content is different from last check
+                                add_snapshot = True
+                                if db_responses:
+                                    last_length = db_responses[-1]["content_length"]
+                                    if len(db_content) == last_length:
+                                        # Skip if no change in content length
+                                        add_snapshot = False
+                                
+                                if add_snapshot:
+                                    db_responses.append({
+                                        "time": current_time,
+                                        "content_length": len(db_content),
+                                        "content_preview": db_content[:50] + "..." if len(db_content) > 50 else db_content,
+                                        "status": db_status
+                                    })
+                                    console.print(f"\n[dim][DB check: {len(db_responses)} - {len(db_content)} chars - status: {db_status}][/dim]", end="")
+                                break
+                    
                 except Exception as e:
                     console.print(f"[red]Error displaying partial response: {str(e)}[/red]")
                     console.print(f"[red]Partial response: {partial_response}[/red]")
                 
                 # No artificial delay needed for real streaming
+                
+            # After streaming is complete, print database update verification
+            if db_responses:
+                console.print("\n[bold yellow]Database Update Verification:[/bold yellow]")
+                console.print(f"Captured {len(db_responses)} database snapshots during streaming")
+                
+                # Check if we have multiple different lengths (which would indicate updates)
+                lengths = [r["content_length"] for r in db_responses]
+                
+                if len(set(lengths)) > 1:
+                    increasing = all(lengths[i] <= lengths[i+1] for i in range(len(lengths)-1))
+                    
+                    if increasing:
+                        console.print("[bold green]PASS: Database was updated multiple times during streaming with increasing content length![/bold green]")
+                    else:
+                        console.print("[bold yellow]WARN: Database was updated multiple times, but content length did not always increase[/bold yellow]")
+                    
+                    # Print a sample of the snapshots to see progression
+                    console.print("\nDatabase update progression:")
+                    for i, response in enumerate(db_responses):
+                        # Show first, last, and a few samples in between
+                        if i == 0 or i == len(db_responses) - 1 or i % max(1, len(db_responses) // 5) == 0:
+                            console.print(f"Snapshot {i+1}/{len(db_responses)}: {response['content_length']} chars - \"{response['content_preview']}\"")
+                    
+                    # Show the length progression
+                    console.print("\nContent length progression:")
+                    console.print(f"{lengths}")
+                    
+                    # Show the status progression
+                    statuses = [r.get("status", "unknown") for r in db_responses]
+                    unique_statuses = list(set(statuses))
+                    console.print("\n[bold blue]Status progression:[/bold blue]")
+                    console.print(f"Status values: {statuses}")
+                    console.print(f"Unique statuses observed: {unique_statuses}")
+                    
+                    # Verify we have expected status transitions
+                    expected_statuses = ["pending", "streaming", "finished"]
+                    if all(status in statuses for status in expected_statuses):
+                        console.print("[bold green]PASS: All expected status values (pending, streaming, finished) were observed![/bold green]")
+                    else:
+                        console.print("[bold yellow]WARN: Not all expected status values were observed.[/bold yellow]")
+                        console.print(f"Missing: {[s for s in expected_statuses if s not in statuses]}")
+                else:
+                    console.print("[bold red]FAIL: Database content length did not change during streaming[/bold red]")
+                    console.print(f"All snapshots had same length: {lengths[0]} chars")
+            else:
+                console.print("[bold red]No database snapshots were captured[/bold red]")
             
             elapsed = time.time() - start_time
             
