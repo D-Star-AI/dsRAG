@@ -83,8 +83,10 @@ class ChromaDB(VectorDB):
         if metadata_filter:
             formatted_metadata_filter = format_metadata_filter(metadata_filter)
 
+        if isinstance(query_vector, np.ndarray):
+            query_vector = query_vector.tolist()
         query_results = self.collection.query(
-                query_embeddings=[query_vector.tolist()],
+                query_embeddings=[query_vector],
                 n_results=top_k,
                 include=["distances", "metadatas"],
                 where=formatted_metadata_filter if metadata_filter else None
