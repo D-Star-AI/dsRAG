@@ -36,10 +36,10 @@ class TestEmbedding(unittest.TestCase):
             embedding_provider = OllamaEmbedding(model, dimension)
             embedding = embedding_provider.get_embeddings(input_text)
         except Exception as e:
+            print (e)
             if e.__class__.__name__ == "ConnectError":
                 print("Connection failed")
-                print (e)
-                return
+            return
         self.assertEqual(len(embedding), dimension)
 
     def test__get_embeddings_openai_with_list(self):

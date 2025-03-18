@@ -29,9 +29,10 @@ class TestLLM(unittest.TestCase):
         try:
             chat_api = OllamaAPI()
         except Exception as e:
+            print(e)
             if e.__class__.__name__ == "ConnectError":
                 print ("Connection failed")
-                return
+            return
         chat_messages = [
             {"role": "user", "content": "Who's your daddy?"},
         ]
