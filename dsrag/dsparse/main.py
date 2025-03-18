@@ -38,6 +38,7 @@ def parse_and_chunk(
             - element_types: a list of dictionaries, each containing 'name', 'instructions', and 'is_visual' keys
                 - default (defined in element_types.py) will be used if not provided
             - images_already_exist: bool, whether the images have already been extracted and saved (default is False)
+            - max_pages: the maximum number of pages to parse at a time (default is 100)
         - always_save_page_images: bool - whether to save page images even if VLM is not used (default is False)
     - semantic_sectioning_config: a dictionary with configuration for the semantic sectioning model (defaults will be used if not provided)
         - use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
