@@ -13,6 +13,7 @@ from pdf2image import convert_from_path
 import json
 import time
 import concurrent.futures
+from PyPDF2 import PdfReader
 
 """
 pip install pdf2image
@@ -60,7 +61,16 @@ response_schema = {
     },
 }
 
-def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSystem, dpi=200, max_workers: int=2) -> list[str]:
+def get_page_count(file_path: str):
+    try:
+        with open(file_path, "rb") as pdf_file:
+            pdf_reader = PdfReader(pdf_file)
+            return len(pdf_reader.pages)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSystem, dpi=200, max_workers: int=2, max_pages: int=100) -> list[str]:
     """
     Convert a PDF to images and save them to a folder. Uses pdf2image (which relies on poppler).
 
@@ -74,23 +84,35 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
     - image_file_paths: list[str] - a list of the paths to the saved images.
     """
     
+    if (max_pages < 1):
+        raise ValueError("max_pages must be greater than 0")
+    
     # Create the folder
     file_system.create_directory(kb_id, doc_id)
-
-    # Convert PDF to images
-    images = convert_from_path(pdf_path, dpi=dpi, thread_count=max_workers)
 
     def save_single_image(args):
         i, image = args
         file_system.save_image(kb_id, doc_id, f'page_{i+1}.png', image)
         return f'/{kb_id}/{doc_id}/page_{i+1}.png'
 
-    # Save images in parallel
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        image_file_paths = list(executor.map(save_single_image, enumerate(images)))
+    # Convert PDF to images in batches of 100
+    page_count = get_page_count(pdf_path)
+    all_image_paths = []
+    
+    for i in range(1, page_count + 1, max_pages):
+        last_page = min(i + max_pages-1, page_count)
+        images = convert_from_path(pdf_path, dpi=dpi, thread_count=max_workers, 
+                                 first_page=i, last_page=last_page)
+        
+        # Save batch of images in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            batch_paths = list(executor.map(save_single_image, enumerate(images, start=i-1)))
+            all_image_paths.extend(batch_paths)
+        
+        print(f"Converted pages {i} to {last_page}")
 
-    print(f"Converted {len(images)} pages to images")
-    return image_file_paths
+    print(f"Converted total {len(all_image_paths)} pages to images")
+    return all_image_paths
 
 def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: int, vlm_config: VLMConfig, element_types: list[ElementType]) -> list[Element]:
     """
@@ -205,7 +227,7 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
 
     return page_content
 
-def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, file_system: FileSystem) -> list[Element]:
+def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, file_system: FileSystem, max_pages: int=100) -> list[Element]:
     """
     Given a PDF file, extract the content of each page using a VLM model.
     
@@ -228,7 +250,7 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     if images_already_exist:
         image_file_paths = file_system.get_all_png_files(kb_id, doc_id)
     else:
-        image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system, max_workers=max_workers)
+        image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system, max_workers=max_workers, max_pages=max_pages)
     
     all_page_content_dict = {}
 
