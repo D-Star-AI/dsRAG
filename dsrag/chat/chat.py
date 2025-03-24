@@ -150,6 +150,8 @@ def limit_chat_messages(chat_messages: list[dict], max_tokens: int = 8000) -> li
     
     # Count tokens from the end (most recent messages)
     for message in reversed(chat_messages):
+        if message["content"] is None:
+            continue
         message_tokens = count_tokens(message['content'])
         if total_tokens + message_tokens <= max_tokens:
             limited_messages.insert(0, message) # Insert at the beginning since we are iterating in reverse
@@ -311,7 +313,8 @@ def _prepare_chat_context(
 
     formatted_relevant_segments = {}
     all_doc_ids = {}
-    if kb_info:
+    if kb_info and len(kb_info) > 0:
+        print ("kb_info is not empty")
         # generate search queries
         try:
             search_queries = get_search_queries(chat_messages=chat_messages, kb_info=kb_info, auto_query_guidance=chat_thread_params['auto_query_guidance'], max_queries=5, auto_query_model=chat_thread_params['auto_query_model'])
@@ -391,7 +394,6 @@ def _prepare_chat_context(
         response_length_guidance=response_length_guidance
     )
     chat_messages = [{"role": "system", "content": formatted_system_message}] + chat_messages
-
     
     return (
         request_timestamp,
@@ -460,7 +462,7 @@ def _get_chat_response_streaming(
         "search_queries": search_queries,
         "relevant_segments": []
     }
-    
+        
     # Keep track of the final response for later saving
     final_response = None
     final_citations = []
@@ -760,8 +762,7 @@ def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatR
             final_update["model_response"]["citations"] = partial_response["model_response"]["citations"]
             
         chat_thread_db.update_interaction(thread_id, message_id, final_update)
-            
-    except StopIteration:
+    except Exception as e:
         # Handle case where generator is empty
         pass
 
