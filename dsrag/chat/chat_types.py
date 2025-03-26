@@ -26,3 +26,19 @@ class ChatResponseInput(BaseModel):
     user_input: str
     chat_thread_params: Optional[ChatThreadParams] = None
     metadata_filter: Optional[MetadataFilter] = None
+    run_exa_search: Optional[bool] = False
+    exa_search_query: Optional[str] = None
+    exa_include_domains: Optional[list[str]] = None
+ 
+class ExaSearchResult(BaseModel):
+    id: str
+    title: str
+    url: str
+    text: str
+    
+class ExaSearchResults(BaseModel):
+    results: list[ExaSearchResult]
+    autoprompt_string: str
+    resolved_search_type: str
+    auto_date: str
+    auto_time: str
