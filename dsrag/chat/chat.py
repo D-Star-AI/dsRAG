@@ -1,12 +1,13 @@
 from dsrag.database.chat_thread.db import ChatThreadDB
-from dsrag.chat.chat_types import ChatThreadParams, MetadataFilter, ChatResponseInput
-from dsrag.chat.auto_query import get_search_queries
-from dsrag.chat.citations import format_sources_for_context, ResponseWithCitations
+from dsrag.chat.chat_types import ChatThreadParams, MetadataFilter, ChatResponseInput, ExaSearchResult
+from dsrag.chat.auto_query import get_search_queries, get_exa_search_queries
+from dsrag.chat.citations import format_sources_for_context, format_exa_search_results, ResponseWithCitations
 from dsrag.utils.llm import get_response
 import tiktoken
 from datetime import datetime
 import uuid
-
+from typing import Optional
+import os
 
 MAIN_SYSTEM_MESSAGE = """
 INSTRUCTIONS AND GUIDANCE
@@ -23,6 +24,7 @@ Each time the user sends a message, you can choose to run a knowledge base searc
 
 Capabilities you DO NOT have:
 - You DO NOT have access to the internet or any other real-time information sources aside from the specific knowledge bases listed above.
+    - There may be content from websites included in the "RELEVANT KNOWLEDGE" section, but you DO NOT have the ability to access the internet or any other real-time information sources.
 - You DO NOT have the ability to use any other software or tools aside from the specific knowledge bases listed above.
 - As a language model, you don't have the ability to perform precise mathematical calculations. However, you are extremely good at "mental math," so you can get exact answers to simple calculations and approximate answers to more complex calculations, just like a highly talented human could.
 
@@ -36,9 +38,9 @@ If you do not have sufficient information to respond to the user, then you shoul
 
 CITATION FORMAT
 When providing your response, you must cite your sources. For each piece of information you use, provide a citation that includes:
-1. The document ID (doc_id)
+1. The document ID (doc_id) or URL (url) where the information was found
 2. The page number where the information was found (if available)
-3. The relevant text that supports your response
+3. The relevant text or content that supports your response
 
 The doc_id and page_number will be in the following format:
 <doc_id: some_random_long_id>
@@ -48,14 +50,23 @@ Text content from the page
 </doc_id: some_random_long_id>
 The page number is N in the above format.
 
+Web search results will be in the following format:
+<id: some_random_long_id>
+Title: title of the web page
+URL: url of the web page
+Content: text content of the web page
+</id: some_random_long_id>
+
 Your response must be a valid ResponseWithCitations object. It must include these two fields:
 1. response: Your complete response text
 2. citations: An array of citation objects, each containing:
    - doc_id: The source document ID where the information used to generate the response was found
+   - url: The URL where the information used to generate the response was found (if available)
+   - title: The title of the web page where the information used to generate the response was found (if available)
    - page_number: The page number where the information used to generate the response was found (or null if not available)
    - cited_text: The exact text containing the information used to generate the response
 
-Note that an individual citation may only be associated with one page number. If the information used to generate the response was found on multiple pages, then you must provide multiple citations.
+Note that an individual citation may only be associated with one page number (if citing a document) or one URL (if citing a website). If the information used to generate the response was found on multiple pages or URLs, then you must provide multiple citations.
 
 {response_length_guidance}
 """.strip()
@@ -150,6 +161,8 @@ def limit_chat_messages(chat_messages: list[dict], max_tokens: int = 8000) -> li
     
     # Count tokens from the end (most recent messages)
     for message in reversed(chat_messages):
+        if message["content"] is None:
+            continue
         message_tokens = count_tokens(message['content'])
         if total_tokens + message_tokens <= max_tokens:
             limited_messages.insert(0, message) # Insert at the beginning since we are iterating in reverse
@@ -238,16 +251,46 @@ def _set_chat_thread_params(
 
     return chat_thread_params
 
-def _prepare_chat_context(
+async def _run_exa_search(
+    exa_search_queries: list[str],
+    exa_include_domains: Optional[list[str]] = None
+) -> list[dict]:
+    """Run an EXA search."""
+    import asyncio
+    from exa_py import Exa
+    from exa_py.api import SearchResponse
+
+    async def search_single_query(query: str) -> list[SearchResponse]:
+        print ("\n")
+        print ("EXA search query: ", query)
+        print ("\n")
+        exa = Exa(api_key=os.getenv("EXA_API_KEY"))
+        return exa.search_and_contents(
+            query,
+            text=True
+        )
+
+    # Run all searches in parallel
+    tasks = [search_single_query(query.query) for query in exa_search_queries]
+    results = await asyncio.gather(*tasks)
+    
+    return results
+    
+
+async def _prepare_chat_context(
     input: str,
     kbs: dict,
     chat_thread_params: ChatThreadParams,
     chat_thread_interactions: list[dict],
-    metadata_filter: MetadataFilter = None
+    metadata_filter: MetadataFilter = None,
+    run_exa_search: bool = False,
+    exa_search_query: str = None,
+    exa_include_domains: Optional[list[str]] = None
 ) -> tuple:
     """Prepare the chat context for generating a response.
     
     This function handles the common setup work needed for both streaming and non-streaming responses.
+    It runs EXA search and knowledge base searches in parallel when both are requested.
 
     Args:
         input (str): User input text to respond to.
@@ -255,6 +298,9 @@ def _prepare_chat_context(
         chat_thread_params (ChatThreadParams): Chat thread configuration parameters.
         chat_thread_interactions (list[dict]): Previous chat interactions.
         metadata_filter (MetadataFilter, optional): Filter for knowledge base search. Defaults to None.
+        run_exa_search (bool, optional): Whether to run EXA search. Defaults to False.
+        exa_search_query (str, optional): Query for EXA search. Defaults to None.
+        exa_include_domains (list[str], optional): Domains to include in EXA search. Defaults to None.
 
     Returns:
         tuple: A tuple containing:
@@ -264,7 +310,10 @@ def _prepare_chat_context(
             - all_relevant_segments (list): All relevant segments from search
             - formatted_relevant_segments (dict): Relevant segments organized by KB
             - all_doc_ids (dict): Mapping of doc_ids to kb_ids
+            - chat_thread_params (ChatThreadParams): Updated chat thread parameters
     """
+    import asyncio
+
     # make note of the timestamp of the request
     request_timestamp = datetime.now().isoformat()
 
@@ -311,10 +360,25 @@ def _prepare_chat_context(
 
     formatted_relevant_segments = {}
     all_doc_ids = {}
-    if kb_info:
+    all_relevant_segments = []
+    search_queries = []
+    relevant_knowledge_str = ""
+
+    async def run_kb_search():
+        nonlocal search_queries, formatted_relevant_segments, all_doc_ids, all_relevant_segments, relevant_knowledge_str
+        
+        if not kb_info:
+            return "No knowledge bases provided, therefore no relevant knowledge to display."
+
         # generate search queries
         try:
-            search_queries = get_search_queries(chat_messages=chat_messages, kb_info=kb_info, auto_query_guidance=chat_thread_params['auto_query_guidance'], max_queries=5, auto_query_model=chat_thread_params['auto_query_model'])
+            search_queries = get_search_queries(
+                chat_messages=chat_messages, 
+                kb_info=kb_info, 
+                auto_query_guidance=chat_thread_params['auto_query_guidance'], 
+                max_queries=5, 
+                auto_query_model=chat_thread_params['auto_query_model']
+            )
         except Exception as e:
             print(f"Error generating search queries: {str(e)}")
             search_queries = []
@@ -328,15 +392,24 @@ def _prepare_chat_context(
                 search_queries_by_kb[kb_id] = []
             search_queries_by_kb[kb_id].append(query)
 
-        print (f"Search queries by KB: {search_queries_by_kb}")
+        print(f"Search queries by KB: {search_queries_by_kb}")
 
         rse_params = chat_thread_params['rse_params']
 
-        # run searches
-        search_results = {}
-        for kb_id, queries in search_queries_by_kb.items():
+        # run searches in parallel
+        async def search_kb(kb_id: str, queries: list[str]):
             kb = kbs.get(kb_id)
-            search_results[kb_id] = kb.query(search_queries=queries, rse_params=rse_params, metadata_filter=metadata_filter)
+            return kb_id, kb.query(search_queries=queries, rse_params=rse_params, metadata_filter=metadata_filter)
+
+        search_tasks = [
+            search_kb(kb_id, queries) 
+            for kb_id, queries in search_queries_by_kb.items()
+        ]
+        
+        if search_tasks:
+            search_results = dict(await asyncio.gather(*search_tasks))
+        else:
+            search_results = {}
 
         # unpack search results into a list
         for kb_id, results in search_results.items():
@@ -346,7 +419,7 @@ def _prepare_chat_context(
                 formatted_relevant_segments[kb_id].append(result)
         
         # Format search results into citation-friendly context
-        relevant_knowledge_str = ""
+        kb_knowledge_str = ""
         for kb_id, result in formatted_relevant_segments.items():
             kb = kbs.get(kb_id)
             # Format search results into citation-friendly context
@@ -355,22 +428,46 @@ def _prepare_chat_context(
                 kb_id=kb_id,
                 file_system=kb.file_system
             )
-            relevant_knowledge_str += formatted_knowledge
+            kb_knowledge_str += formatted_knowledge
             for doc_id in doc_ids:
                 all_doc_ids[doc_id] = kb_id
 
         # Prepare all relevant segments list
-        all_relevant_segments = []
         for kb_id, results in formatted_relevant_segments.items():
             for result in results:
                 result["kb_id"] = kb_id
                 all_relevant_segments.append(result)
 
+        return kb_knowledge_str
+
+    # Run both searches in parallel if EXA search is requested
+    relevant_web_search_segments = []
+    if run_exa_search:
+        exa_search_queries = get_exa_search_queries(
+            chat_messages=chat_messages, 
+            auto_query_guidance=chat_thread_params['auto_query_guidance'], 
+            max_queries=3, 
+            auto_query_model=chat_thread_params['auto_query_model']
+        )
+        kb_search_task = run_kb_search()
+        exa_search_task = _run_exa_search(exa_search_queries, exa_include_domains)
+        kb_knowledge_str, exa_results = await asyncio.gather(kb_search_task, exa_search_task)
+        
+        formatted_exa_results = format_exa_search_results(exa_results)
+        
+        """for results in exa_results:
+            for result in results.results:
+                relevant_web_search_segments.append(result.__dict__)"""
+        
+        # Combine knowledge from both sources
+        relevant_knowledge_str = kb_knowledge_str
+        if exa_results:
+            # Format EXA results and append to relevant knowledge
+            # TODO: Implement proper formatting for EXA results
+            relevant_knowledge_str += "\n\nWeb Search Results:\n" + str(formatted_exa_results)
     else:
-        relevant_knowledge_str = "No knowledge bases provided, therefore no relevant knowledge to display."
-        search_queries = []
-        formatted_relevant_segments = {}
-        all_relevant_segments = []
+        # Just run KB search
+        relevant_knowledge_str = await run_kb_search()
 
     # deal with target_output_length
     if chat_thread_params['target_output_length'] == "short":
@@ -381,8 +478,9 @@ def _prepare_chat_context(
         response_length_guidance = LONG_OUTPUT
     else:
         response_length_guidance = ""
-        print (f"ERROR: target_output_length {chat_thread_params['target_output_length']} not recognized. Using medium length output.")
+        print(f"ERROR: target_output_length {chat_thread_params['target_output_length']} not recognized. Using medium length output.")
 
+    print ("relevant_knowledge_str", relevant_knowledge_str)
     # format system message and add to chat messages
     formatted_system_message = MAIN_SYSTEM_MESSAGE.format(
         user_configurable_message=chat_thread_params['system_message'],
@@ -390,25 +488,29 @@ def _prepare_chat_context(
         relevant_knowledge_str=relevant_knowledge_str,
         response_length_guidance=response_length_guidance
     )
+    print ("formatted_system_message", formatted_system_message)
     chat_messages = [{"role": "system", "content": formatted_system_message}] + chat_messages
-
     
     return (
         request_timestamp,
         chat_messages,
         search_queries,
         all_relevant_segments,
+        relevant_web_search_segments,
         formatted_relevant_segments,
         all_doc_ids,
         chat_thread_params
     )
 
-def _get_chat_response_streaming(
+async def _get_chat_response_streaming(
     input: str,
     kbs: dict,
     chat_thread_params: ChatThreadParams,
     chat_thread_interactions: list[dict],
-    metadata_filter: MetadataFilter = None
+    metadata_filter: MetadataFilter = None,
+    run_exa_search: bool = False,
+    exa_search_query: str = None,
+    exa_include_domains: Optional[list[str]] = None
 ):
     """Generate a streaming response to a chat input using knowledge base search.
     
@@ -420,6 +522,9 @@ def _get_chat_response_streaming(
         chat_thread_params (ChatThreadParams): Chat thread configuration parameters.
         chat_thread_interactions (list[dict]): Previous chat interactions.
         metadata_filter (MetadataFilter, optional): Filter for knowledge base search.
+        run_exa_search (bool, optional): Whether to run EXA search. Defaults to False.
+        exa_search_query (str, optional): Query for EXA search. Defaults to None.
+        exa_include_domains (list[str], optional): Domains to include in EXA search. Defaults to None.
 
     Yields:
         dict: Partial interaction dictionaries during generation.
@@ -430,16 +535,28 @@ def _get_chat_response_streaming(
     # Import here to avoid circular imports
     from dsrag.chat.citations import PartialResponseWithCitations
     
-    # Prepare context
+    # First, await the async context preparation
+    context = await _prepare_chat_context(
+        input, 
+        kbs, 
+        chat_thread_params, 
+        chat_thread_interactions, 
+        metadata_filter,
+        run_exa_search,
+        exa_search_query,
+        exa_include_domains
+    )
+    
     (
         request_timestamp,
         chat_messages,
         search_queries,
         all_relevant_segments,
+        relevant_web_search_segments,
         formatted_relevant_segments,
         all_doc_ids,
         chat_thread_params
-    ) = _prepare_chat_context(input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
+    ) = context
     
     # Create a response stream
     response_stream = get_response(
@@ -458,14 +575,15 @@ def _get_chat_response_streaming(
             "timestamp": request_timestamp
         },
         "search_queries": search_queries,
-        "relevant_segments": []
+        "relevant_segments": [],
+        "relevant_web_search_segments": relevant_web_search_segments
     }
     
     # Keep track of the final response for later saving
     final_response = None
     final_citations = []
     
-    # Stream the partial responses
+    # Change this section to use regular for loop since response_stream is a regular generator
     for partial_response in response_stream:
         # Create a streaming response with what we have so far
         current_interaction = interaction_base.copy()
@@ -475,7 +593,6 @@ def _get_chat_response_streaming(
         
         # Format the partial response for streaming
         content = ""
-        # Try different ways to access the response content
         if hasattr(partial_response, 'response'):
             content = partial_response.response
         elif hasattr(partial_response, 'model_fields_set') and 'response' in partial_response.model_fields_set:
@@ -489,7 +606,7 @@ def _get_chat_response_streaming(
             "timestamp": datetime.now().isoformat()
         }
         
-        # If we have citations in this partial response, format them
+        # Handle citations
         citations_list = []
         if hasattr(partial_response, 'citations') and partial_response.citations:
             citations_list = partial_response.citations
@@ -501,61 +618,50 @@ def _get_chat_response_streaming(
         if citations_list:
             formatted_stream_citations = []
             for citation in citations_list:
-                # Try different ways to access citation data
-                if hasattr(citation, 'model_dump'):
-                    citation_dict = citation.model_dump()
-                elif hasattr(citation, 'dict'):
-                    citation_dict = citation.dict()
-                elif isinstance(citation, dict):
-                    citation_dict = citation
-                else:
-                    # Skip if we can't convert to dict
-                    continue
-                    
-                # Add error handling for unknown doc_ids
-                if citation_dict.get("doc_id") in all_doc_ids:
+                citation_dict = (citation.model_dump() if hasattr(citation, 'model_dump') 
+                               else citation.dict() if hasattr(citation, 'dict')
+                               else citation if isinstance(citation, dict)
+                               else None)
+                
+                if citation_dict and citation_dict.get("doc_id") in all_doc_ids:
                     citation_dict["kb_id"] = all_doc_ids[citation_dict["doc_id"]]
                     formatted_stream_citations.append(citation_dict)
                     
             current_interaction["model_response"]["citations"] = formatted_stream_citations
             final_citations = formatted_stream_citations
         
-        # Yield the current state
         yield current_interaction
     
-    # After streaming is complete, prepare the final response for returning
-    # Get the final response content
-    final_content = ""
-    if hasattr(final_response, 'response'):
-        final_content = final_response.response
-    elif hasattr(final_response, 'model_fields_set') and 'response' in final_response.model_fields_set:
-        final_content = getattr(final_response, 'response', "")
-    elif isinstance(final_response, dict) and 'response' in final_response:
-        final_content = final_response['response']
-        
+    # Prepare final interaction with all relevant segments
     final_interaction = {
         "user_input": {
             "content": input,
             "timestamp": request_timestamp
         },
         "model_response": {
-            "content": final_content,
+            "content": (final_response.response if hasattr(final_response, 'response')
+                       else getattr(final_response, 'response', "") if hasattr(final_response, 'model_fields_set')
+                       else final_response['response'] if isinstance(final_response, dict)
+                       else ""),
             "citations": final_citations,
             "timestamp": datetime.now().isoformat()
         },
         "search_queries": search_queries,
-        "relevant_segments": all_relevant_segments
+        "relevant_segments": all_relevant_segments,
+        "relevant_web_search_segments": relevant_web_search_segments
     }
     
-    # Return the final interaction for saving to the database
-    return final_interaction
+    yield final_interaction
 
 def _get_chat_response(
     input: str,
     kbs: dict,
     chat_thread_params: ChatThreadParams,
     chat_thread_interactions: list[dict],
-    metadata_filter: MetadataFilter = None
+    metadata_filter: MetadataFilter = None,
+    run_exa_search: bool = False,
+    exa_search_query: str = None,
+    exa_include_domains: Optional[list[str]] = None
 ) -> dict:
     """Generate a response to a chat input using knowledge base search.
 
@@ -565,6 +671,9 @@ def _get_chat_response(
         chat_thread_params (ChatThreadParams): Chat thread configuration parameters.
         chat_thread_interactions (list[dict]): Previous chat interactions.
         metadata_filter (MetadataFilter, optional): Filter for knowledge base search. Defaults to None.
+        run_exa_search (bool, optional): Whether to run EXA search. Defaults to False.
+        exa_search_query (str, optional): Query for EXA search. Defaults to None.
+        exa_include_domains (list[str], optional): Domains to include in EXA search. Defaults to None.
 
     Returns:
         dict: Interaction dictionary containing:
@@ -582,7 +691,16 @@ def _get_chat_response(
         formatted_relevant_segments,
         all_doc_ids,
         chat_thread_params
-    ) = _prepare_chat_context(input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
+    ) = _prepare_chat_context(
+        input, 
+        kbs, 
+        chat_thread_params, 
+        chat_thread_interactions, 
+        metadata_filter,
+        run_exa_search,
+        exa_search_query,
+        exa_include_domains
+    )
     
     # Non-streaming case - get complete response
     response = get_response(
@@ -662,7 +780,7 @@ def _get_filenames_and_types(interaction: dict, kbs: dict) -> dict:
     interaction["relevant_segments"] = formatted_results
     return interaction
 
-def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict):
+async def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict):
     """Get a streaming response for a chat thread using knowledge base search.
 
     Args:
@@ -678,6 +796,10 @@ def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatR
     user_input = get_response_input.user_input
     chat_thread_params_override = get_response_input.chat_thread_params
     metadata_filter = get_response_input.metadata_filter
+    run_exa_search = get_response_input.run_exa_search
+    exa_search_query = get_response_input.exa_search_query
+    exa_include_domains = get_response_input.exa_include_domains
+    
     thread = chat_thread_db.get_chat_thread(thread_id)
     
     if chat_thread_params_override is not None:
@@ -696,45 +818,54 @@ def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatR
 
     kbs = {kb_id: knowledge_bases[kb_id] for kb_id in chat_thread_params["kb_ids"]}
 
+    print ("Getting response generator")
     # Get a generator for chat responses using the streaming function
     response_generator = _get_chat_response_streaming(
-        user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter
+        user_input, 
+        kbs, 
+        chat_thread_params, 
+        chat_thread_interactions, 
+        metadata_filter,
+        run_exa_search,
+        exa_search_query,
+        exa_include_domains
     )
     
-    # Create initial placeholder interaction to get a message_id
-    # We need to initialize the generator
+    print ("\n\n")
+    print (type(response_generator))
+    print ("\n\n")
+    
     try:
-        # Get the first item from the generator
-        initial_response = next(response_generator)
+        print ("Getting initial response")
+        # Get the first response
+        try:
+            initial_response = await anext(response_generator)
+        except Exception as e:
+            print ("No initial response", e)
+            return
+        print ("Initial response received")
         
         # Set initial status to "pending"
         if "model_response" in initial_response:
             initial_response["model_response"]["status"] = "pending"
         
-        # Apply file name and type formatting to initial response
         formatted_initial = _get_filenames_and_types(initial_response, knowledge_bases)
-        
-        # Save initial interaction to DB to get a message_id
+        print ("Adding initial response to db")
         db_response = chat_thread_db.add_interaction(thread_id, initial_response)
+        print ("Initial response added to db")
         message_id = db_response["message_id"]
-        
-        # Include message_id in the response
         formatted_initial["message_id"] = message_id
         
-        # Yield the first formatted response
         yield formatted_initial
         
-        # Continue with the rest of the responses, updating the DB each time
-        for partial_response in response_generator:
-            # Set status to "streaming" for partial responses
+        # Process remaining responses
+        async for partial_response in response_generator:
             if "model_response" in partial_response:
                 partial_response["model_response"]["status"] = "streaming"
             
-            # Apply file name and type formatting to partial response
             formatted_partial = _get_filenames_and_types(partial_response, knowledge_bases)
             formatted_partial["message_id"] = message_id
             
-            # Update the interaction in the DB with each new response
             chat_thread_db.update_interaction(
                 thread_id,
                 message_id,
@@ -743,10 +874,9 @@ def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatR
                 }
             )
             
-            # Yield formatted partial response to the caller
             yield formatted_partial
-            
-        # Set the final status to "finished" after streaming is complete
+        
+        # Final status update
         final_update = {
             "model_response": {
                 "status": "finished",
@@ -755,18 +885,16 @@ def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatR
             }
         }
         
-        # Include citations if they exist
         if "citations" in partial_response["model_response"]:
             final_update["model_response"]["citations"] = partial_response["model_response"]["citations"]
             
         chat_thread_db.update_interaction(thread_id, message_id, final_update)
             
-    except StopIteration:
+    except StopAsyncIteration:
         # Handle case where generator is empty
         pass
 
-
-def get_chat_thread_response_non_streaming(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict) -> dict:
+async def get_chat_thread_response_non_streaming(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict) -> dict:
     """Get a non-streaming response for a chat thread using knowledge base search.
 
     Args:
@@ -782,6 +910,10 @@ def get_chat_thread_response_non_streaming(thread_id: str, get_response_input: C
     user_input = get_response_input.user_input
     chat_thread_params_override = get_response_input.chat_thread_params
     metadata_filter = get_response_input.metadata_filter
+    run_exa_search = get_response_input.run_exa_search
+    exa_search_query = get_response_input.exa_search_query
+    exa_include_domains = get_response_input.exa_include_domains
+    
     thread = chat_thread_db.get_chat_thread(thread_id)
     
     if chat_thread_params_override is not None:
@@ -800,7 +932,16 @@ def get_chat_thread_response_non_streaming(thread_id: str, get_response_input: C
     kbs = {kb_id: knowledge_bases[kb_id] for kb_id in chat_thread_params["kb_ids"]}
 
     # Non-streaming case - get complete response with the non-streaming function
-    interaction = _get_chat_response(user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
+    interaction = _get_chat_response(
+        user_input, 
+        kbs, 
+        chat_thread_params, 
+        chat_thread_interactions, 
+        metadata_filter,
+        run_exa_search,
+        exa_search_query,
+        exa_include_domains
+    )
     
     # Set status to "finished" for non-streaming responses
     if "model_response" in interaction:
@@ -816,7 +957,7 @@ def get_chat_thread_response_non_streaming(thread_id: str, get_response_input: C
     return formatted_interaction
 
 
-def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict, stream: bool = False):
+async def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict, stream: bool = False):
     """Get a response for a chat thread using knowledge base search.
 
     This function is a router that calls the appropriate implementation based on the stream parameter.
@@ -827,6 +968,9 @@ def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInp
             - user_input (str): User's message text
             - chat_thread_params (Optional[ChatThreadParams]): Optional parameter overrides
             - metadata_filter (Optional[MetadataFilter]): Optional search filter
+            - run_exa_search (bool): Whether to run EXA search
+            - exa_search_query (str): Query for EXA search
+            - exa_include_domains (list[str]): Domains to include in EXA search
         chat_thread_db (ChatThreadDB): Database instance for chat threads.
         knowledge_bases (dict): Dictionary mapping knowledge base IDs to instances.
         stream (bool, optional): Whether to stream the response. Defaults to False.
@@ -846,6 +990,14 @@ def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInp
     """
     print("ROUTER FUNCTION", "stream =", stream)
     if stream:
-        return get_chat_thread_response_streaming(thread_id, get_response_input, chat_thread_db, knowledge_bases)
+        async_gen = get_chat_thread_response_streaming(thread_id, get_response_input, chat_thread_db, knowledge_bases)
+        async for response in async_gen:
+            print ("response", response)
+            yield response
     else:
-        return get_chat_thread_response_non_streaming(thread_id, get_response_input, chat_thread_db, knowledge_bases)
+        # For non-streaming, yield the single response
+        result = await get_chat_thread_response_non_streaming(thread_id, get_response_input, chat_thread_db, knowledge_bases)
+        yield result
+
+async def anext(ait):
+    return await ait.__anext__()
