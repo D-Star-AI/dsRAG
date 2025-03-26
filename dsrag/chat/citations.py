@@ -1,9 +1,12 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
 import instructor
+from dsrag.chat.chat_types import ExaSearchResults
 
 class Citation(BaseModel):
-    doc_id: str = Field(..., description="The document ID where the information used to generate the response was found.")
+    doc_id: Optional[str] = Field(..., description="The document ID where the information used to generate the response was found.")
+    url: Optional[str] = Field(None, description="The URL where the information used to generate the response was found.")
+    title: Optional[str] = Field(None, description="The title of the website where the information used to generate the response was found.")
     page_number: Optional[int] = Field(None, description="The page where the information was found. May only be None if page numbers are not provided.")
     cited_text: str = Field(..., description="The exact text containing the information used to generate the response.")
 
@@ -65,6 +68,29 @@ def format_sources_for_context(search_results: list[dict], kb_id: str, file_syst
             context_parts.append(f"<doc_id: {doc_id}>\n{result_content}\n</doc_id: {doc_id}>")
     
     return "\n\n".join(context_parts), all_doc_ids
+
+def format_exa_search_results(search_results: list[ExaSearchResults]) -> tuple[str, list[str]]:
+    """
+    Format EXA search results into a context string for the LLM.
+    """
+    
+    seen_urls = set()
+    unique_results = []
+    for results in search_results:
+        for result in results.results:
+            print ("result type", type(result))
+            # print the attributes of the result
+            if result.url not in seen_urls:
+                seen_urls.add(result.url)
+                unique_results.append(result)
+    
+    # Extract and combine content from search results
+    website_content = "\n\n".join([
+        f"<id: {res.id}>\nTitle: {res.title}\nURL: {res.url}\nContent: {res.text[:10000]} </id: {res.id}>" # truncate to 10000 characters
+        for res in unique_results
+    ])
+    
+    return website_content, seen_urls
 
 def convert_elements_to_page_content(elements: list[dict], kb_id: str, doc_id: str, file_system) -> None:
     """
