@@ -4,16 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dsrag"
-version = "0.5.2"
+version = "0.5.33"
 description = "State-of-the-art RAG pipeline from D-Star AI"
 readme = "README.md"
 authors = [{ name = "Zach McCormick", email = "zach@d-star.ai" }, { name = "Nick McCormick", email = "nick@d-star.ai" }]
-license = { file = "LICENSE" }
+license = "MIT AND (Apache-2.0 OR BSD-2-Clause)"
 classifiers=[
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
