@@ -23,9 +23,9 @@ You have been given access to one or more searchable knowledge bases to help you
 Each time the user sends a message, you can choose to run a knowledge base search to find information that could be helpful in responding to the user. If you have gotten to the point where you are reading this, then that means you have already run a knowledge base search (or chosen not to) for the current user input, and now it's time to respond to the user. The results of this search can be found below in the "RELEVANT KNOWLEDGE" section.
 
 Capabilities you DO NOT have:
-- You DO NOT have access to the internet or any other real-time information sources aside from the specific knowledge bases listed above.
+- You DO NOT have access to the internet or any other real-time information sources aside from the specific knowledge bases listed above and the web search results below (if provided).
     - There may be content from websites included in the "RELEVANT KNOWLEDGE" section, but you DO NOT have the ability to access the internet or any other real-time information sources.
-- You DO NOT have the ability to use any other software or tools aside from the specific knowledge bases listed above.
+- You DO NOT have the ability to use any other software or tools aside from the specific knowledge bases listed above and the web search results below (if provided).
 - As a language model, you don't have the ability to perform precise mathematical calculations. However, you are extremely good at "mental math," so you can get exact answers to simple calculations and approximate answers to more complex calculations, just like a highly talented human could.
 
 RELEVANT KNOWLEDGE
@@ -51,16 +51,16 @@ Text content from the page
 The page number is N in the above format.
 
 Web search results will be in the following format:
-<id: some_random_long_id>
+<id: url_of_the_web_page>
 Title: title of the web page
 URL: url of the web page
 Content: text content of the web page
-</id: some_random_long_id>
+</id: url_of_the_web_page>
 
 Your response must be a valid ResponseWithCitations object. It must include these two fields:
 1. response: Your complete response text
 2. citations: An array of citation objects, each containing:
-   - doc_id: The source document ID where the information used to generate the response was found
+   - doc_id: The source document ID where the information used to generate the response was found (if available)
    - url: The URL where the information used to generate the response was found (if available)
    - title: The title of the web page where the information used to generate the response was found (if available)
    - page_number: The page number where the information used to generate the response was found (or null if not available)
@@ -137,7 +137,7 @@ def get_knowledge_base_descriptions_str(kb_info: list[dict]):
         kb_descriptions.append(f"kb_id: {kb['id']}\ndescription:{kb['description']}")
 
     if len(kb_descriptions) == 0:
-        return "No knowledge bases available at this time. Please respond using only your built-in knowledge, but be sure not to make things up."
+        return "No knowledge bases available at this time. Please respond using only your built-in knowledge or the results from the web search if provided, but be sure not to make things up. Keep in mind that you may still have access to web search results to use for your response."
     else:
         return "\n\n".join(kb_descriptions)
 
@@ -368,7 +368,7 @@ async def _prepare_chat_context(
         nonlocal search_queries, formatted_relevant_segments, all_doc_ids, all_relevant_segments, relevant_knowledge_str
         
         if not kb_info:
-            return "No knowledge bases provided, therefore no relevant knowledge to display."
+            return "No knowledge bases provided, therefore no relevant knowledge to display. You may still have web search results to display."
 
         # generate search queries
         try:
@@ -480,7 +480,6 @@ async def _prepare_chat_context(
         response_length_guidance = ""
         print(f"ERROR: target_output_length {chat_thread_params['target_output_length']} not recognized. Using medium length output.")
 
-    print ("relevant_knowledge_str", relevant_knowledge_str)
     # format system message and add to chat messages
     formatted_system_message = MAIN_SYSTEM_MESSAGE.format(
         user_configurable_message=chat_thread_params['system_message'],
@@ -615,6 +614,9 @@ async def _get_chat_response_streaming(
         elif isinstance(partial_response, dict) and 'citations' in partial_response:
             citations_list = partial_response['citations']
             
+        print ("\n\n")
+        print ("citations_list", citations_list)
+        print ("\n\n")
         if citations_list:
             formatted_stream_citations = []
             for citation in citations_list:
@@ -625,6 +627,9 @@ async def _get_chat_response_streaming(
                 
                 if citation_dict and citation_dict.get("doc_id") in all_doc_ids:
                     citation_dict["kb_id"] = all_doc_ids[citation_dict["doc_id"]]
+                    formatted_stream_citations.append(citation_dict)
+                elif citation_dict and citation_dict.get("url"):
+                    citation_dict["kb_id"] = "web_search"
                     formatted_stream_citations.append(citation_dict)
                     
             current_interaction["model_response"]["citations"] = formatted_stream_citations

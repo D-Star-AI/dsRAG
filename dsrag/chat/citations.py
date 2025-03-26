@@ -86,10 +86,10 @@ def format_exa_search_results(search_results: list[ExaSearchResults]) -> tuple[s
     
     # Extract and combine content from search results
     website_content = "\n\n".join([
-        f"<id: {res.id}>\nTitle: {res.title}\nURL: {res.url}\nContent: {res.text[:10000]} </id: {res.id}>" # truncate to 10000 characters
+        f"<id: {res.url}>\nTitle: {res.title}\nURL: {res.url}\nContent: {res.text[:10000]} </id: {res.url}>" # truncate to 10000 characters
         for res in unique_results
     ])
-    
+        
     return website_content, seen_urls
 
 def convert_elements_to_page_content(elements: list[dict], kb_id: str, doc_id: str, file_system) -> None:
