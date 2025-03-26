@@ -14,6 +14,14 @@ Here are the knowledge bases you can search:
 {knowledge_base_descriptions}
 """.strip()
 
+EXA_SYSTEM_MESSAGE = """
+You are a query generation system. Please generate one or more search queries (up to a maximum of {max_queries}) based on the provided user input. DO NOT generate the answer, just queries.
+
+Each query will be used to search the internet for information that can be used to respond to the user input. Make sure each query is specific enough to return relevant information. If multiple pieces of information would be useful, you should generate multiple queries, one for each specific piece of information needed.
+
+{auto_query_guidance}
+""".strip()
+
 class Query(BaseModel):
     query: str
     knowledge_base_id: str
@@ -56,6 +64,38 @@ def validate_queries(queries: List[Query], kb_info: list[dict]) -> List[dict]:
                     validated_queries.append({"query": query.query, "kb_id": kb["id"]})
 
     return validated_queries
+
+def get_exa_search_queries(chat_messages: list[dict], auto_query_guidance: str = "", max_queries: int = 3, auto_query_model: str = "gpt-4o-mini") -> List[dict]:
+    """
+    Get search queries using EXA search.
+
+    Args:
+        chat_messages: list of dictionaries, where each dictionary has the keys "role" and "content". This should include the current user input as the final message.
+        kb_info: list of dictionaries, where each dictionary has the keys "id", "title", and "description". This should include information about the available knowledge bases.
+        auto_query_guidance: str, optional additional instructions for the auto_query system
+        max_queries: int, maximum number of queries to generate
+        auto_query_model: str, the model to use for generating queries
+
+    Returns:
+        List of validated query dictionaries
+    """
+    
+    system_message = EXA_SYSTEM_MESSAGE.format(
+        max_queries=max_queries,
+        auto_query_guidance=auto_query_guidance,
+    )
+    
+    messages = [{"role": "system", "content": system_message}] + chat_messages
+    
+    queries = get_response(
+        messages=messages,
+        model_name=auto_query_model,
+        response_model=Queries,
+    )
+    
+    return queries.queries
+
+
 
 def get_search_queries(chat_messages: list[dict], kb_info: list[dict], auto_query_guidance: str = "", max_queries: int = 5, auto_query_model: str = "gpt-4o-mini") -> List[dict]:
     """
