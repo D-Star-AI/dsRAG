@@ -265,10 +265,17 @@ async def _run_exa_search(
         print ("EXA search query: ", query)
         print ("\n")
         exa = Exa(api_key=os.getenv("EXA_API_KEY"))
-        return exa.search_and_contents(
-            query,
-            text=True
-        )
+        if exa_include_domains is not None:
+            return exa.search_and_contents(
+                query,
+                text=True,
+                include_domains=exa_include_domains
+            )
+        else:
+            return exa.search_and_contents(
+                query,
+                text=True
+            )
 
     # Run all searches in parallel
     tasks = [search_single_query(query.query) for query in exa_search_queries]
