@@ -386,10 +386,10 @@ class KnowledgeBase:
         # Log configuration parameters at DEBUG level
         config_extra = {
             **base_extra,
-            "auto_context_config": auto_context_config,
-            "file_parsing_config": file_parsing_config,
-            "semantic_sectioning_config": semantic_sectioning_config,
-            "chunking_config": chunking_config,
+            "provided_auto_context_config": auto_context_config,
+            "provided_file_parsing_config": file_parsing_config,
+            "provided_semantic_sectioning_config": semantic_sectioning_config,
+            "provided_chunking_config": chunking_config,
             "metadata": metadata
         }
         ingestion_logger.debug("Ingestion parameters", extra=config_extra)
