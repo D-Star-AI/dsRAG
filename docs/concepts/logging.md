@@ -1,4 +1,4 @@
-# dsRAG Logging Framework
+# Logging Framework
 
 This document provides an overview of the logging framework implemented in dsRAG.
 

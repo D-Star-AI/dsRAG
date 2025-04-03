@@ -42,6 +42,7 @@ nav:
     - Chat: concepts/chat.md
     - Citations: concepts/citations.md
     - VLM File Parsing: concepts/vlm.md
+    - Logging: concepts/logging.md
   - API:
     - KnowledgeBase: api/knowledge_base.md
     - Chat: api/chat.md
