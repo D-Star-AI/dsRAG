@@ -1,6 +1,8 @@
 import numpy as np
 import os
 import time
+import uuid
+import logging
 from typing import Optional, Union, Dict, List
 import concurrent.futures
 from tqdm import tqdm
@@ -370,89 +372,190 @@ class KnowledgeBase:
             5. Embedding
             6. Storage in vector and chunk databases
         """
-
-        # Handle the backwards compatibility for chunk_size and min_length_for_chunking
-        if chunk_size is not None:
-            chunking_config["chunk_size"] = chunk_size
-        if min_length_for_chunking is not None:
-            chunking_config["min_length_for_chunking"] = min_length_for_chunking
+        # Get a logger specific to ingestion operations
+        ingestion_logger = logging.getLogger("dsrag.ingestion")
         
-        # verify that either text or file_path is provided
-        if text == "" and file_path == "":
-            raise ValueError("Either text or file_path must be provided")
+        # Create a dictionary with base log context fields
+        base_extra = {"kb_id": self.kb_id, "doc_id": doc_id}
+        if file_path:
+            base_extra["file_path"] = file_path
 
-        # verify that the document does not already exist in the KB - the doc_id should be unique
-        if doc_id in self.chunk_db.get_all_doc_ids():
-            print(f"Document with ID {doc_id} already exists in the KB. Skipping...")
-            return
+        # Log start of ingestion at INFO level
+        ingestion_logger.info("Starting document ingestion", extra=base_extra)
         
-        # verify the doc_id is valid
-        if "/" in doc_id:
-            raise ValueError("doc_id cannot contain '/' characters")
+        # Log configuration parameters at DEBUG level
+        config_extra = {
+            **base_extra,
+            "auto_context_config": auto_context_config,
+            "file_parsing_config": file_parsing_config,
+            "semantic_sectioning_config": semantic_sectioning_config,
+            "chunking_config": chunking_config,
+            "metadata": metadata
+        }
+        ingestion_logger.debug("Ingestion parameters", extra=config_extra)
         
-        sections, chunks = parse_and_chunk(
-            kb_id=self.kb_id,
-            doc_id=doc_id,
-            file_path=file_path, 
-            text=text, 
-            file_parsing_config=file_parsing_config, 
-            semantic_sectioning_config=semantic_sectioning_config, 
-            chunking_config=chunking_config,
-            file_system=self.file_system,
-        )
+        # Start timing the overall ingestion process
+        overall_start_time = time.perf_counter()
 
-        # construct full document text from sections (for auto_context)
-        document_text = ""
-        for section in sections:
-            document_text += section["content"]
+        try:
+            # Handle the backwards compatibility for chunk_size and min_length_for_chunking
+            if chunk_size is not None:
+                chunking_config["chunk_size"] = chunk_size
+            if min_length_for_chunking is not None:
+                chunking_config["min_length_for_chunking"] = min_length_for_chunking
+            
+            # verify that either text or file_path is provided
+            if text == "" and file_path == "":
+                raise ValueError("Either text or file_path must be provided")
 
-        chunks, chunks_to_embed = auto_context(
-            auto_context_model=self.auto_context_model, 
-            sections=sections, 
-            chunks=chunks, 
-            text=document_text, 
-            doc_id=doc_id, 
-            document_title=document_title, 
-            auto_context_config=auto_context_config, 
-            language=self.kb_metadata["language"],
-        )
-        chunk_embeddings = get_embeddings(
-            embedding_model=self.embedding_model,
-            chunks_to_embed=chunks_to_embed,
-        )
-        add_chunks_to_db(
-            chunk_db=self.chunk_db,
-            chunks=chunks,
-            chunks_to_embed=chunks_to_embed,
-            chunk_embeddings=chunk_embeddings,
-            metadata=metadata,
-            doc_id=doc_id,
-            supp_id=supp_id
-        )
-        add_vectors_to_db(
-            vector_db=self.vector_db,
-            chunks=chunks,
-            chunk_embeddings=chunk_embeddings,
-            metadata=metadata,
-            doc_id=doc_id,
-        )
+            # verify that the document does not already exist in the KB - the doc_id should be unique
+            if doc_id in self.chunk_db.get_all_doc_ids():
+                ingestion_logger.warning(
+                    "Document already exists in knowledge base, skipping", 
+                    extra=base_extra
+                )
+                return
+            
+            # verify the doc_id is valid
+            if "/" in doc_id:
+                raise ValueError("doc_id cannot contain '/' characters")
+            
+            # --- Parsing and Chunking Step ---
+            step_start_time = time.perf_counter()
+            sections, chunks = parse_and_chunk(
+                kb_id=self.kb_id,
+                doc_id=doc_id,
+                file_path=file_path, 
+                text=text, 
+                file_parsing_config=file_parsing_config, 
+                semantic_sectioning_config=semantic_sectioning_config, 
+                chunking_config=chunking_config,
+                file_system=self.file_system,
+            )
+            step_duration = time.perf_counter() - step_start_time
+            ingestion_logger.debug("Parsing and Chunking complete", extra={
+                **base_extra, 
+                "step": "parse_chunk", 
+                "duration_s": round(step_duration, 4),
+                "num_sections": len(sections), 
+                "num_chunks": len(chunks)
+            })
 
-        # Convert elements to page content if the document was processed with page numbers
-        if file_path and file_parsing_config.get('use_vlm', False):
-            # NOTE: does this really need to be in a try/except block?
-            try:
-                elements = self.file_system.load_data(kb_id=self.kb_id, doc_id=doc_id, data_name="elements")
-                if elements:
-                    convert_elements_to_page_content(
-                        elements=elements,
-                        kb_id=self.kb_id,
-                        doc_id=doc_id,
-                        file_system=self.file_system
+            # construct full document text from sections (for auto_context)
+            document_text = ""
+            for section in sections:
+                document_text += section["content"]
+
+            # --- AutoContext Step ---
+            step_start_time = time.perf_counter()
+            chunks, chunks_to_embed = auto_context(
+                auto_context_model=self.auto_context_model, 
+                sections=sections, 
+                chunks=chunks, 
+                text=document_text, 
+                doc_id=doc_id, 
+                document_title=document_title, 
+                auto_context_config=auto_context_config, 
+                language=self.kb_metadata["language"],
+            )
+            step_duration = time.perf_counter() - step_start_time
+            ingestion_logger.debug("AutoContext complete", extra={
+                **base_extra, 
+                "step": "auto_context", 
+                "duration_s": round(step_duration, 4),
+                "model": self.auto_context_model.__class__.__name__
+            })
+            
+            # --- Embedding Step ---
+            step_start_time = time.perf_counter()
+            chunk_embeddings = get_embeddings(
+                embedding_model=self.embedding_model,
+                chunks_to_embed=chunks_to_embed,
+            )
+            step_duration = time.perf_counter() - step_start_time
+            ingestion_logger.debug("Embedding complete", extra={
+                **base_extra, 
+                "step": "embedding", 
+                "duration_s": round(step_duration, 4),
+                "num_embeddings": len(chunk_embeddings), 
+                "model": self.embedding_model.__class__.__name__
+            })
+            
+            # --- DB Storage Step ---
+            step_start_time = time.perf_counter()
+            add_chunks_to_db(
+                chunk_db=self.chunk_db,
+                chunks=chunks,
+                chunks_to_embed=chunks_to_embed,
+                chunk_embeddings=chunk_embeddings,
+                metadata=metadata,
+                doc_id=doc_id,
+                supp_id=supp_id
+            )
+            add_vectors_to_db(
+                vector_db=self.vector_db,
+                chunks=chunks,
+                chunk_embeddings=chunk_embeddings,
+                metadata=metadata,
+                doc_id=doc_id,
+            )
+            step_duration = time.perf_counter() - step_start_time
+            ingestion_logger.debug("Database storage complete", extra={
+                **base_extra,
+                "step": "db_storage", 
+                "duration_s": round(step_duration, 4),
+                "vector_db": self.vector_db.__class__.__name__,
+                "chunk_db": self.chunk_db.__class__.__name__
+            })
+
+            # Convert elements to page content if the document was processed with page numbers
+            if file_path and file_parsing_config.get('use_vlm', False):
+                try:
+                    step_start_time = time.perf_counter()
+                    elements = self.file_system.load_data(kb_id=self.kb_id, doc_id=doc_id, data_name="elements")
+                    if elements:
+                        convert_elements_to_page_content(
+                            elements=elements,
+                            kb_id=self.kb_id,
+                            doc_id=doc_id,
+                            file_system=self.file_system
+                        )
+                    step_duration = time.perf_counter() - step_start_time
+                    ingestion_logger.debug("Page content conversion complete", extra={
+                        **base_extra,
+                        "step": "page_content", 
+                        "duration_s": round(step_duration, 4),
+                        "num_elements": len(elements) if elements else 0
+                    })
+                except Exception as e:
+                    ingestion_logger.warning(
+                        "Failed to load or process elements for page content", 
+                        extra={**base_extra, "error": str(e)}
                     )
-            except Exception as e:
-                print(f"Warning: Failed to load or process elements for page content: {str(e)}")
 
-        self._save()  # save to disk after adding a document
+            self._save()  # save to disk after adding a document
+            
+            # Log successful completion with total duration
+            overall_duration = time.perf_counter() - overall_start_time
+            ingestion_logger.info("Document ingestion successful", extra={
+                **base_extra,
+                "total_duration_s": round(overall_duration, 4)
+            })
+            
+        except Exception as e:
+            # Log error with exception info
+            overall_duration = time.perf_counter() - overall_start_time
+            ingestion_logger.error(
+                "Document ingestion failed", 
+                extra={
+                    **base_extra,
+                    "total_duration_s": round(overall_duration, 4),
+                    "error": str(e)
+                },
+                exc_info=True
+            )
+            # Re-raise the exception
+            raise
 
     def add_documents(
         self,
@@ -775,121 +878,215 @@ class KnowledgeBase:
                 }
                 ```
         """
-        # check if the rse_params is a preset name and convert it to a dictionary if it is
-        if isinstance(rse_params, str) and rse_params in RSE_PARAMS_PRESETS:
-            rse_params = RSE_PARAMS_PRESETS[rse_params]
-        elif isinstance(rse_params, str):
-            raise ValueError(f"Invalid rse_params preset name: {rse_params}")
+        # Get a logger specific to query operations
+        query_logger = logging.getLogger("dsrag.query")
+        
+        # Generate a unique query ID
+        query_id = str(uuid.uuid4())
+        
+        # Create a dictionary with base log context fields
+        base_extra = {"kb_id": self.kb_id, "query_id": query_id}
+        
+        # Log start of query operation at INFO level
+        query_logger.info("Starting query", extra={
+            **base_extra, 
+            "num_search_queries": len(search_queries)
+        })
+        
+        # Start timing the overall query process
+        overall_start_time = time.perf_counter()
 
-        # set the RSE parameters - use the 'balanced' preset as the default for any missing parameters
-        default_rse_params = RSE_PARAMS_PRESETS["balanced"]
-        max_length = rse_params.get("max_length", default_rse_params["max_length"])
-        overall_max_length = rse_params.get(
-            "overall_max_length", default_rse_params["overall_max_length"]
-        )
-        minimum_value = rse_params.get(
-            "minimum_value", default_rse_params["minimum_value"]
-        )
-        irrelevant_chunk_penalty = rse_params.get(
-            "irrelevant_chunk_penalty", default_rse_params["irrelevant_chunk_penalty"]
-        )
-        overall_max_length_extension = rse_params.get(
-            "overall_max_length_extension",
-            default_rse_params["overall_max_length_extension"],
-        )
-        decay_rate = rse_params.get("decay_rate", default_rse_params["decay_rate"])
-        top_k_for_document_selection = rse_params.get(
-            "top_k_for_document_selection",
-            default_rse_params["top_k_for_document_selection"],
-        )
-        chunk_length_adjustment = rse_params.get(
-            "chunk_length_adjustment", default_rse_params["chunk_length_adjustment"]
-        )
+        try:
+            # Log query parameters at DEBUG level
+            query_logger.debug("Query parameters", extra={
+                **base_extra,
+                "search_queries": search_queries,
+                "rse_params": rse_params if isinstance(rse_params, dict) else {"preset": rse_params},
+                "metadata_filter": metadata_filter,
+                "return_mode": return_mode,
+                "reranker_model": self.reranker.__class__.__name__
+            })
+            
+            # check if the rse_params is a preset name and convert it to a dictionary if it is
+            if isinstance(rse_params, str) and rse_params in RSE_PARAMS_PRESETS:
+                rse_params = RSE_PARAMS_PRESETS[rse_params]
+            elif isinstance(rse_params, str):
+                raise ValueError(f"Invalid rse_params preset name: {rse_params}")
 
-        overall_max_length += (
-            len(search_queries) - 1
-        ) * overall_max_length_extension  # increase the overall max length for each additional query
-
-        start_time = time.time()
-        all_ranked_results = self._get_all_ranked_results(search_queries=search_queries, metadata_filter=metadata_filter)
-        if latency_profiling:
-            print(
-                f"get_all_ranked_results took {time.time() - start_time} seconds to run for {len(search_queries)} queries"
+            # set the RSE parameters - use the 'balanced' preset as the default for any missing parameters
+            default_rse_params = RSE_PARAMS_PRESETS["balanced"]
+            max_length = rse_params.get("max_length", default_rse_params["max_length"])
+            overall_max_length = rse_params.get(
+                "overall_max_length", default_rse_params["overall_max_length"]
+            )
+            minimum_value = rse_params.get(
+                "minimum_value", default_rse_params["minimum_value"]
+            )
+            irrelevant_chunk_penalty = rse_params.get(
+                "irrelevant_chunk_penalty", default_rse_params["irrelevant_chunk_penalty"]
+            )
+            overall_max_length_extension = rse_params.get(
+                "overall_max_length_extension",
+                default_rse_params["overall_max_length_extension"],
+            )
+            decay_rate = rse_params.get("decay_rate", default_rse_params["decay_rate"])
+            top_k_for_document_selection = rse_params.get(
+                "top_k_for_document_selection",
+                default_rse_params["top_k_for_document_selection"],
+            )
+            chunk_length_adjustment = rse_params.get(
+                "chunk_length_adjustment", default_rse_params["chunk_length_adjustment"]
             )
 
-        document_splits, document_start_points, unique_document_ids = get_meta_document(
-            all_ranked_results=all_ranked_results,
-            top_k_for_document_selection=top_k_for_document_selection,
-        )
+            overall_max_length += (
+                len(search_queries) - 1
+            ) * overall_max_length_extension  # increase the overall max length for each additional query
 
-        # verify that we have a valid meta-document - otherwise return an empty list of segments
-        if len(document_splits) == 0:
-            return []
+            # --- Search/Rerank Step ---
+            step_start_time = time.perf_counter()
+            all_ranked_results = self._get_all_ranked_results(search_queries=search_queries, metadata_filter=metadata_filter)
+            step_duration = time.perf_counter() - step_start_time
+            
+            # Get the number of initial results per query
+            initial_results_per_query = [len(results) for results in all_ranked_results]
+            
+            # Log information about search/rerank step
+            query_logger.debug("Search/Rerank complete", extra={
+                **base_extra, 
+                "step": "search_rerank", 
+                "duration_s": round(step_duration, 4),
+                "num_initial_results_per_query": initial_results_per_query,
+                "total_initial_results": sum(initial_results_per_query),
+                "reranker": self.reranker.__class__.__name__
+            })
+            
+            if latency_profiling:
+                print(
+                    f"get_all_ranked_results took {step_duration} seconds to run for {len(search_queries)} queries"
+                )
 
-        # get the length of the meta-document so we don't have to pass in the whole list of splits
-        meta_document_length = document_splits[-1]
-
-        # get the relevance values for each chunk in the meta-document and use those to find the best segments
-        all_relevance_values = get_relevance_values(
-            all_ranked_results=all_ranked_results,
-            meta_document_length=meta_document_length,
-            document_start_points=document_start_points,
-            unique_document_ids=unique_document_ids,
-            irrelevant_chunk_penalty=irrelevant_chunk_penalty,
-            decay_rate=decay_rate,
-            chunk_length_adjustment=chunk_length_adjustment,
-        )
-        best_segments, scores = get_best_segments(
-            all_relevance_values=all_relevance_values,
-            document_splits=document_splits,
-            max_length=max_length,
-            overall_max_length=overall_max_length,
-            minimum_value=minimum_value,
-        )
-
-        # convert the best segments into a list of dictionaries that contain the document id and the start and end of the chunk
-        relevant_segment_info = []
-        for segment_index, (start, end) in enumerate(best_segments):
-            # find the document that this segment starts in
-            for i, split in enumerate(document_splits):
-                if start < split:  # splits represent the end of each document
-                    doc_start = document_splits[i - 1] if i > 0 else 0
-                    relevant_segment_info.append(
-                        {
-                            "doc_id": unique_document_ids[i],
-                            "chunk_start": start - doc_start,
-                            "chunk_end": end - doc_start,
-                        }
-                    )  # NOTE: end index is non-inclusive
-                    break
-
-            score = scores[segment_index]
-            relevant_segment_info[-1]["score"] = score
-
-        # retrieve the content for each of the segments
-        for segment_info in relevant_segment_info:
-            segment_info["content"] = self._get_segment_content_from_database(
-                segment_info["doc_id"],
-                segment_info["chunk_start"],
-                segment_info["chunk_end"],
-                return_mode=return_mode,
+            # --- RSE Step ---
+            step_start_time = time.perf_counter()
+            document_splits, document_start_points, unique_document_ids = get_meta_document(
+                all_ranked_results=all_ranked_results,
+                top_k_for_document_selection=top_k_for_document_selection,
             )
-            start_page_number, end_page_number = self._get_segment_page_numbers(
-                segment_info["doc_id"],
-                segment_info["chunk_start"],
-                segment_info["chunk_end"]
+
+            # verify that we have a valid meta-document - otherwise return an empty list of segments
+            if len(document_splits) == 0:
+                query_logger.info("Query returned no results (empty meta-document)", extra=base_extra)
+                return []
+
+            # get the length of the meta-document so we don't have to pass in the whole list of splits
+            meta_document_length = document_splits[-1]
+
+            # get the relevance values for each chunk in the meta-document and use those to find the best segments
+            all_relevance_values = get_relevance_values(
+                all_ranked_results=all_ranked_results,
+                meta_document_length=meta_document_length,
+                document_start_points=document_start_points,
+                unique_document_ids=unique_document_ids,
+                irrelevant_chunk_penalty=irrelevant_chunk_penalty,
+                decay_rate=decay_rate,
+                chunk_length_adjustment=chunk_length_adjustment,
             )
-            segment_info["segment_page_start"] = start_page_number
-            segment_info["segment_page_end"] = end_page_number
+            best_segments, scores = get_best_segments(
+                all_relevance_values=all_relevance_values,
+                document_splits=document_splits,
+                max_length=max_length,
+                overall_max_length=overall_max_length,
+                minimum_value=minimum_value,
+            )
+            step_duration = time.perf_counter() - step_start_time
+            
+            # Log information about RSE step
+            query_logger.debug("RSE complete", extra={
+                **base_extra,
+                "step": "rse", 
+                "duration_s": round(step_duration, 4),
+                "num_final_segments": len(best_segments),
+                "segment_scores": [round(s, 4) for s in scores]
+            })
 
-            # Deprecated keys, but needed for backwards compatibility
-            segment_info["chunk_page_start"] = start_page_number
-            segment_info["chunk_page_end"] = end_page_number
+            # --- Content Retrieval Step ---
+            step_start_time = time.perf_counter()
+            
+            # convert the best segments into a list of dictionaries that contain the document id and the start and end of the chunk
+            relevant_segment_info = []
+            for segment_index, (start, end) in enumerate(best_segments):
+                # find the document that this segment starts in
+                for i, split in enumerate(document_splits):
+                    if start < split:  # splits represent the end of each document
+                        doc_start = document_splits[i - 1] if i > 0 else 0
+                        relevant_segment_info.append(
+                            {
+                                "doc_id": unique_document_ids[i],
+                                "chunk_start": start - doc_start,
+                                "chunk_end": end - doc_start,
+                            }
+                        )  # NOTE: end index is non-inclusive
+                        break
 
-            # Backwards compatibility, where previously the content was stored in the "text" key
-            if type(segment_info["content"]) == str:
-                segment_info["text"] = segment_info["content"]
-            else:
-                segment_info["text"] = ""
+                score = scores[segment_index]
+                relevant_segment_info[-1]["score"] = score
 
-        return relevant_segment_info
+            # retrieve the content for each of the segments
+            for segment_info in relevant_segment_info:
+                segment_info["content"] = self._get_segment_content_from_database(
+                    segment_info["doc_id"],
+                    segment_info["chunk_start"],
+                    segment_info["chunk_end"],
+                    return_mode=return_mode,
+                )
+                start_page_number, end_page_number = self._get_segment_page_numbers(
+                    segment_info["doc_id"],
+                    segment_info["chunk_start"],
+                    segment_info["chunk_end"]
+                )
+                segment_info["segment_page_start"] = start_page_number
+                segment_info["segment_page_end"] = end_page_number
+
+                # Deprecated keys, but needed for backwards compatibility
+                segment_info["chunk_page_start"] = start_page_number
+                segment_info["chunk_page_end"] = end_page_number
+
+                # Backwards compatibility, where previously the content was stored in the "text" key
+                if type(segment_info["content"]) == str:
+                    segment_info["text"] = segment_info["content"]
+                else:
+                    segment_info["text"] = ""
+            
+            step_duration = time.perf_counter() - step_start_time
+            
+            # Log information about content retrieval step
+            query_logger.debug("Content retrieval complete", extra={
+                **base_extra, 
+                "step": "content_retrieval", 
+                "duration_s": round(step_duration, 4),
+                "return_mode": return_mode
+            })
+            
+            # Calculate and log overall query duration
+            overall_duration = time.perf_counter() - overall_start_time
+            query_logger.info("Query successful", extra={
+                **base_extra, 
+                "total_duration_s": round(overall_duration, 4), 
+                "num_final_segments": len(relevant_segment_info)
+            })
+
+            return relevant_segment_info
+            
+        except Exception as e:
+            # Log error with exception info
+            overall_duration = time.perf_counter() - overall_start_time
+            query_logger.error(
+                "Query failed", 
+                extra={
+                    **base_extra,
+                    "total_duration_s": round(overall_duration, 4),
+                    "error": str(e)
+                },
+                exc_info=True
+            )
+            # Re-raise the exception
+            raise
