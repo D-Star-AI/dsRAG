@@ -6,6 +6,8 @@ from dsrag.utils.llm import get_response
 import tiktoken
 from datetime import datetime
 import uuid
+import logging
+import time
 
 
 MAIN_SYSTEM_MESSAGE = """
@@ -844,8 +846,155 @@ def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInp
         If stream=True:
             Iterator: Yields partial response objects during generation
     """
-    print("ROUTER FUNCTION", "stream =", stream)
-    if stream:
-        return get_chat_thread_response_streaming(thread_id, get_response_input, chat_thread_db, knowledge_bases)
-    else:
-        return get_chat_thread_response_non_streaming(thread_id, get_response_input, chat_thread_db, knowledge_bases)
+    # Get a logger specific to chat operations
+    chat_logger = logging.getLogger("dsrag.chat")
+    
+    # Generate a unique message ID
+    message_id = str(uuid.uuid4())
+    
+    # Create a dictionary with base log context fields
+    thread = chat_thread_db.get_chat_thread(thread_id)
+    kb_ids = []
+    if thread and "params" in thread and "kb_ids" in thread["params"]:
+        kb_ids = thread["params"]["kb_ids"]
+    
+    base_extra = {
+        "thread_id": thread_id, 
+        "message_id": message_id,
+        "kb_ids": kb_ids
+    }
+    
+    # Log start of chat response at INFO level
+    chat_logger.info("Starting chat response", extra={
+        **base_extra,
+        "stream": stream,
+        "user_input_length": len(get_response_input.user_input) if get_response_input.user_input else 0
+    })
+    
+    # Start timing the overall chat process
+    overall_start_time = time.perf_counter()
+    
+    try:
+        # Log parameters at DEBUG level
+        chat_logger.debug("Chat parameters", extra={
+            **base_extra,
+            "user_input": get_response_input.user_input[:100] + "..." if len(get_response_input.user_input) > 100 else get_response_input.user_input,
+            "chat_thread_params_override": get_response_input.chat_thread_params is not None,
+            "metadata_filter": get_response_input.metadata_filter,
+            "num_messages_in_thread": len(thread.get("interactions", [])) if thread else 0
+        })
+        
+        result = None
+        if stream:
+            # For streaming, we need to wrap the generator to log at the end
+            streaming_generator = get_chat_thread_response_streaming(thread_id, get_response_input, chat_thread_db, knowledge_bases)
+            
+            # Initialize variables to track the streaming process
+            first_chunk = True
+            last_result = None
+            
+            # Define a generator that wraps the original one to add logging
+            def logging_generator():
+                nonlocal first_chunk, last_result
+                
+                # Log auto_query step at the beginning
+                if first_chunk:
+                    first_chunk = False
+                    query_step_start_time = time.perf_counter()
+                
+                # Process each chunk from the original generator
+                for result in streaming_generator:
+                    last_result = result
+                    
+                    # For the first real result (with search_queries), log query info
+                    if first_chunk == False and "search_queries" in result and query_step_start_time:
+                        query_step_duration = time.perf_counter() - query_step_start_time
+                        search_queries = result.get("search_queries", [])
+                        
+                        # Log auto_query completion
+                        chat_logger.debug("Auto-query complete", extra={
+                            **base_extra,
+                            "step": "auto_query",
+                            "duration_s": round(query_step_duration, 4),
+                            "num_queries_generated": len(search_queries),
+                            "queries": search_queries
+                        })
+                        
+                        # Start timing kb_search step
+                        kb_search_start_time = time.perf_counter()
+                        first_chunk = None  # Set to None to indicate we've logged query info
+                    
+                    # For the first result with relevant_segments, log kb_search info
+                    if first_chunk is None and "relevant_segments" in result and len(result.get("relevant_segments", [])) > 0:
+                        kb_search_duration = time.perf_counter() - kb_search_start_time
+                        relevant_segments = result.get("relevant_segments", [])
+                        
+                        # Log kb_search completion
+                        chat_logger.debug("Knowledge base search complete", extra={
+                            **base_extra, 
+                            "step": "kb_search",
+                            "duration_s": round(kb_search_duration, 4),
+                            "num_segments_retrieved": len(relevant_segments)
+                        })
+                        
+                        # Start timing llm_response step
+                        llm_response_start_time = time.perf_counter()
+                        first_chunk = False  # Reset first_chunk to avoid re-logging
+                    
+                    # Yield this chunk to the caller
+                    yield result
+                
+                # After all chunks are processed, log the overall completion
+                if last_result:
+                    overall_duration = time.perf_counter() - overall_start_time
+                    chat_logger.info("Chat response streaming completed", extra={
+                        **base_extra,
+                        "total_duration_s": round(overall_duration, 4),
+                        "response_length": len(last_result.get("model_response", {}).get("content", "")) if last_result.get("model_response") else 0,
+                        "num_citations": len(last_result.get("model_response", {}).get("citations", [])) if last_result.get("model_response") else 0
+                    })
+            
+            # Return our logging generator
+            return logging_generator()
+        else:
+            # For non-streaming, we can log before and after the call
+            
+            # Log auto_query step
+            auto_query_start_time = time.perf_counter()
+            
+            # Get the response
+            result = get_chat_thread_response_non_streaming(thread_id, get_response_input, chat_thread_db, knowledge_bases)
+            
+            # Log steps and completion
+            overall_duration = time.perf_counter() - overall_start_time
+            
+            # Calculate time spent on auto_query, kb_search, and llm_response
+            search_queries = result.get("search_queries", [])
+            relevant_segments = result.get("relevant_segments", [])
+            
+            # Log completion
+            chat_logger.info("Chat response completed", extra={
+                **base_extra,
+                "total_duration_s": round(overall_duration, 4),
+                "response_length": len(result.get("model_response", {}).get("content", "")) if result.get("model_response") else 0,
+                "num_queries": len(search_queries),
+                "num_segments": len(relevant_segments),
+                "num_citations": len(result.get("model_response", {}).get("citations", [])) if result.get("model_response") else 0
+            })
+            
+            return result
+            
+    except Exception as e:
+        # Log error with exception info
+        overall_duration = time.perf_counter() - overall_start_time
+        chat_logger.error(
+            "Chat response failed", 
+            extra={
+                **base_extra,
+                "total_duration_s": round(overall_duration, 4),
+                "error": str(e)
+            },
+            exc_info=True
+        )
+        # Re-raise the exception
+        raise

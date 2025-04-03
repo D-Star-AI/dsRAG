@@ -1,8 +1,13 @@
 import os
+import time
+import logging
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 from ..utils.imports import instructor
 from ..models.types import SemanticSectioningConfig, Line, Section, Element, ElementType
+
+# Get the dsparse logger
+logger = logging.getLogger("dsrag.dsparse.semantic_sectioning")
 
 class DocumentSection(BaseModel):
     title: str = Field(description="main topic of this section of the document (very descriptive)")
@@ -169,7 +174,7 @@ def validate_and_fix_sections(sections: List[DocumentSection], document_length: 
     
     return fixed_sections
 
-def get_sections(document_lines: List[Line], max_iterations: int, max_characters: int = 20000, llm_provider: str = "openai", model: str = "gpt-4o-mini", language: str = "en") -> List[Section]:
+def get_sections(document_lines: List[Line], max_iterations: int, max_characters: int = 20000, llm_provider: str = "openai", model: str = "gpt-4o-mini", language: str = "en", kb_id: str = "", doc_id: str = "") -> List[Section]:
     """
     Inputs
     - document_lines: list[dict] - the text of the document
@@ -177,6 +182,8 @@ def get_sections(document_lines: List[Line], max_iterations: int, max_characters
     - max_characters: int - the maximum number of characters to process in one call to the LLM
     - llm_provider: str - the LLM provider to use (either "anthropic" or "openai")
     - model: str - the name of the LLM model to use
+    - kb_id: str - the knowledge base identifier (for logging)
+    - doc_id: str - the document identifier (for logging)
 
     Returns
     - sections: a list of dictionaries, each containing the following keys:
@@ -185,18 +192,53 @@ def get_sections(document_lines: List[Line], max_iterations: int, max_characters
         - end: int - line number where the section ends (inclusive)
         - content: str - the text of the section
     """
+    # Create base logging context with identifiers
+    base_extra = {}
+    if kb_id:
+        base_extra["kb_id"] = kb_id
+    if doc_id:
+        base_extra["doc_id"] = doc_id
     
+    # Log start of sectioning operation
+    logger.debug("Starting semantic sectioning", extra={
+        **base_extra,
+        "document_lines_count": len(document_lines),
+        "llm_provider": llm_provider,
+        "model": model
+    })
+    
+    start_time = time.perf_counter()
     start_line = 0
     all_sections = []
-    for _ in range(max_iterations):
+    iteration_count = 0
+    
+    for iteration in range(max_iterations):
+        iteration_count = iteration + 1
+        iter_start_time = time.perf_counter()
+        
         document_with_line_numbers, end_line = get_document_with_lines(document_lines, start_line, max_characters)
         structured_doc = get_structured_document(document_with_line_numbers, start_line, llm_provider=llm_provider, model=model, language=language)
         
         # Validate and fix the sections from this batch
         new_sections = validate_and_fix_sections(structured_doc.sections, len(document_lines))
         
+        logger.debug("Sectioning iteration complete", extra={
+            **base_extra,
+            "iteration": iteration_count,
+            "start_line": start_line,
+            "end_line": end_line,
+            "sections_found": len(new_sections),
+            "duration_s": round(time.perf_counter() - iter_start_time, 4)
+        })
+        
         if not new_sections:
             # If we got no valid sections, something went wrong - move forward anyway
+            logger.warning("No valid sections returned from LLM", extra={
+                **base_extra,
+                "iteration": iteration_count,
+                "start_line": start_line,
+                "end_line": end_line
+            })
             start_line = end_line + 1
             continue
             
@@ -222,6 +264,15 @@ def get_sections(document_lines: List[Line], max_iterations: int, max_characters
 
     # get the section text
     sections = get_sections_text(all_sections, document_lines)
+    
+    # Calculate and log overall duration
+    total_duration = time.perf_counter() - start_time
+    logger.debug("Semantic sectioning complete", extra={
+        **base_extra,
+        "total_duration_s": round(total_duration, 4), 
+        "iterations_used": iteration_count,
+        "sections_count": len(sections)
+    })
 
     return sections
 
@@ -396,7 +447,7 @@ def no_semantic_sectioning(document: str, num_lines: int) -> List[Section]:
     }]
     return sections
 
-def get_sections_from_elements(elements: List[Element], element_types: List[ElementType], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}) -> tuple[List[Section], List[Line]]:
+def get_sections_from_elements(elements: List[Element], element_types: List[ElementType], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
     # get the semantic sectioning config params, using defaults if not provided
     use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
@@ -417,14 +468,16 @@ def get_sections_from_elements(elements: List[Element], element_types: List[Elem
             max_characters=max_characters, 
             llm_provider=llm_provider, 
             model=model, 
-            language=language
+            language=language,
+            kb_id=kb_id,
+            doc_id=doc_id
         )
     else:
         sections = no_semantic_sectioning(document=document_str, num_lines=len(document_lines))
     
     return sections, document_lines
 
-def get_sections_from_str(document: str, max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}) -> tuple[List[Section], List[Line]]:
+def get_sections_from_str(document: str, max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
     # get the semantic sectioning config params, using defaults if not provided
     use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
@@ -441,13 +494,15 @@ def get_sections_from_str(document: str, max_characters: int = 20000, semantic_s
             max_characters=max_characters, 
             llm_provider=llm_provider, 
             model=model, 
-            language=language
+            language=language,
+            kb_id=kb_id,
+            doc_id=doc_id
         )
     else:
         sections = no_semantic_sectioning(document=document, num_lines=len(document_lines))
     return sections, document_lines
 
-def get_sections_from_pages(pages: List[str], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}) -> tuple[List[Section], List[Line]]:
+def get_sections_from_pages(pages: List[str], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
     # get the semantic sectioning config params, using defaults if not provided
     use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
@@ -466,7 +521,9 @@ def get_sections_from_pages(pages: List[str], max_characters: int = 20000, seman
             max_characters=max_characters, 
             llm_provider=llm_provider, 
             model=model, 
-            language=language
+            language=language,
+            kb_id=kb_id,
+            doc_id=doc_id
         )
     else:
         sections = no_semantic_sectioning(document=document_str, num_lines=len(document_lines))
