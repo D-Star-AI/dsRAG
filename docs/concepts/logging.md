@@ -21,6 +21,9 @@ The dsRAG logging framework provides detailed visibility into the library's oper
 - `dsrag.ingestion`: Document ingestion operations
 - `dsrag.query`: Knowledge base querying operations
 - `dsrag.chat`: Chat interactions
+- `dsrag.dsparse`: Document parsing and chunking operations
+- `dsrag.dsparse.semantic_sectioning`: Semantic sectioning operations
+- `dsrag.dsparse.chunking`: Document chunking operations
 
 ## Log Levels
 
@@ -133,6 +136,21 @@ logger.addHandler(console_handler)
 ```
 2025-04-03 12:45:23 - dsrag.chat - INFO - Starting chat response - {"thread_id": "t123", "message_id": "m456", "kb_ids": ["kb123", "kb789"], "stream": false, "user_input_length": 182}
 2025-04-03 12:45:30 - dsrag.chat - INFO - Chat response completed - {"thread_id": "t123", "message_id": "m456", "kb_ids": ["kb123", "kb789"], "total_duration_s": 7.6543, "response_length": 512, "num_queries": 2, "num_segments": 5, "num_citations": 3}
+```
+
+### Document Parsing (DEBUG)
+
+```
+2025-04-03 12:34:10 - dsrag.dsparse - DEBUG - Starting VLM file parsing - {"kb_id": "kb123", "doc_id": "doc456", "file_path": "/path/to/document.pdf"}
+2025-04-03 12:34:20 - dsrag.dsparse - DEBUG - VLM file parsing complete - {"kb_id": "kb123", "doc_id": "doc456", "step": "vlm_parse", "duration_s": 10.3421, "num_elements": 35, "provider": "gemini", "model": "gemini-2.0-flash"}
+```
+
+### Semantic Sectioning (DEBUG)
+
+```
+2025-04-03 12:34:20 - dsrag.dsparse.semantic_sectioning - DEBUG - Starting semantic sectioning - {"kb_id": "kb123", "doc_id": "doc456", "document_lines_count": 768, "llm_provider": "openai", "model": "gpt-4o-mini"}
+2025-04-03 12:34:25 - dsrag.dsparse.semantic_sectioning - DEBUG - Sectioning iteration complete - {"kb_id": "kb123", "doc_id": "doc456", "iteration": 1, "start_line": 0, "end_line": 300, "sections_found": 3, "duration_s": 4.7891}
+2025-04-03 12:34:30 - dsrag.dsparse.semantic_sectioning - DEBUG - Semantic sectioning complete - {"kb_id": "kb123", "doc_id": "doc456", "total_duration_s": 10.1234, "iterations_used": 3, "sections_count": 8}
 ```
 
 ## More Information
