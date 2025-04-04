@@ -3,10 +3,10 @@ import os
 import io
 from ..utils.imports import genai, vertexai
 
-def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gemini-1.5-pro-002", response_schema: dict = None, max_tokens: int = 4000) -> str:
+def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gemini-2.0-flash", response_schema: dict = None, max_tokens: int = 4000, temperature: float = 0.5) -> str:
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
     generation_config = {
-        "temperature": 0,
+        "temperature": temperature,
         "response_mime_type": "application/json",
         "max_output_tokens": max_tokens
     }
@@ -31,7 +31,7 @@ def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gem
         if 'image' in locals():
             image.close()
 
-def make_llm_call_vertex(image_path: str, system_message: str, model: str, project_id: str, location: str, response_schema: dict = None, max_tokens: int = 4000) -> str:
+def make_llm_call_vertex(image_path: str, system_message: str, model: str, project_id: str, location: str, response_schema: dict = None, max_tokens: int = 4000, temperature: float = 0.5) -> str:
     """
     This function calls the Vertex AI Gemini API (not to be confused with the Gemini API) with an image and a system message and returns the response text.
     """
@@ -39,9 +39,9 @@ def make_llm_call_vertex(image_path: str, system_message: str, model: str, proje
     model = vertexai.generative_models.GenerativeModel(model)
     
     if response_schema is not None:
-        generation_config = vertexai.generative_models.GenerationConfig(temperature=0.0, max_output_tokens=max_tokens, response_mime_type="application/json", response_schema=response_schema)
+        generation_config = vertexai.generative_models.GenerationConfig(temperature=temperature, max_output_tokens=max_tokens, response_mime_type="application/json", response_schema=response_schema)
     else:
-        generation_config = vertexai.generative_models.GenerationConfig(temperature=0.0, max_output_tokens=max_tokens)
+        generation_config = vertexai.generative_models.GenerationConfig(temperature=temperature, max_output_tokens=max_tokens)
     
     response = model.generate_content(
         [

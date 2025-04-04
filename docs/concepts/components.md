@@ -58,6 +58,7 @@ Available options:
 - `OpenAIChatAPI`
 - `AnthropicChatAPI`
 - `OllamaChatAPI`
+- `GeminiAPI`
 
 ## FileSystem
 

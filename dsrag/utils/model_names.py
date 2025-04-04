@@ -13,8 +13,11 @@ GEMINI_MODEL_NAMES = [
     "gemini-1.5-flash-002",
     "gemini-1.5-pro-002", 
     "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
     "gemini-2.0-flash-thinking-exp",
     "gemini-2.0-pro-exp",
+    "gemini-2.5-pro-exp-03-25",
+    "gemini-2.5-pro-preview-03-25", 
 ]
 
 OPENAI_MODEL_NAMES = [
@@ -32,4 +35,5 @@ OPENAI_MODEL_NAMES = [
     "o3-mini-2025-01-31",
     "gpt-4.5-preview",
     "gpt-4.5-preview-2025-02-27",
+    "chatgpt-4o-latest",
 ]
