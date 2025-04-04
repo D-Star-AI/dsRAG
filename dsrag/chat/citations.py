@@ -85,7 +85,8 @@ def format_exa_search_results(search_results: list[ExaSearchResults]) -> tuple[s
                 unique_results.append(result)
     
     # Extract and combine content from search results
-    website_content = "\n\n".join([
+    website_content = "RELEVANT WEBSITE CONTENT\n\n The following is content from websites that may be relevant to the user's question. You can use this content to help you write your response, but be careful: not all search results will be relevant, and sometimes you won't need to use any of them, so use your best judgement when deciding what to include in your response. Ignore any information here that is not relevant to the user's input.\n\n"
+    website_content += "\n\n".join([
         f"<id: {res.url}>\nTitle: {res.title}\nURL: {res.url}\nContent: {res.text[:10000]} </id: {res.url}>" # truncate to 10000 characters
         for res in unique_results
     ])
