@@ -198,7 +198,9 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
     elif vlm_config["provider"] == "gemini":
         try:
             # Get temperature from vlm_config or use default
-            temperature = vlm_config.get("temperature", 0.5)
+            # NOTE: it's very important to use a non-zero temperature here
+            # Using a temp of 0 causes frequent degenerative output that can't be fixed by retrying
+            temperature = vlm_config.get("temperature", 0.5) 
             
             llm_output = make_llm_call_gemini(
                 image_path=page_image_path, 
