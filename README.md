@@ -212,6 +212,7 @@ The currently available options are:
 - `OpenAIChatAPI`
 - `AnthropicChatAPI`
 - `OllamaChatAPI`
+- `GeminiAPI`
 
 #### FileSystem
 This defines the file system to be used for saving PDF images for VLM file parsing.
