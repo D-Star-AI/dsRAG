@@ -3,10 +3,10 @@ import os
 import io
 from ..utils.imports import genai, vertexai
 
-def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gemini-2.0-flash", response_schema: dict = None, max_tokens: int = 4000) -> str:
+def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gemini-2.0-flash", response_schema: dict = None, max_tokens: int = 4000, temperature: float = 0.5) -> str:
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
     generation_config = {
-        "temperature": 0,
+        "temperature": temperature,
         "response_mime_type": "application/json",
         "max_output_tokens": max_tokens
     }

@@ -197,12 +197,16 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
                 
     elif vlm_config["provider"] == "gemini":
         try:
+            # Get temperature from vlm_config or use default
+            temperature = vlm_config.get("temperature", 0.5)
+            
             llm_output = make_llm_call_gemini(
                 image_path=page_image_path, 
                 system_message=system_message, 
                 model=vlm_config["model"],
                 response_schema=response_schema,
-                max_tokens=4000
+                max_tokens=4000,
+                temperature=temperature
             )
         except Exception as e:
             base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
@@ -233,10 +237,19 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
     except Exception as e:
         base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
         logger.error(f"Error parsing JSON for {page_image_path}: {e}", extra=base_extra)
+        
+        # Log the full model output for debugging purposes
+        logger.debug("Full problematic model output:", extra={
+            **base_extra,
+            "full_model_output": llm_output
+        })
+        
         error_data = {
             "error": f"Error parsing JSON for {page_image_path}: {e}",
             "function": "parse_page",
+            "full_model_output": llm_output  # Also save the full output to the error log
         }
+        
         try:
             file_system.log_error(kb_id, doc_id, error_data)
         except Exception as log_error:
@@ -284,7 +297,9 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     def process_page(page_number):
         base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
         tries = 0
-        while tries < 20:
+        max_retries = 20
+        
+        while tries < max_retries:
             content = parse_page(
                 kb_id=kb_id,
                 doc_id=doc_id,
@@ -293,14 +308,29 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
                 vlm_config=vlm_config, 
                 element_types=element_types
             )
+            
+            # Handle rate limit errors
             if content == 429:
                 logger.warning(f"Rate limit exceeded. Sleeping for 10 seconds before retrying...", 
                               extra={**base_extra, "retry_attempt": tries+1})
                 time.sleep(10)
                 tries += 1
                 continue
-            else:
-                return page_number, content
+                
+            # Check if the content is empty - a signal that JSON parsing failed
+            if isinstance(content, list) and len(content) == 0:
+                # This suggests we had a JSON parsing error
+                logger.warning(f"Empty content returned, likely due to JSON parsing error. Retrying...",
+                               extra={**base_extra, "retry_attempt": tries+1})
+                tries += 1
+                continue
+                
+            # If we get here, we have valid content
+            return page_number, content
+            
+        # If we've exhausted retries, return a minimal valid result
+        logger.error(f"Failed to process page after {max_retries} attempts", extra=base_extra)
+        return page_number, [{"type": "NarrativeText", "content": "Failed to process page after multiple attempts", "page_number": page_number}]
 
     base_extra = {"kb_id": kb_id, "doc_id": doc_id}
     logger.debug(f"Starting parallel page processing with {max_workers*4} workers", extra=base_extra)
