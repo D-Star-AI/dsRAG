@@ -87,7 +87,7 @@ class KnowledgeBase:
             # load the KB if it exists; otherwise, initialize it and save it to disk
             if self.metadata_storage.kb_exists(self.kb_id) and exists_ok:
                 self._load(
-                    auto_context_model, reranker, file_system, chunk_db
+                    auto_context_model, reranker, file_system, chunk_db, vector_db
                 )
                 self._save()
             elif self.metadata_storage.kb_exists(self.kb_id) and not exists_ok:
@@ -174,7 +174,7 @@ class KnowledgeBase:
 
         self.metadata_storage.save(full_data, self.kb_id)
 
-    def _load(self, auto_context_model=None, reranker=None, file_system=None, chunk_db=None):
+    def _load(self, auto_context_model=None, reranker=None, file_system=None, chunk_db=None, vector_db=None):
         """Load a knowledge base configuration from disk.
 
         Internal method to deserialize components and metadata.
@@ -208,7 +208,11 @@ class KnowledgeBase:
             if auto_context_model
             else LLM.from_dict(components.get("auto_context_model", {}))
         )
-        self.vector_db = VectorDB.from_dict(components.get("vector_db", {}))
+        self.vector_db = (
+            vector_db
+            if vector_db
+            else VectorDB.from_dict(components.get("vector_db", {}))
+        )
         if chunk_db is not None:
             self.chunk_db = chunk_db
         else:
