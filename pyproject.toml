@@ -9,7 +9,6 @@ description = "State-of-the-art RAG pipeline from D-Star AI"
 readme = "README.md"
 authors = [{ name = "Zach McCormick", email = "zach@d-star.ai" }, { name = "Nick McCormick", email = "nick@d-star.ai" }]
 license = "MIT"
-license-files = ["LICENSE"]
 classifiers=[
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
