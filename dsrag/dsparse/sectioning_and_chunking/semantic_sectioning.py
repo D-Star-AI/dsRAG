@@ -4,7 +4,7 @@ import logging
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 from ..utils.imports import instructor
-from ..models.types import SemanticSectioningConfig, Line, Section, Element, ElementType
+from ..models.types import SemanticSectioningConfig, Line, Section, Element, ElementType, ChunkingConfig
 
 # Get the dsparse logger
 logger = logging.getLogger("dsrag.dsparse.semantic_sectioning")
@@ -447,20 +447,20 @@ def no_semantic_sectioning(document: str, num_lines: int) -> List[Section]:
     }]
     return sections
 
-def get_sections_from_elements(elements: List[Element], element_types: List[ElementType], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
+def get_sections_from_elements(elements: List[Element], element_types: List[ElementType], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, chunking_config: ChunkingConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
     # get the semantic sectioning config params, using defaults if not provided
     use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
-
+    min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
     visual_elements = [e["name"] for e in element_types if e["is_visual"]]
 
     document_lines = elements_to_lines(elements=elements, exclude_elements=exclude_elements, visual_elements=visual_elements)
     document_lines_str = [line["content"] for line in document_lines]
     document_str = "\n".join(document_lines_str)
     
-    if use_semantic_sectioning:
+    if use_semantic_sectioning and len(document_str) > min_length_for_chunking:
         max_iterations = 2*(len(document_str) // max_characters + 1)
         sections = get_sections(
             document_lines=document_lines, 
@@ -477,16 +477,16 @@ def get_sections_from_elements(elements: List[Element], element_types: List[Elem
     
     return sections, document_lines
 
-def get_sections_from_str(document: str, max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
+def get_sections_from_str(document: str, max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, chunking_config: ChunkingConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
     # get the semantic sectioning config params, using defaults if not provided
     use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
-
+    min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
     document_lines = str_to_lines(document)
     
-    if use_semantic_sectioning:
+    if use_semantic_sectioning and len(document) > min_length_for_chunking:
         max_iterations = 2*(len(document) // max_characters + 1)
         sections = get_sections(
             document_lines=document_lines, 
@@ -502,18 +502,19 @@ def get_sections_from_str(document: str, max_characters: int = 20000, semantic_s
         sections = no_semantic_sectioning(document=document, num_lines=len(document_lines))
     return sections, document_lines
 
-def get_sections_from_pages(pages: List[str], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
+def get_sections_from_pages(pages: List[str], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, chunking_config: ChunkingConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
     # get the semantic sectioning config params, using defaults if not provided
     use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
+    min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
 
     document_lines = pages_to_lines(pages)
     document_lines_str = [line["content"] for line in document_lines]
     document_str = "\n".join(document_lines_str)
-    
-    if use_semantic_sectioning:
+
+    if use_semantic_sectioning and len(document_str) > min_length_for_chunking:
         max_iterations = 2*(len(document_str) // max_characters + 1)
         sections = get_sections(
             document_lines=document_lines, 

@@ -260,6 +260,7 @@ def parse_and_chunk_vlm(
         exclude_elements=exclude_elements,
         max_characters=20000,
         semantic_sectioning_config=semantic_sectioning_config,
+        chunking_config=chunking_config,
         kb_id=kb_id,
         doc_id=doc_id
     )
@@ -398,6 +399,7 @@ def parse_and_chunk_no_vlm(semantic_sectioning_config: SemanticSectioningConfig,
             pages=pdf_pages,
             max_characters=20000,
             semantic_sectioning_config=semantic_sectioning_config,
+            chunking_config=chunking_config,
             kb_id=kb_id,
             doc_id=doc_id
         )
@@ -406,6 +408,7 @@ def parse_and_chunk_no_vlm(semantic_sectioning_config: SemanticSectioningConfig,
             document=text,
             max_characters=20000,
             semantic_sectioning_config=semantic_sectioning_config,
+            chunking_config=chunking_config,
             kb_id=kb_id,
             doc_id=doc_id
         )
