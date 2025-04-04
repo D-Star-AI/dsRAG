@@ -168,6 +168,11 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
 
     if vlm_config["provider"] == "vertex_ai":
         try:
+            # Get temperature from vlm_config or use default
+            # NOTE: it's very important to use a non-zero temperature here
+            # Using a temp of 0 causes frequent degenerative output that can't be fixed by retrying
+            temperature = vlm_config.get("temperature", 0.5) 
+
             llm_output = make_llm_call_vertex(
                 image_path=page_image_path, 
                 system_message=system_message, 
@@ -175,7 +180,8 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
                 project_id=vlm_config["project_id"], 
                 location=vlm_config["location"],
                 response_schema=response_schema,
-                max_tokens=4000
+                max_tokens=4000,
+                temperature=temperature
             )
         except Exception as e:
             base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
