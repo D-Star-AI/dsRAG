@@ -184,6 +184,7 @@ class KnowledgeBase:
             reranker (Optional[Reranker], optional): Override stored reranker model.
             file_system (Optional[FileSystem], optional): Override stored file system.
             chunk_db (Optional[ChunkDB], optional): Override stored chunk database.
+            vector_db (Optional[VectorDB], optional): Override stored vector database.
 
         Note:
             Only auto_context_model and reranker can safely override stored components.
@@ -208,12 +209,17 @@ class KnowledgeBase:
             if auto_context_model
             else LLM.from_dict(components.get("auto_context_model", {}))
         )
+        # Log warnings for overridden components
+        base_extra = {"kb_id": self.kb_id}
+        if vector_db is not None:
+            logging.warning(f"Overriding stored vector_db for KB '{self.kb_id}' during load.", extra=base_extra)
         self.vector_db = (
             vector_db
             if vector_db
             else VectorDB.from_dict(components.get("vector_db", {}))
         )
         if chunk_db is not None:
+            logging.warning(f"Overriding stored chunk_db for KB '{self.kb_id}' during load.", extra=base_extra)
             self.chunk_db = chunk_db
         else:
             self.chunk_db = ChunkDB.from_dict(components.get("chunk_db", {}))
@@ -221,6 +227,7 @@ class KnowledgeBase:
         file_system_dict = components.get("file_system", None)
 
         if file_system is not None:
+            logging.warning(f"Overriding stored file_system for KB '{self.kb_id}' during load.", extra=base_extra)
             # If the file system does not exist but is provided, use the provided file system
             self.file_system = file_system
         elif file_system_dict is not None:
