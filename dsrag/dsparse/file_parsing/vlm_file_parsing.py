@@ -12,8 +12,12 @@ from .element_types import (
 from pdf2image import convert_from_path
 import json
 import time
+import logging
 import concurrent.futures
 from PyPDF2 import PdfReader
+
+# Get the dsparse logger
+logger = logging.getLogger("dsrag.dsparse.vlm_file_parsing")
 
 """
 pip install pdf2image
@@ -61,13 +65,23 @@ response_schema = {
     },
 }
 
-def get_page_count(file_path: str):
+def get_page_count(file_path: str, kb_id: str = "", doc_id: str = ""):
+    # Create base logging context with identifiers
+    base_extra = {}
+    if kb_id:
+        base_extra["kb_id"] = kb_id
+    if doc_id:
+        base_extra["doc_id"] = doc_id
+        
     try:
         with open(file_path, "rb") as pdf_file:
             pdf_reader = PdfReader(pdf_file)
             return len(pdf_reader.pages)
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"Error getting page count: {e}", extra={
+            **base_extra,
+            "file_path": file_path
+        })
         return None
 
 def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSystem, dpi=200, max_workers: int=2, max_pages: int=100) -> list[str]:
@@ -84,7 +98,11 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
     - image_file_paths: list[str] - a list of the paths to the saved images.
     """
     
+    # Create base logging context with identifiers
+    base_extra = {"kb_id": kb_id, "doc_id": doc_id}
+    
     if (max_pages < 1):
+        logger.error("max_pages must be greater than 0", extra=base_extra)
         raise ValueError("max_pages must be greater than 0")
     
     # Create the folder
@@ -96,11 +114,11 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
         return f'/{kb_id}/{doc_id}/page_{i+1}.png'
 
     # Convert PDF to images in batches of 100
-    page_count = get_page_count(pdf_path)
+    page_count = get_page_count(pdf_path, kb_id, doc_id)
     all_image_paths = []
     
     for i in range(1, page_count + 1, max_pages):
-        print (f"Converting pages {i} to {i + max_pages-1}")
+        logger.debug(f"Converting pages {i} to {i + max_pages-1}", extra=base_extra)
         last_page = min(i + max_pages-1, page_count)
         images = convert_from_path(pdf_path, dpi=dpi, thread_count=max_workers, 
                                  first_page=i, last_page=last_page)
@@ -110,9 +128,9 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
             batch_paths = list(executor.map(save_single_image, enumerate(images, start=i-1)))
             all_image_paths.extend(batch_paths)
         
-        print(f"Converted pages {i} to {last_page}")
+        logger.debug(f"Converted pages {i} to {last_page}", extra=base_extra)
 
-    print(f"Converted total {len(all_image_paths)} pages to images")
+    logger.info(f"Converted total {len(all_image_paths)} pages to images", extra=base_extra)
     return all_image_paths
 
 def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: int, vlm_config: VLMConfig, element_types: list[ElementType]) -> list[Element]:
@@ -160,19 +178,20 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
                 max_tokens=4000
             )
         except Exception as e:
+            base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
             if "429 Online prediction request quota exceeded" in str(e):
-                print (f"Error in make_llm_call_vertex: {e}")
+                logger.warning(f"Rate limit exceeded in make_llm_call_vertex: {e}", extra=base_extra)
                 return 429
             else:
-                print (f"Error in make_llm_call_gemini: {e}")
+                logger.error(f"Error in make_llm_call_vertex: {e}", extra=base_extra)
                 error_data = {
-                    "error": f"Error in make_llm_call_gemini: {e}",
+                    "error": f"Error in make_llm_call_vertex: {e}",
                     "function": "parse_page",
                 }
                 try:
                     file_system.log_error(kb_id, doc_id, error_data)
-                except:
-                    print ("Failed to log error")
+                except Exception as log_error:
+                    logger.error(f"Failed to log error: {log_error}", extra=base_extra)
                 finally:
                     return 429
                 
@@ -186,19 +205,20 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
                 max_tokens=4000
             )
         except Exception as e:
+            base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
             if "429 Online prediction request quota exceeded" in str(e):
-                print (f"Error in make_llm_call_gemini: {e}")
+                logger.warning(f"Rate limit exceeded in make_llm_call_gemini: {e}", extra=base_extra)
                 return 429
             else:
-                print (f"Error in make_llm_call_gemini: {e}")
+                logger.error(f"Error in make_llm_call_gemini: {e}", extra=base_extra)
                 error_data = {
                     "error": f"Error in make_llm_call_gemini: {e}",
                     "function": "parse_page",
                 }
                 try:
                     file_system.log_error(kb_id, doc_id, error_data)
-                except:
-                    print ("Failed to log error")
+                except Exception as log_error:
+                    logger.error(f"Failed to log error: {log_error}", extra=base_extra)
                 finally:
                     llm_output = json.dumps([{
                         "type": "text",
@@ -211,15 +231,16 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
     try:
         page_content = json.loads(llm_output)
     except Exception as e:
-        print(f"Error for {page_image_path}: {e}")
+        base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
+        logger.error(f"Error parsing JSON for {page_image_path}: {e}", extra=base_extra)
         error_data = {
             "error": f"Error parsing JSON for {page_image_path}: {e}",
             "function": "parse_page",
         }
         try:
             file_system.log_error(kb_id, doc_id, error_data)
-        except:
-            print ("Failed to log error")
+        except Exception as log_error:
+            logger.error(f"Failed to log error: {log_error}", extra=base_extra)
         page_content = []
 
     # add page number to each element
@@ -261,6 +282,7 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
         element_types = default_element_types
 
     def process_page(page_number):
+        base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
         tries = 0
         while tries < 20:
             content = parse_page(
@@ -272,13 +294,17 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
                 element_types=element_types
             )
             if content == 429:
-                print(f"Rate limit exceeded. Sleeping for 10 seconds before retrying...")
+                logger.warning(f"Rate limit exceeded. Sleeping for 10 seconds before retrying...", 
+                              extra={**base_extra, "retry_attempt": tries+1})
                 time.sleep(10)
                 tries += 1
                 continue
             else:
                 return page_number, content
 
+    base_extra = {"kb_id": kb_id, "doc_id": doc_id}
+    logger.debug(f"Starting parallel page processing with {max_workers*4} workers", extra=base_extra)
+    
     # Use ThreadPoolExecutor to process pages in parallel
     # Using max_workers*4 because the image conversion is I/O bound and the parsing is CPU bound
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers*4) as executor:
@@ -287,7 +313,8 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
             # Add the page content to the dictionary, keyed on the page number
             page_number, page_content = future.result()
             all_page_content_dict[page_number] = page_content
-            print (f"Processed page {page_number}")
+            logger.debug(f"Processed page {page_number}", 
+                         extra={**base_extra, "page_number": page_number})
 
     all_page_content = []
     for key in sorted(all_page_content_dict.keys()):
@@ -295,6 +322,9 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
 
     # Save the extracted content to a JSON file
     file_system.save_json(kb_id, doc_id, 'elements.json', all_page_content)
+    
+    logger.info(f"Finished parsing file with {len(all_page_content)} elements from {len(all_page_content_dict)} pages", 
+               extra={"kb_id": kb_id, "doc_id": doc_id})
 
     return all_page_content
 
