@@ -11,6 +11,37 @@ from dsrag.database.vector import VectorDB
 from dsrag.custom_term_mapping import annotate_chunks
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def process_section_summary(section, auto_context_model, document_title, auto_context_config, language, base_extra, i):
+    ingestion_logger = logging.getLogger("dsrag.ingestion")
+    if auto_context_config.get("get_section_summaries", False):
+        section_summarization_guidance = auto_context_config.get("section_summarization_guidance", "")
+        
+        section_summary_start_time = time.perf_counter()
+        section_summary = get_section_summary(
+            auto_context_model=auto_context_model,
+            section_text=section["content"],
+            document_title=document_title,
+            section_title=section["title"],
+            section_summarization_guidance=section_summarization_guidance,
+            language=language
+        )
+        section_summary_duration = time.perf_counter() - section_summary_start_time
+        
+        # Log duration and summary text
+        ingestion_logger.debug("Generated section summary", extra={
+            **base_extra,
+            "step": "section_summary",
+            "section_index": i,
+            "section_title": section.get("title", "N/A"),
+            "duration_s": round(section_summary_duration, 4),
+            "summary_text": section_summary
+        })
+        
+        return section_summary
+    else:
+        return ""
 
 def auto_context(kb_id: str, auto_context_model: LLM, sections, chunks, text, doc_id, document_title, auto_context_config, language):
     ingestion_logger = logging.getLogger("dsrag.ingestion")
@@ -45,35 +76,35 @@ def auto_context(kb_id: str, auto_context_model: LLM, sections, chunks, text, do
     else:
         document_summary = ""
 
-    # get section summaries
-    for i, section in enumerate(sections):
-        if auto_context_config.get("get_section_summaries", False):
-            section_summarization_guidance = auto_context_config.get("section_summarization_guidance", "")
+    # get section summaries in parallel
+    if auto_context_config.get("get_section_summaries", False):
+        with ThreadPoolExecutor(max_workers=min(10, len(sections))) as executor:
+            future_to_section = {
+                executor.submit(
+                    process_section_summary, 
+                    section, 
+                    auto_context_model, 
+                    document_title, 
+                    auto_context_config, 
+                    language, 
+                    base_extra, 
+                    i
+                ): (i, section) for i, section in enumerate(sections)
+            }
             
-            section_summary_start_time = time.perf_counter() # Start timer
-            section_summary = get_section_summary( # Store result temporarily
-                auto_context_model=auto_context_model,
-                section_text=section["content"],
-                document_title=document_title,
-                section_title=section["title"],
-                section_summarization_guidance=section_summarization_guidance,
-                language=language
-            )
-            section_summary_duration = time.perf_counter() - section_summary_start_time # End timer
-            
-            section["summary"] = section_summary # Assign summary to section
-            
-            # Log duration and summary text
-            ingestion_logger.debug("Generated section summary", extra={
-                **base_extra,
-                "step": "section_summary",
-                "section_index": i,
-                "section_title": section.get("title", "N/A"),
-                "duration_s": round(section_summary_duration, 4),
-                "summary_text": section_summary # Log the summary content
-            })
-            
-        else:
+            # As futures complete, store results
+            for future in as_completed(future_to_section):
+                i, section = future_to_section[future]
+                try:
+                    section_summary = future.result()
+                    sections[i]["summary"] = section_summary
+                except Exception as e:
+                    ingestion_logger.error(f"Error processing section {i}: {str(e)}", 
+                                          extra={**base_extra, "section_index": i})
+                    sections[i]["summary"] = ""
+    else:
+        # If not generating summaries, just set empty summaries
+        for section in sections:
             section["summary"] = ""
 
     # add document title, document summary, and section summaries to the chunks
