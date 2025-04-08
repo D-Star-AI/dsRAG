@@ -217,8 +217,39 @@ def get_sections(document_lines: List[Line], max_iterations: int, max_characters
         iter_start_time = time.perf_counter()
         
         document_with_line_numbers, end_line = get_document_with_lines(document_lines, start_line, max_characters)
-        structured_doc = get_structured_document(document_with_line_numbers, start_line, llm_provider=llm_provider, model=model, language=language)
-        
+
+        # Retry logic for get_structured_document
+        max_retries = 3
+        initial_delay = 5.0  # seconds
+        backoff_factor = 2.0
+        current_delay = initial_delay
+        structured_doc = None
+
+        for attempt in range(max_retries):
+            try:
+                structured_doc = get_structured_document(document_with_line_numbers, start_line, llm_provider=llm_provider, model=model, language=language)
+                # If successful, break the loop
+                break
+            except Exception as e:
+                logger.warning(f"Attempt {attempt + 1}/{max_retries} failed for get_structured_document: {e}", extra={**base_extra, "iteration": iteration_count, "start_line": start_line})
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying in {current_delay:.2f} seconds...", extra={**base_extra, "iteration": iteration_count, "start_line": start_line})
+                    time.sleep(current_delay)
+                    current_delay *= backoff_factor
+                else:
+                    # If all retries fail, log the final error and re-raise
+                    logger.error(f"All {max_retries} attempts failed for get_structured_document.", extra={**base_extra, "iteration": iteration_count, "start_line": start_line})
+                    raise e # Re-raise the last exception
+
+        # Ensure structured_doc is not None after the loop (should not happen if exception is raised)
+        if structured_doc is None:
+             # This case should ideally not be reached if the exception is always re-raised on final failure.
+             # However, adding a safeguard in case the logic changes or the exception is caught unexpectedly later.
+             logger.error("structured_doc is None after retry loop without raising an exception. This should not happen.", extra={**base_extra, "iteration": iteration_count, "start_line": start_line})
+             # Handle this unexpected state, perhaps by raising a runtime error or skipping the rest of the iteration.
+             # For now, let's raise a specific error.
+             raise RuntimeError(f"Failed to obtain structured document for start_line {start_line} after {max_retries} retries.")
+
         # Validate and fix the sections from this batch
         new_sections = validate_and_fix_sections(structured_doc.sections, len(document_lines))
         

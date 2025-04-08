@@ -341,11 +341,11 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
         return page_number, [{"type": "NarrativeText", "content": "Failed to process page after multiple attempts", "page_number": page_number}]
 
     base_extra = {"kb_id": kb_id, "doc_id": doc_id}
-    logger.debug(f"Starting parallel page processing with up to 100 workers", extra=base_extra)
+    logger.debug(f"Starting parallel page processing with up to 50 workers", extra=base_extra)
     
     # Use ThreadPoolExecutor to process pages in parallel
     # Using max_workers*4 because the image conversion is I/O bound and the parsing is CPU bound
-    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
         futures = {executor.submit(process_page, i + 1): i for i in range(len(image_file_paths))}
         for future in concurrent.futures.as_completed(futures):
             # Add the page content to the dictionary, keyed on the page number
