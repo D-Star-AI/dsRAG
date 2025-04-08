@@ -1,7 +1,3 @@
-"""
-Split up the add_document function into smaller functions in a separate file
-"""
-
 from dsrag.auto_context import (
     get_document_title,
     get_document_summary,
@@ -13,8 +9,16 @@ from dsrag.embedding import Embedding
 from dsrag.database.chunk import ChunkDB
 from dsrag.database.vector import VectorDB
 from dsrag.custom_term_mapping import annotate_chunks
+import logging
+import time
 
-def auto_context(auto_context_model: LLM, sections, chunks, text, doc_id, document_title, auto_context_config, language):
+def auto_context(kb_id: str, auto_context_model: LLM, sections, chunks, text, doc_id, document_title, auto_context_config, language):
+    ingestion_logger = logging.getLogger("dsrag.ingestion")
+    base_extra = {"kb_id": kb_id, "doc_id": doc_id}
+    step_start_time = time.perf_counter()
+    
+    ingestion_logger.debug("Starting AutoContext step", extra={**base_extra, "step": "auto_context_start"})
+
     # document title and summary
     if not document_title and auto_context_config.get("use_generated_title", True):
         document_title_guidance = auto_context_config.get(
@@ -42,10 +46,12 @@ def auto_context(auto_context_model: LLM, sections, chunks, text, doc_id, docume
         document_summary = ""
 
     # get section summaries
-    for section in sections:
+    for i, section in enumerate(sections):
         if auto_context_config.get("get_section_summaries", False):
             section_summarization_guidance = auto_context_config.get("section_summarization_guidance", "")
-            section["summary"] = get_section_summary(
+            
+            section_summary_start_time = time.perf_counter() # Start timer
+            section_summary = get_section_summary( # Store result temporarily
                 auto_context_model=auto_context_model,
                 section_text=section["content"],
                 document_title=document_title,
@@ -53,6 +59,20 @@ def auto_context(auto_context_model: LLM, sections, chunks, text, doc_id, docume
                 section_summarization_guidance=section_summarization_guidance,
                 language=language
             )
+            section_summary_duration = time.perf_counter() - section_summary_start_time # End timer
+            
+            section["summary"] = section_summary # Assign summary to section
+            
+            # Log duration and summary text
+            ingestion_logger.debug("Generated section summary", extra={
+                **base_extra,
+                "step": "section_summary",
+                "section_index": i,
+                "section_title": section.get("title", "N/A"),
+                "duration_s": round(section_summary_duration, 4),
+                "summary_text": section_summary # Log the summary content
+            })
+            
         else:
             section["summary"] = ""
 
@@ -83,6 +103,14 @@ def auto_context(auto_context_model: LLM, sections, chunks, text, doc_id, docume
             chunk["content"] = annotated_chunks[i] # override the chunk content with the annotated content if custom term mapping is used
         chunk_to_embed = f"{chunk_header}\n\n{chunk['content']}"
         chunks_to_embed.append(chunk_to_embed)
+
+    step_duration = time.perf_counter() - step_start_time
+    ingestion_logger.debug("AutoContext complete", extra={
+        **base_extra, 
+        "step": "auto_context", 
+        "duration_s": round(step_duration, 4),
+        "model": auto_context_model.__class__.__name__
+    })
 
     return chunks, chunks_to_embed
 
