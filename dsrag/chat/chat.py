@@ -1,6 +1,6 @@
 from dsrag.database.chat_thread.db import ChatThreadDB
 from dsrag.chat.chat_types import ChatThreadParams, MetadataFilter, ChatResponseInput, ExaSearchResult
-from dsrag.chat.auto_query import get_search_queries, get_exa_search_queries
+from dsrag.chat.auto_query import get_search_queries, get_exa_search_queries, get_brave_search_query
 from dsrag.chat.citations import format_sources_for_context, format_exa_search_results, ResponseWithCitations
 from dsrag.utils.llm import get_response
 import tiktoken
@@ -8,6 +8,7 @@ from datetime import datetime
 import uuid
 from typing import Optional
 import os
+import requests
 
 MAIN_SYSTEM_MESSAGE = """
 INSTRUCTIONS AND GUIDANCE
@@ -52,11 +53,19 @@ Text content from the page
 The page number is N in the above format.
 
 Web search results will be in the following format:
-<id: url_of_the_web_page>
+<url: url_of_the_web_page>
 Title: title of the web page
 URL: url of the web page
+Description: description of the web page
 Content: text content of the web page
-</id: url_of_the_web_page>
+</url: url_of_the_web_page>
+
+YOU MUST USE INLINE CITATIONS IN YOUR RESPONSE WHERE APPROPRIATE.
+    - Use the following format for inline citations: [^<doc_id>:<page_number>] or [^<url>] depending on the source of the information.
+    - Anywhere in your response where you use information from a web page or document, you must include an inline citation.
+    - It is important to note that when citing the source, if there is a URL present in the source information, it will be a web page.
+    - For example, if citing a web page, it would be "Some sentence that you are citing from the web page [^<url>]"
+    - For example, if citing a document, it would be "Some sentence that you are citing from the document [^<doc_id>:<page_number>]"
 
 Your response must be a valid ResponseWithCitations object. It must include these two fields:
 1. response: Your complete response text
@@ -252,6 +261,95 @@ def _set_chat_thread_params(
 
     return chat_thread_params
 
+
+
+async def run_brave_search(user_input: str, chat_messages: list[dict]) -> list[dict]:
+    """Run a Brave search."""
+    import asyncio
+    import os
+    import httpx
+    brave_search_url = "https://api.search.brave.com/res/v1/web/search"
+    
+    # Get the search query
+    search_query = get_brave_search_query(chat_messages)
+    print ("search_query", search_query)
+    
+    # Get the brave api key from the environment variables
+    brave_api_key = os.getenv("BRAVE_API_KEY")
+    if not brave_api_key:
+        raise ValueError("BRAVE_API_KEY is not set")
+    
+    headers = {
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip",
+        "X-Subscription-Token": brave_api_key
+    }
+    
+    params = {
+        "q": search_query,
+    }
+    
+    response = requests.get(brave_search_url, headers=headers, params=params)
+    print ("response", response.json())
+    print ("\n\n")
+    return response.json()["web"]["results"]
+
+
+async def _run_web_search(user_input: str, chat_messages: list[dict]) -> list[dict]:
+    """Run a web search."""
+    import time
+    import asyncio
+    from dsrag.chat.firecrawl import run_firecrawl_scrape_with_retry, get_firecrawl_status, filter_brave_search_results
+    print ("running brave search")
+    brave_search_results = await run_brave_search(user_input, chat_messages)
+    filtered_results = filter_brave_search_results(brave_search_results, user_input)
+    print ("filtered_results", filtered_results)
+    print ("\n\n")
+    urls = [result.url for result in filtered_results]
+    print ("urls", urls)
+    print ("\n\n")
+    scrape_result = run_firecrawl_scrape_with_retry(urls)
+    print ("scrape_result", scrape_result)
+    print ("\n\n")
+    job_id = scrape_result['id']
+    
+    # Wait until the scrape is complete
+    tries = 0
+    while tries < 25:
+        results = get_firecrawl_status(job_id)
+        print ("results", results)
+        print ("\n\n")
+        if results['status'] == 'completed':
+            print ("results", results)
+            print ("\n\n")
+            # Once the scrape is completed, get the results
+            web_results = []
+            for result in results["data"]:
+                metadata = result["metadata"]
+                url = metadata["url"]
+                title = metadata["title"]
+                description = metadata["description"]
+                markdown = result["markdown"]
+                web_results.append({
+                    "url": url,
+                    "title": title,
+                    "description": description,
+                    "content": markdown
+                })
+                print ("web_results", web_results)
+                print ("\n\n")
+            return web_results
+        
+        elif results['status'] == 'failed':
+            raise Exception("Web search failed")
+        else:
+            time.sleep(1)
+            tries += 1
+            
+            
+    return []
+            
+
 async def _run_exa_search(
     exa_search_queries: list[str],
     exa_include_domains: Optional[list[str]] = None
@@ -326,6 +424,7 @@ async def _prepare_chat_context(
     request_timestamp = datetime.now().isoformat()
 
     kb_ids = chat_thread_params['kb_ids']
+    print ("kb_ids", kb_ids)
 
     # set parameters - override if provided
     chat_thread_params = _set_chat_thread_params(
@@ -340,9 +439,13 @@ async def _prepare_chat_context(
         max_chat_history_tokens=chat_thread_params.get("max_chat_history_tokens"),
         rse_params=chat_thread_params.get("rse_params")
     )
+    
+    print ("chat_thread_params", chat_thread_params)
+    print ("\n\n")
 
     kb_info = []
     for kb_id in chat_thread_params['kb_ids']:
+        print ("kb_id", kb_id)
         kb = kbs.get(kb_id)
         if not kb:
             continue
@@ -354,8 +457,16 @@ async def _prepare_chat_context(
             }
         )
 
-    knowledge_base_descriptions = get_knowledge_base_descriptions_str(kb_info)
+    print ("kb_info", kb_info)
+    print ("\n\n")
 
+    knowledge_base_descriptions = get_knowledge_base_descriptions_str(kb_info)
+    print ("knowledge_base_descriptions", knowledge_base_descriptions)
+    print ("\n\n")
+    
+    print ("chat_thread_interactions", chat_thread_interactions)
+    print ("\n\n")
+    
     # construct chat messages from interactions and input
     chat_messages = []
     for interaction in chat_thread_interactions:
@@ -451,28 +562,33 @@ async def _prepare_chat_context(
     # Run both searches in parallel if EXA search is requested
     relevant_web_search_segments = []
     if run_exa_search:
-        exa_search_queries = get_exa_search_queries(
+        """exa_search_queries = get_exa_search_queries(
             chat_messages=chat_messages, 
             auto_query_guidance=chat_thread_params['auto_query_guidance'], 
             max_queries=3, 
             auto_query_model=chat_thread_params['auto_query_model']
         )
         kb_search_task = run_kb_search()
-        exa_search_task = _run_exa_search(exa_search_queries, exa_include_domains)
-        kb_knowledge_str, exa_results = await asyncio.gather(kb_search_task, exa_search_task)
+        exa_search_task = _run_exa_search(exa_search_queries, exa_include_domains)"""
         
-        formatted_exa_results = format_exa_search_results(exa_results)
+        print ("running kb search")
+        kb_search_task = run_kb_search()
+        print ("running web search")
+        web_search_task = _run_web_search(input, chat_messages)
         
-        """for results in exa_results:
-            for result in results.results:
-                relevant_web_search_segments.append(result.__dict__)"""
+        kb_knowledge_str, web_search_results = await asyncio.gather(kb_search_task, web_search_task)
+        
+        formatted_web_search_results = "WEB SEARCH RESULTS\n\n"
+        formatted_web_search_results += "\n".join([f"<url: {result['url']}>\nTitle: {result['title']}\nURL: {result['url']}\nDescription: {result['description']} \n\nContent: {result['content']}\n\n</url: {result['url']}\n>" for result in web_search_results])
+        print ("formatted_web_search_results", formatted_web_search_results)
+        #formatted_exa_results = format_exa_search_results(exa_results)
         
         # Combine knowledge from both sources
         relevant_knowledge_str = kb_knowledge_str
-        if exa_results:
+        if web_search_results:
             # Format EXA results and append to relevant knowledge
             # TODO: Implement proper formatting for EXA results
-            relevant_knowledge_str += "\n\nWeb Search Results:\n" + str(formatted_exa_results)
+            relevant_knowledge_str += "\n\nWeb Search Results:\n" + str(formatted_web_search_results)
     else:
         # Just run KB search
         relevant_knowledge_str = await run_kb_search()
