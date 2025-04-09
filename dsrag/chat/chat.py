@@ -313,6 +313,7 @@ def _prepare_chat_context(
 
     formatted_relevant_segments = {}
     all_doc_ids = {}
+    source_index_to_doc_id = {}
     if kb_info:
         # generate search queries
         try:
@@ -342,7 +343,6 @@ def _prepare_chat_context(
 
         # convert doc_id to a sequential source_index for each result, and add the source_index to the result dictionary
         i = 0
-        source_index_to_doc_id = {}
         for kb_id, results in search_results.items():
             for result in results:
                 result["source_index"] = i
