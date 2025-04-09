@@ -38,22 +38,22 @@ If you do not have sufficient information to respond to the user, then you shoul
 
 CITATION FORMAT
 When providing your response, you must cite your sources. For each piece of information you use, provide a citation that includes:
-1. The document ID (doc_id)
+1. The source index (source_index)
 2. The page number where the information was found (if available)
 3. The relevant text that supports your response
 
-The doc_id and page_number will be in the following format:
-<doc_id: some_random_long_id>
+The source_index and page_number will be in the following format:
+<source_index: X>
 <page_N>
 Text content from the page
 </page_N>
-</doc_id: some_random_long_id>
-The page number is N in the above format.
+</source_index: X>
+The source_index is X in the above format, and the page_number is N.
 
 Your response must be a valid ResponseWithCitations object. It must include these two fields:
 1. response: Your complete response text
 2. citations: An array of citation objects, each containing:
-   - doc_id: The source document ID where the information used to generate the response was found
+   - source_index: The source index where the information used to generate the response was found
    - page_number: The page number where the information used to generate the response was found (or null if not available)
    - cited_text: The exact text containing the information used to generate the response
 
@@ -340,6 +340,15 @@ def _prepare_chat_context(
             kb = kbs.get(kb_id)
             search_results[kb_id] = kb.query(search_queries=queries, rse_params=rse_params, metadata_filter=metadata_filter)
 
+        # convert doc_id to a sequential source_index for each result, and add the source_index to the result dictionary
+        i = 0
+        source_index_to_doc_id = {}
+        for kb_id, results in search_results.items():
+            for result in results:
+                result["source_index"] = i
+                source_index_to_doc_id[i] = result["doc_id"]
+                i += 1
+
         # unpack search results into a list
         for kb_id, results in search_results.items():
             formatted_relevant_segments[kb_id] = []
@@ -393,7 +402,6 @@ def _prepare_chat_context(
         response_length_guidance=response_length_guidance
     )
     chat_messages = [{"role": "system", "content": formatted_system_message}] + chat_messages
-
     
     return (
         request_timestamp,
@@ -402,7 +410,8 @@ def _prepare_chat_context(
         all_relevant_segments,
         formatted_relevant_segments,
         all_doc_ids,
-        chat_thread_params
+        chat_thread_params,
+        source_index_to_doc_id
     )
 
 def _get_chat_response_streaming(
@@ -440,7 +449,8 @@ def _get_chat_response_streaming(
         all_relevant_segments,
         formatted_relevant_segments,
         all_doc_ids,
-        chat_thread_params
+        chat_thread_params,
+        source_index_to_doc_id
     ) = _prepare_chat_context(input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
     
     # Create a response stream
@@ -513,8 +523,15 @@ def _get_chat_response_streaming(
                 else:
                     # Skip if we can't convert to dict
                     continue
-                    
-                # Add error handling for unknown doc_ids
+
+                # verify that the source_index is in the source_index_to_doc_id dictionary
+                if citation_dict["source_index"] not in source_index_to_doc_id:
+                    # TODO: log this
+                    continue
+
+                # convert source_index back to doc_id
+                citation_dict["doc_id"] = source_index_to_doc_id[citation_dict["source_index"]]
+                
                 if citation_dict.get("doc_id") in all_doc_ids:
                     citation_dict["kb_id"] = all_doc_ids[citation_dict["doc_id"]]
                     formatted_stream_citations.append(citation_dict)
@@ -583,7 +600,8 @@ def _get_chat_response(
         all_relevant_segments,
         formatted_relevant_segments,
         all_doc_ids,
-        chat_thread_params
+        chat_thread_params,
+        source_index_to_doc_id
     ) = _prepare_chat_context(input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
     
     # Non-streaming case - get complete response
@@ -600,6 +618,15 @@ def _get_chat_response(
     formatted_citations = []
     for citation in citations:
         citation = citation.model_dump()
+
+        # verify that the source_index is in the source_index_to_doc_id dictionary
+        if citation["source_index"] not in source_index_to_doc_id:
+            # TODO: log this
+            continue
+
+        # convert source_index back to doc_id
+        citation["doc_id"] = source_index_to_doc_id[citation["source_index"]]
+
         # Add error handling for unknown doc_ids
         if citation["doc_id"] in all_doc_ids:
             citation["kb_id"] = all_doc_ids[citation["doc_id"]]
