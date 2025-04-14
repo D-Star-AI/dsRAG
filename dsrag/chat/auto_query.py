@@ -20,6 +20,12 @@ You are a query generation system. Please generate one or more search queries (u
 
 Each query will be used to search the internet for information that can be used to respond to the user input. Make sure each query is specific enough to return relevant information. If multiple pieces of information would be useful, you should generate multiple queries, one for each specific piece of information needed.
 
+Please make sure the queries are not repetetive. If you cannot come up with unique queries, you do not have to return {max_queries} queries.
+    - An example of repetitive queries would be: "What is the weather in Tokyo?", "Weather in Tokyo?", "Current weather in Tokyo?"
+    - An example of non-repetetive queries would be: "What is the weather in Tokyo today?", "What is the weather in London today?"
+
+If you are asked about recent events of some sort, here is the current date: {current_date}.
+
 {auto_query_guidance}
 """.strip()
 
@@ -89,7 +95,7 @@ def validate_queries(queries: List[Query], kb_info: list[dict]) -> List[dict]:
 
     return validated_queries
 
-def get_exa_search_queries(chat_messages: list[dict], auto_query_guidance: str = "", max_queries: int = 3, auto_query_model: str = "gpt-4o-mini") -> List[dict]:
+def get_exa_search_queries(chat_messages: list[dict], auto_query_guidance: str = "", max_queries: int = 2, auto_query_model: str = "gpt-4o-mini") -> List[dict]:
     """
     Get search queries using EXA search.
 
@@ -104,9 +110,13 @@ def get_exa_search_queries(chat_messages: list[dict], auto_query_guidance: str =
         List of validated query dictionaries
     """
     
+    # Get the current date to be used in the system message
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    
     system_message = EXA_SYSTEM_MESSAGE.format(
         max_queries=max_queries,
         auto_query_guidance=auto_query_guidance,
+        current_date=current_date
     )
     
     messages = [{"role": "system", "content": system_message}] + chat_messages

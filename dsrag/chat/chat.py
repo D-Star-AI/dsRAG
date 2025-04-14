@@ -1,7 +1,7 @@
 from dsrag.database.chat_thread.db import ChatThreadDB
 from dsrag.chat.chat_types import ChatThreadParams, MetadataFilter, ChatResponseInput, ExaSearchResult
 from dsrag.chat.auto_query import get_search_queries, get_exa_search_queries, get_brave_search_query
-from dsrag.chat.citations import format_sources_for_context, format_exa_search_results, ResponseWithCitations
+from dsrag.chat.citations import format_sources_for_context, format_exa_search_results, filter_exa_search_results, format_firecrawl_search_results, ResponseWithCitations
 from dsrag.utils.llm import get_response
 import tiktoken
 from datetime import datetime
@@ -309,23 +309,23 @@ async def _run_web_search(user_input: str, chat_messages: list[dict]) -> list[di
     print ("urls", urls)
     print ("\n\n")
     scrape_result = run_firecrawl_scrape_with_retry(urls)
-    print ("scrape_result", scrape_result)
-    print ("\n\n")
     job_id = scrape_result['id']
     
     # Wait until the scrape is complete
     tries = 0
-    while tries < 25:
+    while tries < 75:
         results = get_firecrawl_status(job_id)
-        print ("results", results)
+        print (results['status'], tries)
         print ("\n\n")
         if results['status'] == 'completed':
-            print ("results", results)
+            print ("Done scraping")
             print ("\n\n")
             # Once the scrape is completed, get the results
             web_results = []
             for result in results["data"]:
                 metadata = result["metadata"]
+                print ("metadata", metadata)
+                print ("\n\n")
                 url = metadata["url"]
                 title = metadata["title"]
                 description = metadata["description"]
@@ -336,9 +336,13 @@ async def _run_web_search(user_input: str, chat_messages: list[dict]) -> list[di
                     "description": description,
                     "content": markdown
                 })
-                print ("web_results", web_results)
-                print ("\n\n")
-            return web_results
+                
+            # Format the web results
+            print ("filtering web results")
+            formatted_web_results = await format_firecrawl_search_results(web_results, user_input)
+            print ("formatted_web_results", formatted_web_results)
+            print ("\n\n")
+            return formatted_web_results
         
         elif results['status'] == 'failed':
             raise Exception("Web search failed")
@@ -352,7 +356,8 @@ async def _run_web_search(user_input: str, chat_messages: list[dict]) -> list[di
 
 async def _run_exa_search(
     exa_search_queries: list[str],
-    exa_include_domains: Optional[list[str]] = None
+    exa_include_domains: Optional[list[str]] = None,
+    user_input: str = None
 ) -> list[dict]:
     """Run an EXA search."""
     import asyncio
@@ -380,7 +385,10 @@ async def _run_exa_search(
     tasks = [search_single_query(query.query) for query in exa_search_queries]
     results = await asyncio.gather(*tasks)
     
-    return results
+    # Filter the results
+    filtered_results = await filter_exa_search_results(results, user_input)
+    
+    return filtered_results
     
 
 async def _prepare_chat_context(
@@ -562,26 +570,22 @@ async def _prepare_chat_context(
     # Run both searches in parallel if EXA search is requested
     relevant_web_search_segments = []
     if run_exa_search:
-        """exa_search_queries = get_exa_search_queries(
+        exa_search_queries = get_exa_search_queries(
             chat_messages=chat_messages, 
             auto_query_guidance=chat_thread_params['auto_query_guidance'], 
-            max_queries=3, 
+            max_queries=2, 
             auto_query_model=chat_thread_params['auto_query_model']
         )
         kb_search_task = run_kb_search()
-        exa_search_task = _run_exa_search(exa_search_queries, exa_include_domains)"""
+        exa_search_task = _run_exa_search(exa_search_queries, exa_include_domains, input)
         
         print ("running kb search")
         kb_search_task = run_kb_search()
-        print ("running web search")
-        web_search_task = _run_web_search(input, chat_messages)
         
-        kb_knowledge_str, web_search_results = await asyncio.gather(kb_search_task, web_search_task)
+        kb_knowledge_str, web_search_results = await asyncio.gather(kb_search_task, exa_search_task)
         
         formatted_web_search_results = "WEB SEARCH RESULTS\n\n"
-        formatted_web_search_results += "\n".join([f"<url: {result['url']}>\nTitle: {result['title']}\nURL: {result['url']}\nDescription: {result['description']} \n\nContent: {result['content']}\n\n</url: {result['url']}\n>" for result in web_search_results])
-        print ("formatted_web_search_results", formatted_web_search_results)
-        #formatted_exa_results = format_exa_search_results(exa_results)
+        formatted_web_search_results += format_exa_search_results(web_search_results)
         
         # Combine knowledge from both sources
         relevant_knowledge_str = kb_knowledge_str
