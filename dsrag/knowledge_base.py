@@ -458,8 +458,8 @@ class KnowledgeBase:
                 document_text += section["content"]
 
             # --- AutoContext Step ---
-            step_start_time = time.perf_counter()
             chunks, chunks_to_embed = auto_context(
+                kb_id=self.kb_id,
                 auto_context_model=self.auto_context_model, 
                 sections=sections, 
                 chunks=chunks, 
@@ -469,13 +469,6 @@ class KnowledgeBase:
                 auto_context_config=auto_context_config, 
                 language=self.kb_metadata["language"],
             )
-            step_duration = time.perf_counter() - step_start_time
-            ingestion_logger.debug("AutoContext complete", extra={
-                **base_extra, 
-                "step": "auto_context", 
-                "duration_s": round(step_duration, 4),
-                "model": self.auto_context_model.__class__.__name__
-            })
             
             # --- Embedding Step ---
             step_start_time = time.perf_counter()

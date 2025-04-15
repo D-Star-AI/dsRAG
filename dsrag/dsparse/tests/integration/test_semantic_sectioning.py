@@ -43,6 +43,8 @@ Our findings suggest that successful AI implementation requires a balanced appro
 Standardization of AI validation protocols and implementation guidelines emerges as a critical need in the field.
 The potential for AI to improve healthcare delivery remains high, but careful consideration must be given to practical implementation challenges."""
 
+        self.test_document_short = "This is a short document."
+
     def _validate_sections(self, sections, document_lines):
         """Helper method to validate section structure"""
         self.assertTrue(len(sections) > 0)
@@ -74,11 +76,16 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             "model": "gpt-4o-mini",
             "language": "en",
         }
+
+        chunking_config = { 
+            "min_length_for_chunking": 1000
+        }
         
         sections, document_lines = get_sections_from_str(
             document=self.test_document,
             max_characters=20000,
-            semantic_sectioning_config=semantic_sectioning_config
+            semantic_sectioning_config=semantic_sectioning_config,
+            chunking_config=chunking_config
         )
         
         self._validate_sections(sections, document_lines)
@@ -90,11 +97,16 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             "model": "claude-3-5-haiku-latest",
             "language": "en",
         }
+
+        chunking_config = { 
+            "min_length_for_chunking": 1000
+        }
         
         sections, document_lines = get_sections_from_str(
             document=self.test_document,
             max_characters=20000,
-            semantic_sectioning_config=semantic_sectioning_config
+            semantic_sectioning_config=semantic_sectioning_config,
+            chunking_config=chunking_config
         )
         
         self._validate_sections(sections, document_lines)
@@ -106,14 +118,17 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             "model": "gemini-2.0-flash",
             "language": "en",
         }
+
+        chunking_config = { 
+            "min_length_for_chunking": 1000
+        }
         
         sections, document_lines = get_sections_from_str(
             document=self.test_document,
             max_characters=20000,
-            semantic_sectioning_config=semantic_sectioning_config
+            semantic_sectioning_config=semantic_sectioning_config,
+            chunking_config=chunking_config
         )
-
-        print(f"\nSections:\n{sections}\n\n")
         
         self._validate_sections(sections, document_lines)
 
@@ -121,11 +136,16 @@ The potential for AI to improve healthcare delivery remains high, but careful co
         semantic_sectioning_config = {
             "use_semantic_sectioning": False,
         }
+
+        chunking_config = {
+            "min_length_for_chunking": 1000
+        }
         
         sections, document_lines = get_sections_from_str(
             document=self.test_document,
             max_characters=20000,
-            semantic_sectioning_config=semantic_sectioning_config
+            semantic_sectioning_config=semantic_sectioning_config,
+            chunking_config=chunking_config
         )
         
         # Should return a single section containing the entire document
@@ -133,6 +153,27 @@ The potential for AI to improve healthcare delivery remains high, but careful co
         self.assertEqual(sections[0]['start'], 0)
         self.assertEqual(sections[0]['end'], len(document_lines) - 1)
         self.assertEqual(sections[0]['content'], self.test_document)
+
+    def test_short_document(self):
+        semantic_sectioning_config = {
+            "use_semantic_sectioning": True,
+        }
+
+        chunking_config = {
+            "min_length_for_chunking": 1000
+        }
+
+        sections, document_lines = get_sections_from_str(
+            document=self.test_document_short,
+            max_characters=20000,
+            semantic_sectioning_config=semantic_sectioning_config,
+            chunking_config=chunking_config
+        )
+
+        self.assertEqual(len(sections), 1)
+        self.assertEqual(sections[0]['start'], 0)
+        self.assertEqual(sections[0]['end'], len(document_lines) - 1)
+        self.assertEqual(sections[0]['content'], self.test_document_short)
 
 if __name__ == "__main__":
     unittest.main() 
