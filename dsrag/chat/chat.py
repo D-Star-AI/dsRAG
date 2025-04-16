@@ -55,17 +55,8 @@ The page number is N in the above format.
 Web search results will be in the following format:
 <url: url_of_the_web_page>
 Title: title of the web page
-URL: url of the web page
-Description: description of the web page
 Content: text content of the web page
 </url: url_of_the_web_page>
-
-YOU MUST USE INLINE CITATIONS IN YOUR RESPONSE WHERE APPROPRIATE.
-    - Use the following format for inline citations: [^<doc_id>:<page_number>] or [^<url>] depending on the source of the information.
-    - Anywhere in your response where you use information from a web page or document, you must include an inline citation.
-    - It is important to note that when citing the source, if there is a URL present in the source information, it will be a web page.
-    - For example, if citing a web page, it would be "Some sentence that you are citing from the web page [^<url>]"
-    - For example, if citing a document, it would be "Some sentence that you are citing from the document [^<doc_id>:<page_number>]"
 
 Your response must be a valid ResponseWithCitations object. It must include these two fields:
 1. response: Your complete response text
@@ -373,12 +364,14 @@ async def _run_exa_search(
             return exa.search_and_contents(
                 query,
                 text=True,
-                include_domains=exa_include_domains
+                include_domains=exa_include_domains,
+                num_results=5
             )
         else:
             return exa.search_and_contents(
                 query,
-                text=True
+                text=True,
+                num_results=5
             )
 
     # Run all searches in parallel
@@ -592,7 +585,7 @@ async def _prepare_chat_context(
         if web_search_results:
             # Format EXA results and append to relevant knowledge
             # TODO: Implement proper formatting for EXA results
-            relevant_knowledge_str += "\n\nWeb Search Results:\n" + str(formatted_web_search_results)
+            relevant_knowledge_str += "\n\n" + str(formatted_web_search_results)
     else:
         # Just run KB search
         relevant_knowledge_str = await run_kb_search()
@@ -709,62 +702,83 @@ async def _get_chat_response_streaming(
     # Keep track of the final response for later saving
     final_response = None
     final_citations = []
-    
-    # Change this section to use regular for loop since response_stream is a regular generator
-    for partial_response in response_stream:
-        # Create a streaming response with what we have so far
-        current_interaction = interaction_base.copy()
-        
-        # Store the latest partial response for final saving
-        final_response = partial_response
-        
-        # Format the partial response for streaming
-        content = ""
-        if hasattr(partial_response, 'response'):
-            content = partial_response.response
-        elif hasattr(partial_response, 'model_fields_set') and 'response' in partial_response.model_fields_set:
-            content = getattr(partial_response, 'response', "")
-        elif isinstance(partial_response, dict) and 'response' in partial_response:
-            content = partial_response['response']
+
+    try:
+        # Add validation before starting the loop
+        if not response_stream:
+            raise ValueError("Empty response stream")
+
+        for partial_response in response_stream:
+            if not partial_response:
+                print("Skipping empty partial response")
+                continue
             
-        current_interaction["model_response"] = {
-            "content": content,
-            "citations": [],
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        # Handle citations
-        citations_list = []
-        if hasattr(partial_response, 'citations') and partial_response.citations:
-            citations_list = partial_response.citations
-        elif hasattr(partial_response, 'model_fields_set') and 'citations' in partial_response.model_fields_set:
-            citations_list = getattr(partial_response, 'citations', [])
-        elif isinstance(partial_response, dict) and 'citations' in partial_response:
-            citations_list = partial_response['citations']
+            # Create a streaming response with what we have so far
+            current_interaction = interaction_base.copy()
             
-        print ("\n\n")
-        print ("citations_list", citations_list)
-        print ("\n\n")
-        if citations_list:
-            formatted_stream_citations = []
-            for citation in citations_list:
-                citation_dict = (citation.model_dump() if hasattr(citation, 'model_dump') 
-                               else citation.dict() if hasattr(citation, 'dict')
-                               else citation if isinstance(citation, dict)
-                               else None)
+            # Store the latest partial response for final saving
+            final_response = partial_response
+            
+            # Format the partial response for streaming with better type checking
+            content = ""
+            try:
+                if isinstance(partial_response, str):
+                    content = partial_response
+                elif hasattr(partial_response, 'response'):
+                    content = partial_response.response
+                elif hasattr(partial_response, 'model_fields_set') and 'response' in partial_response.model_fields_set:
+                    content = getattr(partial_response, 'response', "")
+                elif isinstance(partial_response, dict) and 'response' in partial_response:
+                    content = partial_response['response']
                 
-                if citation_dict and citation_dict.get("doc_id") in all_doc_ids:
-                    citation_dict["kb_id"] = all_doc_ids[citation_dict["doc_id"]]
-                    formatted_stream_citations.append(citation_dict)
-                elif citation_dict and citation_dict.get("url"):
-                    citation_dict["kb_id"] = "web_search"
-                    formatted_stream_citations.append(citation_dict)
+                if not content and not isinstance(content, str):
+                    print(f"Invalid content type: {type(content)}")
+                    continue
                     
-            current_interaction["model_response"]["citations"] = formatted_stream_citations
-            final_citations = formatted_stream_citations
-        
-        yield current_interaction
-    
+                current_interaction["model_response"] = {
+                    "content": content,
+                    "citations": [],
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+                # Handle citations
+                citations_list = []
+                if hasattr(partial_response, 'citations') and partial_response.citations:
+                    citations_list = partial_response.citations
+                elif hasattr(partial_response, 'model_fields_set') and 'citations' in partial_response.model_fields_set:
+                    citations_list = getattr(partial_response, 'citations', [])
+                elif isinstance(partial_response, dict) and 'citations' in partial_response:
+                    citations_list = partial_response['citations']
+                    
+                if citations_list:
+                    formatted_stream_citations = []
+                    for citation in citations_list:
+                        citation_dict = (citation.model_dump() if hasattr(citation, 'model_dump') 
+                                    else citation.dict() if hasattr(citation, 'dict')
+                                    else citation if isinstance(citation, dict)
+                                    else None)
+                        
+                        if citation_dict and citation_dict.get("doc_id") in all_doc_ids:
+                            citation_dict["kb_id"] = all_doc_ids[citation_dict["doc_id"]]
+                            formatted_stream_citations.append(citation_dict)
+                        elif citation_dict and citation_dict.get("url"):
+                            citation_dict["kb_id"] = "web_search"
+                            formatted_stream_citations.append(citation_dict)
+                            
+                    current_interaction["model_response"]["citations"] = formatted_stream_citations
+                    final_citations = formatted_stream_citations
+                
+                yield current_interaction
+                
+            except Exception as e:
+                print(f"Error processing partial response: {str(e)}")
+                print(f"Partial response type: {type(partial_response)}")
+                continue
+
+    except Exception as e:
+        print(f"Error in response stream processing: {str(e)}")
+        raise
+
     # Prepare final interaction with all relevant segments
     final_interaction = {
         "user_input": {
@@ -964,10 +978,6 @@ async def get_chat_thread_response_streaming(thread_id: str, get_response_input:
         exa_include_domains
     )
     
-    print ("\n\n")
-    print (type(response_generator))
-    print ("\n\n")
-    
     try:
         print ("Getting initial response")
         # Get the first response
@@ -1125,7 +1135,6 @@ async def get_chat_thread_response(thread_id: str, get_response_input: ChatRespo
     if stream:
         async_gen = get_chat_thread_response_streaming(thread_id, get_response_input, chat_thread_db, knowledge_bases)
         async for response in async_gen:
-            print ("response", response)
             yield response
     else:
         # For non-streaming, yield the single response

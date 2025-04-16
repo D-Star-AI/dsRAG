@@ -120,9 +120,6 @@ async def format_firecrawl_search_results(search_results: list[dict], user_inout
             max_tokens=6000
         )
         
-        print("response", response)
-        print("\n\n")
-        
         # Add in the URL, title, and description from the original result
         response.url = result["url"]
         response.title = result["title"]
@@ -160,15 +157,6 @@ async def filter_exa_search_results(search_results: list[ExaSearchResults], user
     """
     
     def process_single_result(result):
-        print ("\n")
-        print (type(result))
-        # Print the result attributes
-        print ("\n")
-        print ("result attributes")
-        for attr in dir(result):
-            if not attr.startswith('_'):
-                print (attr, getattr(result, attr))
-        print ("\n")
                 
         prompt = SYSTEM_PROMPT.format(
             url=result.url, 
@@ -189,9 +177,6 @@ async def filter_exa_search_results(search_results: list[ExaSearchResults], user
             temperature=0.2,
             max_tokens=6000
         )
-        
-        print("response", response)
-        print("\n\n")
         
         # Turn the response into a dictionary, and concatenate the relevant content
         response_dict = response.model_dump()
@@ -250,7 +235,7 @@ def format_exa_search_results(search_results: list[ExaSearchResults]) -> tuple[s
     # Extract and combine content from search results
     website_content = "RELEVANT WEBSITE CONTENT\n\n The following is content from websites that may be relevant to the user's question. You can use this content to help you write your response, but be careful: not all search results will be relevant, and sometimes you won't need to use any of them, so use your best judgement when deciding what to include in your response. Ignore any information here that is not relevant to the user's input.\n\n"
     website_content += "\n\n".join([
-        f"<url: {result['url']}>\nTitle: {result['title']}\nContent: {result['relevant_content']} </url: {result['url']}>" # truncate to 10000 characters
+        f"<url: {result['url']}>\nTitle: {result['title']}\nContent: {result['relevant_content']} \n</url: {result['url']}>\n" # truncate to 10000 characters
         for i, result in enumerate(search_results)
     ])
         

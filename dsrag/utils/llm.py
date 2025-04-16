@@ -92,7 +92,10 @@ def get_response(
     # Determine processing mode
     if response_model:
         if stream:
-            return _handle_instructor_streaming(final_messages, model_name, response_model, temperature, max_tokens)
+            try:
+                return _handle_instructor_streaming(final_messages, model_name, response_model, temperature, max_tokens)
+            except Exception as e:
+                print ("error", e)
         return _handle_instructor_mode(final_messages, model_name, response_model, temperature, max_tokens)
     else:
         if stream:
@@ -111,12 +114,31 @@ def _handle_instructor_mode(messages: List[Dict], model_name: str, response_mode
 
 def _handle_instructor_streaming(messages: List[Dict], model_name: str, response_model: BaseModel, temperature: float, max_tokens: int):
     """Handle structured output using Instructor with streaming"""
+    print ("model_name", model_name)
     if model_name in ANTHROPIC_MODEL_NAMES:
-        return _handle_anthropic_instructor_streaming(messages, model_name, response_model, temperature, max_tokens)
+        try:
+            print ("Running Anthropic instructor streaming")
+            return _handle_anthropic_instructor_streaming(messages, model_name, response_model, temperature, max_tokens)
+        except Exception as e:
+            print ("Using fallback to OpenAI instructor streaming")
+            print ("error", e)
+            try:
+                print ("Running OpenAI instructor streaming")
+                return _handle_openai_instructor_streaming(messages, "gpt-4o", response_model, temperature, max_tokens)
+            except Exception as e:
+                print ("error", e)
     if model_name in OPENAI_MODEL_NAMES:
-        return _handle_openai_instructor_streaming(messages, model_name, response_model, temperature, max_tokens)
+        try:
+            print ("Running OpenAI instructor streaming")
+            return _handle_openai_instructor_streaming(messages, model_name, response_model, temperature, max_tokens)
+        except Exception as e:
+            print ("error", e)
     if model_name in GEMINI_MODEL_NAMES:
-        return _handle_gemini_instructor_streaming(messages, model_name, response_model, temperature, max_tokens)
+        try:
+            print ("Running Gemini instructor streaming")
+            return _handle_gemini_instructor_streaming(messages, model_name, response_model, temperature, max_tokens)
+        except Exception as e:
+            print ("error", e)
     raise ValueError(f"Unsupported model for instructor streaming: {model_name}")
 
 def _handle_standard_mode(messages: List[Dict], model_name: str, temperature: float, max_tokens: int) -> str:
@@ -163,14 +185,18 @@ def _handle_openai_instructor_streaming(messages, model_name, response_model, te
     formatted = _format_openai_messages(messages)
     
     # Create streaming request
-    stream = client.chat.completions.create(
-        model=model_name,
-        messages=formatted,
-        response_model=partial_model,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        stream=True
-    )
+    try:
+        stream = client.chat.completions.create(
+            model=model_name,
+            messages=formatted,
+            response_model=partial_model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=True
+        )
+        print ("stream", stream)
+    except Exception as e:
+        print ("error", e)
     
     # Return the stream directly - caller will iterate through it
     return stream
