@@ -731,9 +731,9 @@ async def _get_chat_response_streaming(
                 elif isinstance(partial_response, dict) and 'response' in partial_response:
                     content = partial_response['response']
                 
-                if not content and not isinstance(content, str):
+                """if not content and not isinstance(content, str):
                     print(f"Invalid content type: {type(content)}")
-                    continue
+                    continue"""
                     
                 current_interaction["model_response"] = {
                     "content": content,
