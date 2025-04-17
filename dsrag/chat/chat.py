@@ -74,12 +74,33 @@ Note that an individual citation may only be associated with one page number (if
 
 SHORT_OUTPUT = """
 RESPONSE LENGTH GUIDANCE
-Please keep your response extremely short and concise. Answer in a single concise sentence whenever possible. If the question is more complex, then you may use up to a few sentences. IN NO CIRCUMSTANCE should your response be longer than one paragraph.
+Please keep your response extremely short and concise. Answer in a single concise sentence whenever possible.
+If the question is more complex, then you may use up to a few sentences. IN NO CIRCUMSTANCE should your response be longer than one paragraph.
+YOU SHOULD TARGET 50-100 words. Use your best judgement to determine the appropriate length for the response, but keep in mind the target length.
+""".strip()
+
+MEDIUM_OUTPUT = """
+RESPONSE LENGTH GUIDANCE
+Please keep your response moderately long and detailed. Answer in a single concise sentence whenever possible.
+If the question is more complex, then you may use up to a few sentences. IN NO CIRCUMSTANCE should your response be longer than one paragraph.
+YOU SHOULD TARGET 150-300 words. Use your best judgement to determine the appropriate length for the response, but keep in mind the target length.
+Avoid using filler words to match the target length.
 """.strip()
 
 LONG_OUTPUT = """
 RESPONSE LENGTH GUIDANCE
-Please provide as much detail as possible in your response. If the question is very simple, then you may only need one paragraph, but most of the time you will need to use multiple paragraphs to provide a detailed response. Feel free to write up to a few pages if necessary. The most important thing is that you provide a detailed, thorough, and accurate response.
+Please provide as much detail as possible in your response. If the question is very simple, then you may only need one paragraph, but most of the time you will need to use multiple paragraphs to provide a detailed response
+Feel free to write up to a few pages if necessary. The most important thing is that you provide a detailed, thorough, and accurate response.
+YOU SHOULD TARGET 400-800 words. Use your best judgement to determine the appropriate length for the response, but keep in mind the target length.
+Avoid using filler words to match the target length.
+""".strip()
+
+EXTRA_LONG_OUTPUT = """
+RESPONSE LENGTH GUIDANCE
+Please provide as much detail as possible in your response. If the question is very simple, then you may only need one paragraph, but most of the time you will need to use multiple paragraphs to provide a detailed response.
+Feel free to write up to a few pages if necessary. The most important thing is that you provide a detailed, thorough, and accurate response.
+YOU SHOULD TARGET 1000-2000 words. Use your best judgement to determine the appropriate length for the response, but keep in mind the target length.
+Avoid using filler words to match the target length.
 """.strip()
 
     
@@ -594,11 +615,13 @@ async def _prepare_chat_context(
     if chat_thread_params['target_output_length'] == "short":
         response_length_guidance = SHORT_OUTPUT
     elif chat_thread_params['target_output_length'] == "medium":
-        response_length_guidance = ""
+        response_length_guidance = MEDIUM_OUTPUT
     elif chat_thread_params['target_output_length'] == "long":
         response_length_guidance = LONG_OUTPUT
+    elif chat_thread_params['target_output_length'] == "extra_long":
+        response_length_guidance = EXTRA_LONG_OUTPUT
     else:
-        response_length_guidance = ""
+        response_length_guidance = MEDIUM_OUTPUT
         print(f"ERROR: target_output_length {chat_thread_params['target_output_length']} not recognized. Using medium length output.")
 
     # format system message and add to chat messages
