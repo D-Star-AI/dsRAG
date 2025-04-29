@@ -40,8 +40,8 @@ class SQLiteChatThreadDB(ChatThreadDB):
         # Convert the kb_ids list to a string
         chat_thread_params["kb_ids"] = ",".join(chat_thread_params["kb_ids"])
         # Convert rse_params dict to JSON string if it exists
-        if "rse_params" in chat_thread_params and chat_thread_params["rse_params"]:
-            chat_thread_params["rse_params"] = json.dumps(chat_thread_params["rse_params"])
+        if "rse_params" in chat_thread_params:
+            chat_thread_params["rse_params"] = json.dumps(chat_thread_params.get("rse_params") or {})
         # Create the chat thread, using the self.chat_thread_columns list to specify the order of the columns
         query_statement = f"INSERT INTO chat_threads ({', '.join(self.chat_thread_columns)}) VALUES ({'?, '.join(['']*len(self.chat_thread_columns))}?)"
         chat_thread_params_tuple = tuple([chat_thread_params.get(column, "") for column in self.chat_thread_columns])
