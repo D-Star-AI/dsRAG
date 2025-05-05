@@ -1,7 +1,7 @@
 import os
 from pydantic import BaseModel
 from typing import List
-from ..utils.llm import get_response
+from ..utils.instructor_get_response import get_response
 
 SYSTEM_MESSAGE = """
 You are a query generation system. Please generate one or more search queries (up to a maximum of {max_queries}) based on the provided user input. DO NOT generate the answer, just queries. You must specify the knowledge base you want to use for each query by providing the knowledge_base_id.
