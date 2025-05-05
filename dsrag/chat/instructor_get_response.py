@@ -99,21 +99,21 @@ def get_response(
 
 def _handle_instructor_mode(messages: List[Dict], model_name: str, response_model: BaseModel, temperature: float, max_tokens: int) -> BaseModel:
     """Handle structured output using Instructor"""
-    if model_name in ANTHROPIC_MODEL_NAMES:
+    if model_name in ANTHROPIC_MODEL_NAMES or model_name.startswith("anthropic/"):
         return _handle_anthropic_instructor(messages, model_name, response_model, temperature, max_tokens)
-    if model_name in OPENAI_MODEL_NAMES:
+    if model_name in OPENAI_MODEL_NAMES or model_name.startswith("openai/"):
         return _handle_openai_instructor(messages, model_name, response_model, temperature, max_tokens)
-    if model_name in GEMINI_MODEL_NAMES:
+    if model_name in GEMINI_MODEL_NAMES or model_name.startswith("gemini/"):
         return _handle_genai_instructor(messages, model_name, response_model, temperature, max_tokens)
     raise ValueError(f"Unsupported model for instructor: {model_name}")
 
 def _handle_instructor_streaming(messages: List[Dict], model_name: str, response_model: BaseModel, temperature: float, max_tokens: int):
     """Handle structured output using Instructor with streaming"""
-    if model_name in ANTHROPIC_MODEL_NAMES:
+    if model_name in ANTHROPIC_MODEL_NAMES or model_name.startswith("anthropic/"):
         return _handle_anthropic_instructor_streaming(messages, model_name, response_model, temperature, max_tokens)
-    if model_name in OPENAI_MODEL_NAMES:
+    if model_name in OPENAI_MODEL_NAMES or model_name.startswith("openai/"):
         return _handle_openai_instructor_streaming(messages, model_name, response_model, temperature, max_tokens)
-    if model_name in GEMINI_MODEL_NAMES:
+    if model_name in GEMINI_MODEL_NAMES or model_name.startswith("gemini/"):
         return _handle_genai_instructor_streaming(messages, model_name, response_model, temperature, max_tokens)
     raise ValueError(f"Unsupported model for instructor streaming: {model_name}")
 
@@ -121,13 +121,22 @@ def _handle_instructor_streaming(messages: List[Dict], model_name: str, response
 def _handle_openai_instructor(messages, model_name, response_model, temperature, max_tokens):
     client = instructor.from_openai(openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
     formatted = _format_openai_messages(messages)
-    return client.chat.completions.create(
-        model=model_name,
-        messages=formatted,
-        response_model=response_model,
-        temperature=temperature,
-        max_tokens=max_tokens
-    )
+    if model_name.startswith("openai/"):
+        model_name = model_name.split("/")[1]
+
+    # Use max_completion_tokens for o-series models
+    model_kwargs = {
+        "model": model_name,
+        "messages": formatted,
+        "response_model": response_model,
+    }
+    if model_name.startswith("o"):
+        model_kwargs["max_completion_tokens"] = max_tokens
+    else:
+        model_kwargs["max_tokens"] = max_tokens
+        model_kwargs["temperature"] = temperature
+
+    return client.chat.completions.create(**model_kwargs)
 
 def _handle_openai_instructor_streaming(messages, model_name, response_model, temperature, max_tokens):
     """Handle structured output streaming with OpenAI using Instructor"""
@@ -139,16 +148,25 @@ def _handle_openai_instructor_streaming(messages, model_name, response_model, te
     
     client = instructor.from_openai(openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
     formatted = _format_openai_messages(messages)
+
+    if model_name.startswith("openai/"):
+        model_name = model_name.split("/")[1]
     
+    # Use max_completion_tokens for o-series models
+    model_kwargs = {
+        "model": model_name,
+        "messages": formatted,
+        "response_model": partial_model,
+        "stream": True,
+    }
+    if model_name.startswith("o"):
+        model_kwargs["max_completion_tokens"] = max_tokens
+    else:
+        model_kwargs["max_tokens"] = max_tokens
+        model_kwargs["temperature"] = temperature
+
     # Create streaming request
-    stream = client.chat.completions.create(
-        model=model_name,
-        messages=formatted,
-        response_model=partial_model,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        stream=True
-    )
+    stream = client.chat.completions.create(**model_kwargs)
     
     # Return the stream directly - caller will iterate through it
     return stream
@@ -187,6 +205,9 @@ def _handle_anthropic_instructor(messages, model_name, response_model, temperatu
             filtered_messages.append(msg)
     
     formatted = _format_anthropic_messages(filtered_messages)
+
+    if model_name.startswith("anthropic/"):
+        model_name = model_name.split("/")[1]
     
     # Only include system parameter if we have a system message
     kwargs = {
@@ -208,7 +229,7 @@ def _handle_anthropic_instructor_streaming(messages, model_name, response_model,
     
     # For ResponseWithCitations specifically, use our partial version
     partial_model = PartialResponseWithCitations if response_model.__name__ == "ResponseWithCitations" else instructor.Partial[response_model]
-    
+
     client = instructor.from_anthropic(
         anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]),
         mode=instructor.Mode.ANTHROPIC_JSON
@@ -224,6 +245,9 @@ def _handle_anthropic_instructor_streaming(messages, model_name, response_model,
             filtered_messages.append(msg)
     
     formatted = _format_anthropic_messages(filtered_messages)
+
+    if model_name.startswith("anthropic/"):
+        model_name = model_name.split("/")[1]
     
     # Only include system parameter if we have a system message
     kwargs = {
@@ -313,6 +337,9 @@ def _handle_genai_instructor(messages, model_name, response_model, temperature, 
     )  
       
     formatted = _format_genai_messages(messages)
+
+    if model_name.startswith("gemini/"):
+        model_name = model_name.split("/")[1]
       
     return client.chat.completions.create(  
         model=model_name,
@@ -338,6 +365,9 @@ def _handle_genai_instructor_streaming(messages, model_name, response_model, tem
     )
 
     formatted = _format_genai_messages(messages)
+
+    if model_name.startswith("gemini/"):
+        model_name = model_name.split("/")[1]
 
     stream = client.chat.completions.create(
         model=model_name,
@@ -402,6 +432,31 @@ if __name__ == "__main__":
     #print(response)
 
     # test gemini streaming
-    stream = _handle_genai_instructor_streaming(messages, "gemini-2.5-pro-preview-03-25", UserModel, 0.5, 4000)
+    #stream = _handle_genai_instructor_streaming(messages, "gemini-2.5-pro-preview-03-25", UserModel, 0.5, 4000)
+    #for chunk in stream:
+    #    print(chunk)
+
+    # test gemini instructor get response w/ new model name format
+    #model_name = "gemini/gemini-2.5-pro-preview-03-25"
+    #response = get_response(messages, model_name=model_name, response_model=UserModel, temperature=0.5, max_tokens=4000)
+    #print(response)
+
+    # test anthropic instructor get response w/ new model name format
+    #model_name = "anthropic/claude-3-7-sonnet-latest"
+    #response = get_response(messages, model_name=model_name, response_model=UserModel, temperature=0.5, max_tokens=4000)
+    #print(response)
+
+    # test openai instructor get response w/ new model name format
+    #model_name = "openai/gpt-4.1"
+    #response = get_response(messages, model_name=model_name, response_model=UserModel, temperature=0.5, max_tokens=4000)
+    #print(response)
+
+    # test anthropic streaming - NOT WORKING for Claude 3.7 Sonnet, reason unknown
+    stream = get_response(messages, model_name="anthropic/claude-3-7-sonnet-latest", response_model=UserModel, temperature=0.5, max_tokens=4000, stream=True)
     for chunk in stream:
         print(chunk)
+    
+    # test openai streaming
+    #stream = get_response(messages, model_name="openai/o4-mini", response_model=UserModel, temperature=0.5, max_tokens=4000, stream=True)
+    #for chunk in stream:
+    #    print(chunk)

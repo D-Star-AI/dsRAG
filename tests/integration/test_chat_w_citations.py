@@ -8,7 +8,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from dsrag.chat.chat import create_new_chat_thread, get_chat_thread_response, ChatResponseInput
 from dsrag.database.chat_thread.basic_db import BasicChatThreadDB
 from dsrag.knowledge_base import KnowledgeBase
-#from dsrag.database.vector.chroma_db import ChromaDB
 from dsrag.reranker import NoReranker
 
 class TestChat(unittest.TestCase):
@@ -21,11 +20,9 @@ class TestChat(unittest.TestCase):
         file_path = os.path.join(script_dir, "../data/levels_of_agi.pdf")
         
         kb_id = "levels_of_agi"
-        #vector_db = ChromaDB(kb_id=kb_id)
         reranker = NoReranker() 
         cls.kb = KnowledgeBase(
             kb_id=kb_id, 
-            #vector_db=vector_db, 
             reranker=reranker, 
             title="Levels of AGI",
             description="Paper about the levels of AGI, written by Google DeepMind",
@@ -57,10 +54,10 @@ class TestChat(unittest.TestCase):
         # Set up chat thread parameters
         cls.chat_thread_params = {
             "kb_ids": ["levels_of_agi"],
-            "model": "claude-3-5-sonnet-20241022",
+            "model": "openai/o4-mini",
             "temperature": 0.0,
             "system_message": "",
-            "auto_query_model": "claude-3-5-sonnet-20241022",
+            "auto_query_model": "openai/gpt-4.1-mini",
             "rse_params": rse_params
         }
         
@@ -69,8 +66,6 @@ class TestChat(unittest.TestCase):
         }
         
         cls.chat_thread_db = BasicChatThreadDB()
-        #cls.chat_thread_db = SQLiteChatThreadDB()
-        #cls.chat_thread_db._check_and_migrate_db()
 
     def test_001_create_new_chat_thread(self):
         thread_id = create_new_chat_thread(
@@ -148,7 +143,7 @@ class TestChatWithNoKBs(unittest.TestCase):
     def test_001_create_new_chat_thread(self):
         chat_thread_params = {
             "kb_ids": [],
-            "model": "claude-3-5-sonnet-20241022",
+            "model": "gemini/gemini-2.5-flash-preview-04-17",
         }
         
         chat_thread_db = BasicChatThreadDB()
@@ -163,7 +158,7 @@ class TestChatWithNoKBs(unittest.TestCase):
         chat_thread_db = BasicChatThreadDB()
         chat_thread_params = {
             "kb_ids": [],
-            "model": "claude-3-5-sonnet-20241022",
+            "model": "anthropic/claude-3-5-sonnet-20241022",
             "temperature": 0.0,
         }
         
