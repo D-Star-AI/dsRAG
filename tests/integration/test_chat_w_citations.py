@@ -127,6 +127,57 @@ class TestChat(unittest.TestCase):
         self.assertIn("citations", follow_up_response["model_response"])
         self.assertGreater(len(follow_up_response["model_response"]["citations"]), 0)
 
+    def test_003_get_chat_response_streaming(self):
+        thread_id = create_new_chat_thread(
+            chat_thread_params=self.chat_thread_params,
+            chat_thread_db=self.chat_thread_db
+        )
+        
+        # Test streaming question about levels of AGI
+        chat_response_input = ChatResponseInput(
+            user_input="What are the levels of AGI?",
+            chat_thread_params=None,
+            metadata_filter=None
+        )
+        
+        response_generator = get_chat_thread_response(
+            thread_id=thread_id,
+            get_response_input=chat_response_input,
+            chat_thread_db=self.chat_thread_db,
+            knowledge_bases=self.knowledge_bases,
+            stream=True
+        )
+        
+        accumulated_content = ""
+        final_citations = []
+        message_id = None
+
+        for partial_response in response_generator:
+            self.assertIn("model_response", partial_response)
+            self.assertIn("content", partial_response["model_response"])
+            self.assertIn("status", partial_response["model_response"])
+            self.assertIn("message_id", partial_response)
+            
+            if message_id is None:
+                message_id = partial_response["message_id"]
+            else:
+                self.assertEqual(message_id, partial_response["message_id"])
+
+            accumulated_content = partial_response["model_response"]["content"]
+            if "citations" in partial_response["model_response"]:
+                final_citations = partial_response["model_response"]["citations"]
+        
+        # Verify final accumulated response
+        self.assertGreater(len(accumulated_content), 0)
+        
+        # Verify citations received
+        self.assertGreater(len(final_citations), 0)
+        
+        # Verify citation structure
+        first_citation = final_citations[0]
+        self.assertIn("doc_id", first_citation)
+        self.assertEqual(first_citation["doc_id"], "levels_of_agi.pdf")
+
     @classmethod
     def cleanup(cls):
         try:
@@ -189,10 +240,5 @@ class TestChatWithNoKBs(unittest.TestCase):
         if "citations" in response["model_response"]:
             self.assertEqual(len(response["model_response"]["citations"]), 0)
 
-if __name__ == "__main__":
-    # Run only the TestChatWithNoKBs class
-    #test_suite = unittest.TestLoader().loadTestsFromTestCase(TestChatWithNoKBs)
-    #unittest.TextTestRunner().run(test_suite)
-    
-    # To run all tests, uncomment the line below and comment out the two lines above
+if __name__ == "__main__":    
     unittest.main()
