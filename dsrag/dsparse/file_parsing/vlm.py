@@ -1,7 +1,7 @@
 import PIL.Image
 import os
 import io
-from ..utils.imports import genai, vertexai, genai_new
+from ..utils.imports import vertexai, genai_new
 
 def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gemini-2.0-flash", response_schema: dict = None, max_tokens: int = 4000, temperature: float = 0.5) -> str:
     # With the newer Google GenAI SDK, we need to create a client
@@ -18,16 +18,20 @@ def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gem
     if response_schema is not None:
         config.response_schema = response_schema
 
-    # Use the model directly from the client.models
-    # The model name is passed to generate_content
-
     try:
         # Open and compress the image
         image = PIL.Image.open(image_path)
-        compressed_image = compress_image(image)
+        compressed_image_bytes, _ = compress_image(image) # Quality is returned but not used here
 
-        # Create content parts
-        content_parts = [compressed_image, system_message]
+        # Close the original image object now that compression is done
+        if image:
+            image.close()
+            # The 'image' variable still exists and will be handled by the finally block,
+            # PIL's close() is typically safe to call multiple times.
+
+        # Create content parts using bytes
+        image_part = genai_new.types.Part.from_bytes(data=compressed_image_bytes, mime_type='image/jpeg')
+        content_parts = [image_part, system_message]
 
         # For Gemini 2.5 models, disable thinking
         if model.startswith("gemini-2.5"):
@@ -60,8 +64,11 @@ def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gem
         return response.text
     finally:
         # Ensure image is closed even if an error occurs
-        if 'image' in locals():
-            image.close()
+        if 'image' in locals() and image: # Check if image was defined and not None
+            try:
+                image.close() # Attempt to close; safe if already closed
+            except Exception:
+                pass # Ignore errors if it fails (e.g., trying to close a None object or already closed and problematic)
 
 def make_llm_call_vertex(image_path: str, system_message: str, model: str, project_id: str, location: str, response_schema: dict = None, max_tokens: int = 4000, temperature: float = 0.5) -> str:
     """
@@ -84,7 +91,7 @@ def make_llm_call_vertex(image_path: str, system_message: str, model: str, proje
     )
     return response.text
 
-def compress_image(image: PIL.Image.Image, max_size_bytes: int = 1097152, quality: int = 85) -> tuple[PIL.Image.Image, int]:
+def compress_image(image: PIL.Image.Image, max_size_bytes: int = 1097152, quality: int = 85) -> tuple[bytes, int]:
     """
     Compress image if it exceeds file size while maintaining aspect ratio.
     
@@ -94,7 +101,7 @@ def compress_image(image: PIL.Image.Image, max_size_bytes: int = 1097152, qualit
         quality: Initial JPEG quality (0-100)
     
     Returns:
-        Tuple of (compressed PIL Image object, final quality used)
+        Tuple of (compressed image bytes, final quality used)
     """
     output = io.BytesIO()
     
@@ -115,8 +122,6 @@ def compress_image(image: PIL.Image.Image, max_size_bytes: int = 1097152, qualit
             output = io.BytesIO()
             image.save(output, format='JPEG', quality=quality)
     
-    # Convert back to PIL Image
+    # Return the bytes directly
     output.seek(0)
-    compressed_image = PIL.Image.open(output)
-    compressed_image.load()  # This is important to ensure the BytesIO can be closed
-    return compressed_image
+    return output.getvalue(), quality
