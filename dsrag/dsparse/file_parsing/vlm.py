@@ -91,7 +91,7 @@ def make_llm_call_vertex(image_path: str, system_message: str, model: str, proje
     )
     return response.text
 
-def compress_image(image: PIL.Image.Image, max_size_bytes: int = 1097152, quality: int = 85) -> tuple[bytes, int]:
+def compress_image(image: PIL.Image.Image, max_size_bytes: int = 1097152, quality: int = 95) -> tuple[bytes, int]:
     """
     Compress image if it exceeds file size while maintaining aspect ratio.
     
@@ -110,6 +110,7 @@ def compress_image(image: PIL.Image.Image, max_size_bytes: int = 1097152, qualit
     
     # Reduce quality if file is too large
     while output.tell() > max_size_bytes and quality > 10:
+        print(f"Compressing image: {output.tell()} bytes")
         output = io.BytesIO()
         quality -= 5
         image.save(output, format='JPEG', quality=quality)
