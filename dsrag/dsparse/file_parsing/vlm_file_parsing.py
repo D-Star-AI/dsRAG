@@ -288,7 +288,7 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     - images of each page of the PDF (if images_already_exist is False)
     - JSON files of the content of each page
     """
-    max_pages = vlm_config.get("max_pages", 100)
+    max_pages = vlm_config.get("max_pages", 10)
     max_workers = vlm_config.get("max_workers", 2)
     images_already_exist = vlm_config.get("images_already_exist", False)
     vlm_max_concurrent_requests = vlm_config.get("vlm_max_concurrent_requests", 5)
