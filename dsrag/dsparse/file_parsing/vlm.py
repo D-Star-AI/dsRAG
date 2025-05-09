@@ -1,30 +1,62 @@
 import PIL.Image
 import os
 import io
-from ..utils.imports import genai, vertexai
+from ..utils.imports import genai, vertexai, genai_new
 
 def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gemini-2.0-flash", response_schema: dict = None, max_tokens: int = 4000, temperature: float = 0.5) -> str:
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    generation_config = {
-        "temperature": temperature,
-        "response_mime_type": "application/json",
-        "max_output_tokens": max_tokens
-    }
-    if response_schema is not None:
-        generation_config["response_schema"] = response_schema
+    # With the newer Google GenAI SDK, we need to create a client
+    client = genai_new.Client(api_key=os.environ["GEMINI_API_KEY"])
 
-    model = genai.GenerativeModel(model)
+    # Create generation config with the correct GenerateContentConfig type
+    config = genai_new.types.GenerateContentConfig(
+        temperature=temperature,
+        max_output_tokens=max_tokens,
+        response_mime_type="application/json"
+    )
+
+    # Add response schema if provided
+    if response_schema is not None:
+        config.response_schema = response_schema
+
+    # Use the model directly from the client.models
+    # The model name is passed to generate_content
+
     try:
+        # Open and compress the image
         image = PIL.Image.open(image_path)
-        # Compress image if needed
         compressed_image = compress_image(image)
-        response = model.generate_content(
-            [
-                compressed_image,
-                system_message
-            ],
-            generation_config=generation_config
-        )
+
+        # Create content parts
+        content_parts = [compressed_image, system_message]
+
+        # For Gemini 2.5 models, disable thinking
+        if model.startswith("gemini-2.5"):
+            # Create a new config with thinking disabled by setting thinking_config
+            gemini25_config = genai_new.types.GenerateContentConfig(
+                temperature=temperature,
+                max_output_tokens=max_tokens,
+                response_mime_type="application/json",
+                thinking_config=genai_new.types.ThinkingConfig(thinking_budget=0)
+            )
+
+            # Add response schema if provided
+            if response_schema is not None:
+                gemini25_config.response_schema = response_schema
+
+            # Generate content with thinking disabled
+            response = client.models.generate_content(
+                model=model,
+                contents=content_parts,
+                config=gemini25_config
+            )
+        else:
+            # Standard call for other Gemini models
+            response = client.models.generate_content(
+                model=model,
+                contents=content_parts,
+                config=config
+            )
+
         return response.text
     finally:
         # Ensure image is closed even if an error occurs
