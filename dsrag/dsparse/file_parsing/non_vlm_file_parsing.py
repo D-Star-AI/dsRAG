@@ -1,10 +1,10 @@
-import PyPDF2
+import pypdf
 import docx2txt
 
 def extract_text_from_pdf(file_path: str) -> tuple[str, list]:
     with open(file_path, 'rb') as file:
         # Create a PDF reader object
-        pdf_reader = PyPDF2.PdfReader(file)
+        pdf_reader = pypdf.PdfReader(file)
 
         # Initialize an empty string to store the extracted text
         extracted_text = ""

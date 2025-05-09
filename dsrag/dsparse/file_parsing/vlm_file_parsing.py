@@ -14,7 +14,7 @@ import json
 import time
 import logging
 import concurrent.futures
-from PyPDF2 import PdfReader
+from pypdf import PdfReader
 
 # Get the dsparse logger
 logger = logging.getLogger("dsrag.dsparse.vlm_file_parsing")
