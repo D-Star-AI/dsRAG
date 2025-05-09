@@ -4,7 +4,7 @@ from dsrag.utils.imports import genai_new as genai
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import warnings
-from dsrag.utils.model_names import (
+from dsrag.chat.model_names import (
     OPENAI_MODEL_NAMES,
     ANTHROPIC_MODEL_NAMES,
     GEMINI_MODEL_NAMES
