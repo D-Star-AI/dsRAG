@@ -113,7 +113,7 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
         file_system.save_image(kb_id, doc_id, f'page_{i+1}.png', image)
         return f'/{kb_id}/{doc_id}/page_{i+1}.png'
 
-    # Convert PDF to images in batches of 100
+    # Convert PDF to images in batches of max_pages
     page_count = get_page_count(pdf_path, kb_id, doc_id)
     all_image_paths = []
     
