@@ -37,15 +37,12 @@ class TestVLM(unittest.TestCase):
                 response_schema=test_schema,
                 temperature=0.2
             )
-            
-            logger.info(f"Gemini 2.0 simple schema response: {result}")
-            
+                        
             # Verify we got a valid JSON response
             parsed_result = json.loads(result)
             self.assertIn('description', parsed_result)
             self.assertTrue(len(parsed_result['description']) > 0)
         except Exception as e:
-            logger.error(f"Error in Gemini 2.0 simple schema test: {str(e)}")
             raise
 
     @unittest.skipIf('GEMINI_API_KEY' not in os.environ, "GEMINI_API_KEY not found in environment")
@@ -72,15 +69,12 @@ class TestVLM(unittest.TestCase):
                 response_schema=test_schema,
                 temperature=0.2
             )
-            
-            logger.info(f"Gemini 2.5 simple schema response: {result}")
-            
+                        
             # Verify we got a valid JSON response
             parsed_result = json.loads(result)
             self.assertIn('description', parsed_result)
             self.assertTrue(len(parsed_result['description']) > 0)
         except Exception as e:
-            logger.error(f"Error in Gemini 2.5 simple schema test: {str(e)}")
             raise
 
     @unittest.skipIf('GEMINI_API_KEY' not in os.environ, "GEMINI_API_KEY not found in environment")
@@ -126,19 +120,14 @@ class TestVLM(unittest.TestCase):
                 response_schema=complex_schema,
                 temperature=0.5
             )
-            
-            logger.info(f"Gemini 2.0 complex schema response: {result}")
-            
+                        
             # Verify we got a valid JSON response
             parsed_result = json.loads(result)
             self.assertTrue(isinstance(parsed_result, list))
             if len(parsed_result) > 0:
                 self.assertIn('type', parsed_result[0])
                 self.assertIn('content', parsed_result[0])
-                logger.info(f"First element type: {parsed_result[0]['type']}")
-                logger.info(f"Number of elements: {len(parsed_result)}")
         except Exception as e:
-            logger.error(f"Error in Gemini 2.0 complex schema test: {str(e)}")
             raise
 
     @unittest.skipIf('GEMINI_API_KEY' not in os.environ, "GEMINI_API_KEY not found in environment")
@@ -184,19 +173,14 @@ class TestVLM(unittest.TestCase):
                 response_schema=complex_schema,
                 temperature=0.5
             )
-            
-            logger.info(f"Gemini 2.5 complex schema response: {result}")
-            
+                        
             # Verify we got a valid JSON response
             parsed_result = json.loads(result)
             self.assertTrue(isinstance(parsed_result, list))
             if len(parsed_result) > 0:
                 self.assertIn('type', parsed_result[0])
                 self.assertIn('content', parsed_result[0])
-                logger.info(f"First element type: {parsed_result[0]['type']}")
-                logger.info(f"Number of elements: {len(parsed_result)}")
         except Exception as e:
-            logger.error(f"Error in Gemini 2.5 complex schema test: {str(e)}")
             raise
 
 
