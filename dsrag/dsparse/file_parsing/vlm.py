@@ -110,7 +110,6 @@ def compress_image(image: PIL.Image.Image, max_size_bytes: int = 1097152, qualit
     
     # Reduce quality if file is too large
     while output.tell() > max_size_bytes and quality > 10:
-        print(f"Compressing image: {output.tell()} bytes")
         output = io.BytesIO()
         quality -= 5
         image.save(output, format='JPEG', quality=quality)
