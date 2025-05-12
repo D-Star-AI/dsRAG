@@ -19,7 +19,7 @@ from dsparse.sectioning_and_chunking.semantic_sectioning import (
     merge_sections_across_windows,
     validate_and_fix_global_sections,
     get_sections,
-    get_sections_from_str_parallel,
+    get_sections_from_str,
 )
 
 class TestSemanticSectioning(unittest.TestCase):
@@ -234,7 +234,7 @@ class TestSemanticSectioning(unittest.TestCase):
             llm_provider="openai",
             model="gpt-4o-mini",
             language="en",
-            max_concurrent_llm_calls=2
+            llm_max_concurrent_requests=2
         )
         
         # Should have produced sections
@@ -306,14 +306,14 @@ class TestSemanticSectioning(unittest.TestCase):
         self.assertEqual(lines[0]["page_number"], 1)
         self.assertEqual(lines[2]["page_number"], 2)
     
-    @patch('dsparse.sectioning_and_chunking.semantic_sectioning.parallel_get_sections')
-    def test_get_sections_from_str_parallel(self, mock_parallel_get_sections):
+    @patch('dsparse.sectioning_and_chunking.semantic_sectioning.get_sections')
+    def test_get_sections_from_str(self, mock_get_sections):
         """Test the main entry point function with string input"""
-        # Mock the parallel processing function
-        mock_parallel_get_sections.return_value = [{"title": "Test", "content": "Content", "start": 0, "end": 10}]
-        
+        # Mock the processing function
+        mock_get_sections.return_value = [{"title": "Test", "content": "Content", "start": 0, "end": 10}]
+
         # Use the function with a string input
-        sections, document_lines = get_sections_from_str_parallel(
+        sections, document_lines = get_sections_from_str(
             document=self.sample_document,
             max_characters_per_window=500,
             semantic_sectioning_config={"use_semantic_sectioning": True},
@@ -327,7 +327,7 @@ class TestSemanticSectioning(unittest.TestCase):
         self.assertTrue(len(document_lines) > 0)
         
         # Test with semantic sectioning disabled
-        sections, document_lines = get_sections_from_str_parallel(
+        sections, document_lines = get_sections_from_str(
             document=self.sample_document,
             semantic_sectioning_config={"use_semantic_sectioning": False}
         )

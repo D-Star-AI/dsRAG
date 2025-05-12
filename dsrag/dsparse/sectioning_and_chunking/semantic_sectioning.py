@@ -747,7 +747,7 @@ def get_sections(
     language: str,
     kb_id: str = "",
     doc_id: str = "",
-    max_concurrent_llm_calls: int = 5
+    llm_max_concurrent_requests: int = 5
 ) -> List[Section]:
     """
     Orchestrates the parallel semantic sectioning of a document.
@@ -766,7 +766,7 @@ def get_sections(
         language: Document language.
         kb_id: Knowledge base identifier (for logging).
         doc_id: Document identifier (for logging).
-        max_concurrent_llm_calls: Maximum number of concurrent LLM API calls.
+        llm_max_concurrent_requests: Maximum number of concurrent LLM API calls.
 
     Returns:
         A list of Section objects for the entire document.
@@ -785,7 +785,7 @@ def get_sections(
         "document_lines_count": len(document_lines),
         "llm_provider": llm_provider,
         "model": model,
-        "max_concurrent_llm_calls": max_concurrent_llm_calls
+        "llm_max_concurrent_requests": llm_max_concurrent_requests
     })
 
     # Step 1: Divide document into windows
@@ -798,7 +798,7 @@ def get_sections(
     # Step 2: Process each window in parallel
     window_sections = []
 
-    with ThreadPoolExecutor(max_workers=max_concurrent_llm_calls) as executor:
+    with ThreadPoolExecutor(max_workers=llm_max_concurrent_requests) as executor:
         window_futures = []
 
         # Submit all window processing tasks
@@ -917,7 +917,7 @@ def get_sections_from_elements(
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
-    max_concurrent_llm_calls = semantic_sectioning_config.get("max_concurrent_llm_calls", 5)
+    llm_max_concurrent_requests = semantic_sectioning_config.get("llm_max_concurrent_requests", 5)
     min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
 
     visual_elements = [e["name"] for e in element_types if e["is_visual"]]
@@ -937,7 +937,7 @@ def get_sections_from_elements(
             language=language,
             kb_id=kb_id,
             doc_id=doc_id,
-            max_concurrent_llm_calls=max_concurrent_llm_calls
+            llm_max_concurrent_requests=llm_max_concurrent_requests
         )
     else:
         # Fallback to no semantic sectioning
@@ -978,7 +978,7 @@ def get_sections_from_str(
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
-    max_concurrent_llm_calls = semantic_sectioning_config.get("max_concurrent_llm_calls", 5)
+    llm_max_concurrent_requests = semantic_sectioning_config.get("llm_max_concurrent_requests", 5)
     min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
 
     # Convert string to lines
@@ -994,7 +994,7 @@ def get_sections_from_str(
             language=language,
             kb_id=kb_id,
             doc_id=doc_id,
-            max_concurrent_llm_calls=max_concurrent_llm_calls
+            llm_max_concurrent_requests=llm_max_concurrent_requests
         )
     else:
         # Fallback to no semantic sectioning
@@ -1035,7 +1035,7 @@ def get_sections_from_pages(
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
-    max_concurrent_llm_calls = semantic_sectioning_config.get("max_concurrent_llm_calls", 5)
+    llm_max_concurrent_requests = semantic_sectioning_config.get("llm_max_concurrent_requests", 5)
     min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
 
     # Convert pages to lines
@@ -1053,7 +1053,7 @@ def get_sections_from_pages(
             language=language,
             kb_id=kb_id,
             doc_id=doc_id,
-            max_concurrent_llm_calls=max_concurrent_llm_calls
+            llm_max_concurrent_requests=llm_max_concurrent_requests
         )
     else:
         # Fallback to no semantic sectioning

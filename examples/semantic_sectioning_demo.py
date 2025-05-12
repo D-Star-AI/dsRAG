@@ -40,7 +40,7 @@ def main():
     }
     
     # Configure parallel processing
-    semantic_sectioning_config["max_concurrent_llm_calls"] = 100
+    semantic_sectioning_config["llm_max_concurrent_requests"] = 100
 
     print("\nRunning semantic sectioning (with parallel processing)...")
     start_time = time.time()
@@ -51,7 +51,7 @@ def main():
     )
     processing_time = time.time() - start_time
     print(f"Processing took {processing_time:.2f} seconds")
-    print(f"Found {len(sections)} sections using up to {semantic_sectioning_config['max_concurrent_llm_calls']} concurrent LLM calls")
+    print(f"Found {len(sections)} sections using up to {semantic_sectioning_config['llm_max_concurrent_requests']} concurrent LLM calls")
 
     # Print section titles
     print("\nSectioning results:")

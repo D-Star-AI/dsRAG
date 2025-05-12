@@ -5,7 +5,7 @@ import unittest
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from dsparse.sectioning_and_chunking.semantic_sectioning import get_sections_from_str_parallel
+from dsparse.sectioning_and_chunking.semantic_sectioning import get_sections_from_str
 
 class TestSemanticSectioning(unittest.TestCase):
     
@@ -77,14 +77,14 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             "llm_provider": "openai",
             "model": "gpt-4o-mini",
             "language": "en",
-            "max_concurrent_llm_calls": 3  # For parallel processing
+            "llm_max_concurrent_requests": 3  # For parallel processing
         }
 
         chunking_config = { 
             "min_length_for_chunking": 1000
         }
         
-        sections, document_lines = get_sections_from_str_parallel(
+        sections, document_lines = get_sections_from_str(
             document=self.longer_document,
             max_characters_per_window=5000,  # Smaller windows to test parallelization
             semantic_sectioning_config=semantic_sectioning_config,
@@ -99,14 +99,14 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             "llm_provider": "anthropic",
             "model": "claude-3-5-haiku-latest",
             "language": "en",
-            "max_concurrent_llm_calls": 3  # For parallel processing
+            "llm_max_concurrent_requests": 3  # For parallel processing
         }
 
         chunking_config = { 
             "min_length_for_chunking": 1000
         }
         
-        sections, document_lines = get_sections_from_str_parallel(
+        sections, document_lines = get_sections_from_str(
             document=self.longer_document,
             max_characters_per_window=5000,  # Smaller windows to test parallelization
             semantic_sectioning_config=semantic_sectioning_config,
@@ -121,14 +121,14 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             "llm_provider": "gemini",
             "model": "gemini-2.0-flash",
             "language": "en",
-            "max_concurrent_llm_calls": 3  # For parallel processing
+            "llm_max_concurrent_requests": 3  # For parallel processing
         }
 
         chunking_config = { 
             "min_length_for_chunking": 1000
         }
         
-        sections, document_lines = get_sections_from_str_parallel(
+        sections, document_lines = get_sections_from_str(
             document=self.longer_document,
             max_characters_per_window=5000,  # Smaller windows to test parallelization
             semantic_sectioning_config=semantic_sectioning_config,
@@ -146,7 +146,7 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             "min_length_for_chunking": 1000
         }
         
-        sections, document_lines = get_sections_from_str_parallel(
+        sections, document_lines = get_sections_from_str(
             document=self.test_document,
             max_characters_per_window=5000,
             semantic_sectioning_config=semantic_sectioning_config,
@@ -162,14 +162,14 @@ The potential for AI to improve healthcare delivery remains high, but careful co
     def test_short_document(self):
         semantic_sectioning_config = {
             "use_semantic_sectioning": True,
-            "max_concurrent_llm_calls": 3
+            "llm_max_concurrent_requests": 3
         }
 
         chunking_config = {
             "min_length_for_chunking": 1000
         }
 
-        sections, document_lines = get_sections_from_str_parallel(
+        sections, document_lines = get_sections_from_str(
             document=self.test_document_short,
             max_characters_per_window=5000,
             semantic_sectioning_config=semantic_sectioning_config,
@@ -183,7 +183,7 @@ The potential for AI to improve healthcare delivery remains high, but careful co
 
     def test_concurrency_levels(self):
         """Test different concurrency levels"""
-        # This test specifically tests that different max_concurrent_llm_calls values work
+        # This test specifically tests that different llm_max_concurrent_requests values work
         
         for concurrency in [1, 2, 4]:
             semantic_sectioning_config = {
@@ -191,14 +191,14 @@ The potential for AI to improve healthcare delivery remains high, but careful co
                 "llm_provider": "openai",
                 "model": "gpt-4o-mini",
                 "language": "en",
-                "max_concurrent_llm_calls": concurrency
+                "llm_max_concurrent_requests": concurrency
             }
 
             chunking_config = { 
                 "min_length_for_chunking": 1000
             }
             
-            sections, document_lines = get_sections_from_str_parallel(
+            sections, document_lines = get_sections_from_str(
                 document=self.longer_document,
                 max_characters_per_window=3000,  # Small windows to force multiple chunks
                 semantic_sectioning_config=semantic_sectioning_config,
