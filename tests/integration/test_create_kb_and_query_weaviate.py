@@ -9,6 +9,7 @@ from dsrag.knowledge_base import KnowledgeBase
 from dsrag.database.vector import WeaviateVectorDB
 
 
+@unittest.skipIf(os.environ.get('GITHUB_ACTIONS') == 'true', "Weaviate is not available on GitHub Actions")
 class TestCreateKB(unittest.TestCase):
     def test_create_kb_and_query(self):
         self.cleanup()  # delete the KnowledgeBase object if it exists so we can start fresh

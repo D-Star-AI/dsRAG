@@ -8,7 +8,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from dsrag.chat.chat import create_new_chat_thread, get_chat_thread_response, ChatResponseInput
 from dsrag.database.chat_thread.basic_db import BasicChatThreadDB
 from dsrag.knowledge_base import KnowledgeBase
-#from dsrag.database.vector.chroma_db import ChromaDB
 from dsrag.reranker import NoReranker
 
 class TestChat(unittest.TestCase):
@@ -21,11 +20,9 @@ class TestChat(unittest.TestCase):
         file_path = os.path.join(script_dir, "../data/levels_of_agi.pdf")
         
         kb_id = "levels_of_agi"
-        #vector_db = ChromaDB(kb_id=kb_id)
         reranker = NoReranker() 
         cls.kb = KnowledgeBase(
             kb_id=kb_id, 
-            #vector_db=vector_db, 
             reranker=reranker, 
             title="Levels of AGI",
             description="Paper about the levels of AGI, written by Google DeepMind",
@@ -57,10 +54,10 @@ class TestChat(unittest.TestCase):
         # Set up chat thread parameters
         cls.chat_thread_params = {
             "kb_ids": ["levels_of_agi"],
-            "model": "claude-3-5-sonnet-20241022",
+            "model": "openai/o4-mini",
             "temperature": 0.0,
             "system_message": "",
-            "auto_query_model": "claude-3-5-sonnet-20241022",
+            "auto_query_model": "openai/gpt-4.1-mini",
             "rse_params": rse_params
         }
         
@@ -69,8 +66,6 @@ class TestChat(unittest.TestCase):
         }
         
         cls.chat_thread_db = BasicChatThreadDB()
-        #cls.chat_thread_db = SQLiteChatThreadDB()
-        #cls.chat_thread_db._check_and_migrate_db()
 
     def test_001_create_new_chat_thread(self):
         thread_id = create_new_chat_thread(
@@ -132,6 +127,57 @@ class TestChat(unittest.TestCase):
         self.assertIn("citations", follow_up_response["model_response"])
         self.assertGreater(len(follow_up_response["model_response"]["citations"]), 0)
 
+    def test_003_get_chat_response_streaming(self):
+        thread_id = create_new_chat_thread(
+            chat_thread_params=self.chat_thread_params,
+            chat_thread_db=self.chat_thread_db
+        )
+        
+        # Test streaming question about levels of AGI
+        chat_response_input = ChatResponseInput(
+            user_input="What are the levels of AGI?",
+            chat_thread_params=None,
+            metadata_filter=None
+        )
+        
+        response_generator = get_chat_thread_response(
+            thread_id=thread_id,
+            get_response_input=chat_response_input,
+            chat_thread_db=self.chat_thread_db,
+            knowledge_bases=self.knowledge_bases,
+            stream=True
+        )
+        
+        accumulated_content = ""
+        final_citations = []
+        message_id = None
+
+        for partial_response in response_generator:
+            self.assertIn("model_response", partial_response)
+            self.assertIn("content", partial_response["model_response"])
+            self.assertIn("status", partial_response["model_response"])
+            self.assertIn("message_id", partial_response)
+            
+            if message_id is None:
+                message_id = partial_response["message_id"]
+            else:
+                self.assertEqual(message_id, partial_response["message_id"])
+
+            accumulated_content = partial_response["model_response"]["content"]
+            if "citations" in partial_response["model_response"]:
+                final_citations = partial_response["model_response"]["citations"]
+        
+        # Verify final accumulated response
+        self.assertGreater(len(accumulated_content), 0)
+        
+        # Verify citations received
+        self.assertGreater(len(final_citations), 0)
+        
+        # Verify citation structure
+        first_citation = final_citations[0]
+        self.assertIn("doc_id", first_citation)
+        self.assertEqual(first_citation["doc_id"], "levels_of_agi.pdf")
+
     @classmethod
     def cleanup(cls):
         try:
@@ -148,7 +194,7 @@ class TestChatWithNoKBs(unittest.TestCase):
     def test_001_create_new_chat_thread(self):
         chat_thread_params = {
             "kb_ids": [],
-            "model": "claude-3-5-sonnet-20241022",
+            "model": "gemini/gemini-2.5-flash-preview-04-17",
         }
         
         chat_thread_db = BasicChatThreadDB()
@@ -163,7 +209,7 @@ class TestChatWithNoKBs(unittest.TestCase):
         chat_thread_db = BasicChatThreadDB()
         chat_thread_params = {
             "kb_ids": [],
-            "model": "claude-3-5-sonnet-20241022",
+            "model": "anthropic/claude-3-5-sonnet-20241022",
             "temperature": 0.0,
         }
         
@@ -194,10 +240,5 @@ class TestChatWithNoKBs(unittest.TestCase):
         if "citations" in response["model_response"]:
             self.assertEqual(len(response["model_response"]["citations"]), 0)
 
-if __name__ == "__main__":
-    # Run only the TestChatWithNoKBs class
-    #test_suite = unittest.TestLoader().loadTestsFromTestCase(TestChatWithNoKBs)
-    #unittest.TextTestRunner().run(test_suite)
-    
-    # To run all tests, uncomment the line below and comment out the two lines above
+if __name__ == "__main__":    
     unittest.main()

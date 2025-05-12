@@ -2,7 +2,7 @@ from dsrag.database.chat_thread.db import ChatThreadDB
 from dsrag.chat.chat_types import ChatThreadParams, MetadataFilter, ChatResponseInput
 from dsrag.chat.auto_query import get_search_queries
 from dsrag.chat.citations import format_sources_for_context, ResponseWithCitations
-from dsrag.utils.llm import get_response
+from dsrag.chat.instructor_get_response import get_response
 import tiktoken
 from datetime import datetime
 import uuid

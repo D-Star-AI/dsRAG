@@ -1,7 +1,7 @@
 import re
 from typing import List, Dict
 from pydantic import BaseModel, Field
-from dsrag.utils.llm import get_response
+from dsrag.chat.instructor_get_response import get_response
 
 FIND_TARGET_TERMS_PROMPT = """
 Your task is to take a list of target terms and return a list of all instances of those terms in the provided text. The instances you return must be direct matches to the text, but can be fuzzy matches to the terms. In other words, you should allow for some variation in spelling and capitalization relative to the terms. For example, if the synonym is "capital of France", and the test has the phrase "Capitol of Frances", you should return the phrase "Capitol of Frances".
