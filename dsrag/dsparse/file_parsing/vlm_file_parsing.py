@@ -14,7 +14,7 @@ import json
 import time
 import logging
 import concurrent.futures
-from PyPDF2 import PdfReader
+from pypdf import PdfReader
 
 # Get the dsparse logger
 logger = logging.getLogger("dsrag.dsparse.vlm_file_parsing")
@@ -84,7 +84,7 @@ def get_page_count(file_path: str, kb_id: str = "", doc_id: str = ""):
         })
         return None
 
-def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSystem, dpi=200, max_workers: int=2, max_pages: int=100) -> list[str]:
+def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSystem, dpi=200, max_workers: int=2, max_pages: int=10) -> list[str]:
     """
     Convert a PDF to images and save them to a folder. Uses pdf2image (which relies on poppler).
 
@@ -113,7 +113,7 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
         file_system.save_image(kb_id, doc_id, f'page_{i+1}.png', image)
         return f'/{kb_id}/{doc_id}/page_{i+1}.png'
 
-    # Convert PDF to images in batches of 100
+    # Convert PDF to images in batches of max_pages
     page_count = get_page_count(pdf_path, kb_id, doc_id)
     all_image_paths = []
     
@@ -288,7 +288,7 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     - images of each page of the PDF (if images_already_exist is False)
     - JSON files of the content of each page
     """
-    max_pages = vlm_config.get("max_pages", 100)
+    max_pages = vlm_config.get("max_pages", 10)
     max_workers = vlm_config.get("max_workers", 2)
     images_already_exist = vlm_config.get("images_already_exist", False)
     vlm_max_concurrent_requests = vlm_config.get("vlm_max_concurrent_requests", 5)

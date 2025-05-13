@@ -15,7 +15,8 @@ auto_context_config = {
     "get_document_summary": bool,  # whether to get a document summary (default: True)
     "document_summarization_guidance": str,  # Additional guidance for summarizing the document (default: "")
     "get_section_summaries": bool,  # whether to get section summaries (default: False)
-    "section_summarization_guidance": str  # Additional guidance for summarizing the sections (default: "")
+    "section_summarization_guidance": str,  # Additional guidance for summarizing the sections (default: "")
+    "llm_max_concurrent_requests": int  # Maximum concurrent requests for section summarization (default: 5)
 }
 ```
 
@@ -43,7 +44,8 @@ file_parsing_config = {
 semantic_sectioning_config = {
     "llm_provider": str,  # LLM provider (default: "openai", "anthropic" and "gemini" are also supported)
     "model": str,  # LLM model to use (default: "gpt-4o-mini")
-    "use_semantic_sectioning": bool  # if False, skip semantic sectioning (default: True)
+    "use_semantic_sectioning": bool,  # if False, skip semantic sectioning (default: True)
+    "llm_max_concurrent_requests": int  # Maximum concurrent requests for semantic sectioning (default: 5)
 }
 ```
 

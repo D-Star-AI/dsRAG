@@ -120,7 +120,7 @@ pydantic-core==2.20.1
     #   pydantic
 pygments==2.18.0
     # via rich
-pypdf2==3.0.1
+pypdf==5.4.0
     # via -r requirements.in
 python-dateutil==2.9.0.post0
     # via pandas

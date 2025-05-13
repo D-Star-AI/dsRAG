@@ -183,7 +183,7 @@ pygments==2.18.0
     # via rich
 pyparsing==3.2.0
     # via httplib2
-pypdf2==3.0.1
+pypdf==5.4.0
     # via -r requirements.in
 pyyaml==6.0.2
     # via

@@ -11,7 +11,7 @@ class TestSemanticSectioning(unittest.TestCase):
     
     @classmethod
     def setUpClass(self):
-        # Sample text with clear sections for testing
+        # Sample text with clear sections for testing - same as original test
         self.test_document = """Introduction
 Artificial intelligence has revolutionized many fields in recent years, fundamentally changing how we approach complex problems.
 This paper examines the impact of AI on healthcare, particularly in diagnostic and treatment planning applications.
@@ -43,6 +43,8 @@ Our findings suggest that successful AI implementation requires a balanced appro
 Standardization of AI validation protocols and implementation guidelines emerges as a critical need in the field.
 The potential for AI to improve healthcare delivery remains high, but careful consideration must be given to practical implementation challenges."""
 
+        # Longer document to test parallelization
+        self.longer_document = self.test_document * 3
         self.test_document_short = "This is a short document."
 
     def _validate_sections(self, sections, document_lines):
@@ -75,6 +77,7 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             "llm_provider": "openai",
             "model": "gpt-4o-mini",
             "language": "en",
+            "llm_max_concurrent_requests": 3  # For parallel processing
         }
 
         chunking_config = { 
@@ -82,8 +85,8 @@ The potential for AI to improve healthcare delivery remains high, but careful co
         }
         
         sections, document_lines = get_sections_from_str(
-            document=self.test_document,
-            max_characters=20000,
+            document=self.longer_document,
+            max_characters_per_window=5000,  # Smaller windows to test parallelization
             semantic_sectioning_config=semantic_sectioning_config,
             chunking_config=chunking_config
         )
@@ -96,6 +99,7 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             "llm_provider": "anthropic",
             "model": "claude-3-5-haiku-latest",
             "language": "en",
+            "llm_max_concurrent_requests": 3  # For parallel processing
         }
 
         chunking_config = { 
@@ -103,8 +107,8 @@ The potential for AI to improve healthcare delivery remains high, but careful co
         }
         
         sections, document_lines = get_sections_from_str(
-            document=self.test_document,
-            max_characters=20000,
+            document=self.longer_document,
+            max_characters_per_window=5000,  # Smaller windows to test parallelization
             semantic_sectioning_config=semantic_sectioning_config,
             chunking_config=chunking_config
         )
@@ -117,6 +121,7 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             "llm_provider": "gemini",
             "model": "gemini-2.0-flash",
             "language": "en",
+            "llm_max_concurrent_requests": 3  # For parallel processing
         }
 
         chunking_config = { 
@@ -124,8 +129,8 @@ The potential for AI to improve healthcare delivery remains high, but careful co
         }
         
         sections, document_lines = get_sections_from_str(
-            document=self.test_document,
-            max_characters=20000,
+            document=self.longer_document,
+            max_characters_per_window=5000,  # Smaller windows to test parallelization
             semantic_sectioning_config=semantic_sectioning_config,
             chunking_config=chunking_config
         )
@@ -143,7 +148,7 @@ The potential for AI to improve healthcare delivery remains high, but careful co
         
         sections, document_lines = get_sections_from_str(
             document=self.test_document,
-            max_characters=20000,
+            max_characters_per_window=5000,
             semantic_sectioning_config=semantic_sectioning_config,
             chunking_config=chunking_config
         )
@@ -157,6 +162,7 @@ The potential for AI to improve healthcare delivery remains high, but careful co
     def test_short_document(self):
         semantic_sectioning_config = {
             "use_semantic_sectioning": True,
+            "llm_max_concurrent_requests": 3
         }
 
         chunking_config = {
@@ -165,7 +171,7 @@ The potential for AI to improve healthcare delivery remains high, but careful co
 
         sections, document_lines = get_sections_from_str(
             document=self.test_document_short,
-            max_characters=20000,
+            max_characters_per_window=5000,
             semantic_sectioning_config=semantic_sectioning_config,
             chunking_config=chunking_config
         )
@@ -175,5 +181,34 @@ The potential for AI to improve healthcare delivery remains high, but careful co
         self.assertEqual(sections[0]['end'], len(document_lines) - 1)
         self.assertEqual(sections[0]['content'], self.test_document_short)
 
+    def test_concurrency_levels(self):
+        """Test different concurrency levels"""
+        # This test specifically tests that different llm_max_concurrent_requests values work
+        
+        for concurrency in [1, 2, 4]:
+            semantic_sectioning_config = {
+                "use_semantic_sectioning": True,
+                "llm_provider": "openai",
+                "model": "gpt-4o-mini",
+                "language": "en",
+                "llm_max_concurrent_requests": concurrency
+            }
+
+            chunking_config = { 
+                "min_length_for_chunking": 1000
+            }
+            
+            sections, document_lines = get_sections_from_str(
+                document=self.longer_document,
+                max_characters_per_window=3000,  # Small windows to force multiple chunks
+                semantic_sectioning_config=semantic_sectioning_config,
+                chunking_config=chunking_config
+            )
+            
+            self._validate_sections(sections, document_lines)
+            
+            # Output concurrency level and number of sections found
+            print(f"Concurrency level {concurrency} produced {len(sections)} sections")
+
 if __name__ == "__main__":
-    unittest.main() 
+    unittest.main()

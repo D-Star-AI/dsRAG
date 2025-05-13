@@ -76,9 +76,11 @@ def auto_context(kb_id: str, auto_context_model: LLM, sections, chunks, text, do
     else:
         document_summary = ""
 
-    # get section summaries in parallel (max 50 workers)
+    # get section summaries in parallel
     if auto_context_config.get("get_section_summaries", False):
-        with ThreadPoolExecutor(max_workers=min(50, len(sections))) as executor:
+        # Get concurrent workers, default to 5 if not specified
+        max_concurrent_workers = auto_context_config.get("llm_max_concurrent_requests", 5)
+        with ThreadPoolExecutor(max_workers=min(max_concurrent_workers, len(sections))) as executor:
             future_to_section = {
                 executor.submit(
                     process_section_summary, 
