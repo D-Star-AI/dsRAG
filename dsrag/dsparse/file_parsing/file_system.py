@@ -148,7 +148,7 @@ class LocalFileSystem(FileSystem):
         Save the image to the local system
         """
         image_path = os.path.join(self.base_path, kb_id, doc_id, file_name)
-        image.save(image_path, 'PNG')
+        image.save(image_path)
 
     def get_files(self, kb_id: str, doc_id: str, page_start: int, page_end: int) -> List[str]:
         """
