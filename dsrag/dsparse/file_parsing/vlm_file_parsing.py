@@ -84,7 +84,7 @@ def get_page_count(file_path: str, kb_id: str = "", doc_id: str = ""):
         })
         return None
 
-def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSystem, dpi=200, max_workers: int=2, max_pages: int=10) -> list[str]:
+def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSystem, dpi=100, max_workers: int=2, max_pages: int=10) -> list[str]:
     """
     Convert a PDF to images and save them to a folder. Uses pdf2image (which relies on poppler).
 
@@ -110,8 +110,8 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
 
     def save_single_image(args):
         i, image = args
-        file_system.save_image(kb_id, doc_id, f'page_{i+1}.png', image)
-        return f'/{kb_id}/{doc_id}/page_{i+1}.png'
+        file_system.save_image(kb_id, doc_id, f'page_{i+1}.jpg', image)
+        return f'/{kb_id}/{doc_id}/page_{i+1}.jpg'
 
     # Convert PDF to images in batches of max_pages
     page_count = get_page_count(pdf_path, kb_id, doc_id)
@@ -292,10 +292,12 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     max_workers = vlm_config.get("max_workers", 2)
     images_already_exist = vlm_config.get("images_already_exist", False)
     vlm_max_concurrent_requests = vlm_config.get("vlm_max_concurrent_requests", 5)
+    dpi = vlm_config.get("dpi", 100)
+
     if images_already_exist:
-        image_file_paths = file_system.get_all_png_files(kb_id, doc_id)
+        image_file_paths = file_system.get_all_jpg_files(kb_id, doc_id)
     else:
-        image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system, max_workers=max_workers, max_pages=max_pages)
+        image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system, dpi=dpi, max_workers=max_workers, max_pages=max_pages)
     
     all_page_content_dict = {}
 

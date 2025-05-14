@@ -40,10 +40,10 @@ class TestRetrieval(unittest.TestCase):
         doc_dir = os.path.join(save_path, "mck_energy_test", "mck_energy_report")
         self.assertTrue(os.path.exists(doc_dir), "Document directory was not created")
 
-        # Check for PNG files (converted pages)
-        png_files = [f for f in os.listdir(doc_dir) if f.endswith('.png')]
-        self.assertTrue(len(png_files) > 0, "No PNG files were created during document parsing")
-        print(f"Found {len(png_files)} PNG files")
+        # Check for JPG files (converted pages)
+        jpg_files = [f for f in os.listdir(doc_dir) if f.endswith('.jpg')]
+        self.assertTrue(len(jpg_files) > 0, "No JPG files were created during document parsing")
+        print(f"Found {len(jpg_files)} JPG files")
 
         # Check for page content files
         page_content_files = [f for f in os.listdir(doc_dir) if f.startswith('page_content_') and f.endswith('.json')]
@@ -102,8 +102,8 @@ class TestRetrieval(unittest.TestCase):
         self.assertTrue(first_result["segment_page_start"] == 1 or first_result["segment_page_start"] == 3)
         self.assertTrue(first_result["segment_page_end"] == 1 or first_result["segment_page_end"] == 3)
         first_result_content = first_result["content"]
-        # Make sure the first result is a png image
-        self.assertTrue(first_result_content[0].endswith(".png"))
+        # Make sure the first result is a jpg image
+        self.assertTrue(first_result_content[0].endswith(".jpg"))
 
 
         search_results = kb.query(search_queries=[query], rse_params=rse_params, return_mode="text")
@@ -117,8 +117,8 @@ class TestRetrieval(unittest.TestCase):
         self.assertTrue(first_result["segment_page_start"] == 1 or first_result["segment_page_start"] == 3)
         self.assertTrue(first_result["segment_page_end"] == 1 or first_result["segment_page_end"] == 3)
         first_result_content = first_result["content"]
-        # Make sure the first result is a png image
-        self.assertTrue(first_result_content[0].endswith(".png"))
+        # Make sure the first result is a jpg image
+        self.assertTrue(first_result_content[0].endswith(".jpg"))
 
         self.cleanup()
 
@@ -157,8 +157,8 @@ class TestRetrieval(unittest.TestCase):
         search_results = kb.query(search_queries=[query], rse_params=rse_params, return_mode="page_images")
         first_result = search_results[0]
         first_result_content = first_result["content"]
-        # Make sure the first result is a png image
-        self.assertTrue(first_result_content[0].endswith(".png"))
+        # Make sure the first result is a jpg image
+        self.assertTrue(first_result_content[0].endswith(".jpg"))
 
 
         search_results = kb.query(search_queries=[query], rse_params=rse_params, return_mode="text")

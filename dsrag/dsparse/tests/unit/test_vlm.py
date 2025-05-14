@@ -16,7 +16,7 @@ class TestVLM(unittest.TestCase):
     @unittest.skipIf('GEMINI_API_KEY' not in os.environ, "GEMINI_API_KEY not found in environment")
     def test_gemini_2_0_with_simple_schema(self):
         """Test Gemini 2.0 with a simple schema."""
-        test_image_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../tests/data/page_7.png"))
+        test_image_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../tests/data/page_7.jpg"))
         
         # Simple schema for testing
         test_schema = {
@@ -48,7 +48,7 @@ class TestVLM(unittest.TestCase):
     @unittest.skipIf('GEMINI_API_KEY' not in os.environ, "GEMINI_API_KEY not found in environment")
     def test_gemini_2_5_with_simple_schema(self):
         """Test Gemini 2.5 with a simple schema."""
-        test_image_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../tests/data/page_7.png"))
+        test_image_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../tests/data/page_7.jpg"))
         
         # Simple schema for testing
         test_schema = {
@@ -80,7 +80,7 @@ class TestVLM(unittest.TestCase):
     @unittest.skipIf('GEMINI_API_KEY' not in os.environ, "GEMINI_API_KEY not found in environment")
     def test_gemini_2_0_with_complex_schema(self):
         """Test Gemini 2.0 with the VLM parsing schema."""
-        test_image_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../tests/data/page_7.png"))
+        test_image_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../tests/data/page_7.jpg"))
         
         # The actual complex schema used in VLM file parsing
         complex_schema = {
@@ -133,7 +133,7 @@ class TestVLM(unittest.TestCase):
     @unittest.skipIf('GEMINI_API_KEY' not in os.environ, "GEMINI_API_KEY not found in environment")
     def test_gemini_2_5_with_complex_schema(self):
         """Test Gemini 2.5 with the VLM parsing schema."""
-        test_image_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../tests/data/page_7.png"))
+        test_image_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../tests/data/page_7.jpg"))
         
         # The actual complex schema used in VLM file parsing
         complex_schema = {

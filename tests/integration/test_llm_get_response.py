@@ -10,7 +10,7 @@ class TestLLM(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Load test image relative to test file location
-        image_path = os.path.join(os.path.dirname(__file__), "..", "data", "page_7.png")
+        image_path = os.path.join(os.path.dirname(__file__), "..", "data", "page_7.jpg")
         with open(image_path, "rb") as f:
             cls.image_data = base64.b64encode(f.read()).decode('utf-8')
         
