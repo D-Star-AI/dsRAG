@@ -308,7 +308,7 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     def process_page(page_number):
         base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
         tries = 0
-        max_retries = 20
+        max_retries = 10
         
         while tries < max_retries:
             content = parse_page(
