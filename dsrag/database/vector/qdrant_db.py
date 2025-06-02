@@ -145,6 +145,9 @@ class QdrantVectorDB(VectorDB):
         Args:
             doc_id: The UUID of the document to remove.
         """
+        if not self.client.collection_exists(self.kb_id):
+            return
+
         self.client.delete(
             self.kb_id,
             qdrant_client.models.Filter(
@@ -173,6 +176,9 @@ class QdrantVectorDB(VectorDB):
             A list of dictionaries containing the metadata and similarity scores of
             the top-k results.
         """
+        if not self.client.collection_exists(self.kb_id):
+            return []
+
         if isinstance(query_vector, np.ndarray):
             query_vector = query_vector.tolist()
 
