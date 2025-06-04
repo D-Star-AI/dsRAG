@@ -1,3 +1,4 @@
+from __future__ import annotations
 from dsrag.database.chat_thread.db import ChatThreadDB
 from dsrag.chat.chat_types import ChatThreadParams, MetadataFilter, ChatResponseInput
 from dsrag.chat.auto_query import get_search_queries
@@ -108,6 +109,10 @@ def create_new_chat_thread(
 
                 # Optional supplementary ID
                 "supp_id": ""
+
+                # Optional Base URL for OpenAI compatible API
+                base_url: "https://api.openai.com/v1",
+                api_key: "your_api_key_here"
             }
             ```
         chat_thread_db (ChatThreadDB): Database instance for storing chat threads.
@@ -174,15 +179,17 @@ def limit_chat_messages(
 
 def _set_chat_thread_params(
     chat_thread_params: ChatThreadParams,
-    kb_ids: list[str] = None,
-    model: str = None,
-    temperature: float = None,
-    system_message: str = None,
-    auto_query_model: str = None,
-    auto_query_guidance: str = None,
-    target_output_length: str = None,
-    max_chat_history_tokens: int = None,
-    rse_params: dict = None,
+    kb_ids: list[str] | None = None,
+    model: str | None = None,
+    temperature: float | None = None,
+    system_message: str | None = None,
+    auto_query_model: str | None = None,
+    auto_query_guidance: str | None = None,
+    target_output_length: str | None = None,
+    max_chat_history_tokens: int | None = None,
+    rse_params: dict | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
 ) -> ChatThreadParams:
     """Set and validate chat thread parameters.
 
@@ -213,6 +220,12 @@ def _set_chat_thread_params(
         chat_thread_params["model"] = model
     elif "model" not in chat_thread_params or chat_thread_params["model"] is None:
         chat_thread_params["model"] = "gpt-4o-mini"
+
+    if base_url is not None:
+        chat_thread_params["base_url"] = base_url
+
+    if api_key is not None:
+        chat_thread_params["api_key"] = api_key
 
     if temperature is not None:
         chat_thread_params["temperature"] = temperature

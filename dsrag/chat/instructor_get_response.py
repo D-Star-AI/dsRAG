@@ -19,6 +19,8 @@ def get_response(
     temperature: float = 0.0,
     max_tokens: int = 4000,
     stream: bool = False,
+    base_url: Optional[str] = None,
+    api_key: Optional[str] = None,
 ) -> Any:
     """
     Unified LLM response handler supporting:
@@ -108,6 +110,8 @@ def _handle_instructor_mode(
     response_model: BaseModel,
     temperature: float,
     max_tokens: int,
+    base_url: Optional[str] = None,
+    api_key: Optional[str] = None,
 ) -> BaseModel:
     """Handle structured output using Instructor."""
     if model_name in ANTHROPIC_MODEL_NAMES or model_name.startswith("anthropic/"):
@@ -122,6 +126,12 @@ def _handle_instructor_mode(
         return _handle_genai_instructor(
             messages, model_name, response_model, temperature, max_tokens
         )
+
+    if base_url and api_key:
+        return _handle_openai_instructor(
+            messages, model_name, response_model, temperature, max_tokens
+        )
+
     raise ValueError(f"Unsupported model for instructor: {model_name}")
 
 
@@ -150,9 +160,16 @@ def _handle_instructor_streaming(
 
 # OpenAI Handlers
 def _handle_openai_instructor(
-    messages, model_name, response_model, temperature, max_tokens
+    messages,
+    model_name,
+    response_model,
+    temperature,
+    max_tokens,
+    base_url=None,
+    api_key=None,
 ):
-    client = instructor.from_openai(openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
+    api_key = api_key or os.environ.get("OPENAI_API_KEY")
+    client = instructor.from_openai(openai.OpenAI(base_url=base_url, api_key=api_key))
     formatted = _format_openai_messages(messages)
     if model_name.startswith("openai/"):
         model_name = model_name.split("/")[1]
