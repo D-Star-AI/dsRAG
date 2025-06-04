@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -45,24 +46,41 @@ class Embedding(ABC):
             raise ValueError(f"Unknown subclass: {subclass_name}")
 
     @abstractmethod
-    def get_embeddings(self, text: list[str], input_type: Optional[str]) -> list[Vector]:
+    def get_embeddings(
+        self, text: list[str], input_type: Optional[str]
+    ) -> list[Vector]:
         pass
 
 
 class OpenAIEmbedding(Embedding):
-    def __init__(self, model: str = "text-embedding-3-small", dimension: int = 768):
-        """
-        Only v3 models are supported.
-        """
+    def __init__(
+        self,
+        model: str = "text-embedding-3-small",
+        dimension: int = 768,
+        base_url: str | None = None,
+        api_key: str | None = None,
+    ):
+        """Only v3 models are supported."""
         super().__init__(dimension)
         self.model = model
-        base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
         if base_url is not None:
-            self.client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
+            self.base_url = base_url
         else:
-            self.client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+            self.base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
 
-    def get_embeddings(self, text: list[str], input_type: Optional[str] = None) -> list[Vector]:
+        if api_key is not None:
+            self.api_key = api_key
+        else:
+            self.api_key = os.environ.get("OPENAI_API_KEY")
+
+        if self.base_url is not None:
+            self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
+        else:
+            self.client = openai.OpenAI(api_key=self.api_key)
+
+    def get_embeddings(
+        self, text: list[str], input_type: Optional[str] = None
+    ) -> list[Vector]:
         response = self.client.embeddings.create(
             input=text, model=self.model, dimensions=self.dimension
         )
@@ -76,13 +94,17 @@ class OpenAIEmbedding(Embedding):
 
 
 class CohereEmbedding(Embedding):
-    def __init__(self, model: str = "embed-english-v3.0", dimension: Optional[int] = None):
+    def __init__(
+        self, model: str = "embed-english-v3.0", dimension: Optional[int] = None
+    ):
         super().__init__()
 
         self.model = model
         base_url = os.environ.get("DSRAG_COHERE_BASE_URL", None)
         if base_url is not None:
-            self.client = cohere.Client(api_key=os.environ["CO_API_KEY"], base_url=base_url)
+            self.client = cohere.Client(
+                api_key=os.environ["CO_API_KEY"], base_url=base_url
+            )
         else:
             self.client = cohere.Client(api_key=os.environ["CO_API_KEY"])
 
@@ -147,7 +169,6 @@ class VoyageAIEmbedding(Embedding):
 
 
 class OllamaEmbedding(Embedding):
-
     def __init__(
         self,
         model: str = "llama3",
