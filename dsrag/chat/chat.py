@@ -15,7 +15,7 @@ INSTRUCTIONS AND GUIDANCE
 {user_configurable_message}
 
 CAPABILITIES
-You are an AI assistant. Specifically, you are a large language model (LLM) that has been trained on a huge corpus of text from the internet and other sources. This means you have a wide range of knowledge about the world. You also have very strong reasoning and critical thinking skills. 
+You are an AI assistant. Specifically, you are a large language model (LLM) that has been trained on a huge corpus of text from the internet and other sources. This means you have a wide range of knowledge about the world. You also have very strong reasoning and critical thinking skills.
 
 You have been given access to one or more searchable knowledge bases to help you better respond to user inputs. Here are the titles and descriptions of the knowledge bases you have access to:
 
@@ -72,8 +72,10 @@ RESPONSE LENGTH GUIDANCE
 Please provide as much detail as possible in your response. If the question is very simple, then you may only need one paragraph, but most of the time you will need to use multiple paragraphs to provide a detailed response. Feel free to write up to a few pages if necessary. The most important thing is that you provide a detailed, thorough, and accurate response.
 """.strip()
 
-    
-def create_new_chat_thread(chat_thread_params: ChatThreadParams, chat_thread_db: ChatThreadDB) -> str:
+
+def create_new_chat_thread(
+    chat_thread_params: ChatThreadParams, chat_thread_db: ChatThreadDB
+) -> str:
     """Create a new chat thread in the database.
 
     Args:
@@ -82,28 +84,28 @@ def create_new_chat_thread(chat_thread_params: ChatThreadParams, chat_thread_db:
             {
                 # Knowledge base IDs to use
                 "kb_ids": ["kb1", "kb2"],
-                
+
                 # LLM model to use
                 "model": "gpt-4o-mini",
-                
+
                 # Temperature for LLM sampling
                 "temperature": 0.2,
-                
+
                 # System message for LLM
                 "system_message": "You are a helpful assistant",
-                
+
                 # Model for auto-query generation
                 "auto_query_model": "gpt-4o-mini",
-                
+
                 # Guidance for auto-query generation
                 "auto_query_guidance": "",
-                
+
                 # Target response length (short/medium/long)
                 "target_output_length": "medium",
-                
+
                 # Maximum tokens in chat history
                 "max_chat_history_tokens": 8000,
-                
+
                 # Optional supplementary ID
                 "supp_id": ""
             }
@@ -118,9 +120,10 @@ def create_new_chat_thread(chat_thread_params: ChatThreadParams, chat_thread_db:
     if "supp_id" not in chat_thread_params:
         chat_thread_params["supp_id"] = ""
     chat_thread_params = _set_chat_thread_params(chat_thread_params)
-    print ("chat_thread_params: ", chat_thread_params)
+    print("chat_thread_params: ", chat_thread_params)
     chat_thread_db.create_chat_thread(chat_thread_params=chat_thread_params)
     return thread_id
+
 
 def get_knowledge_base_descriptions_str(kb_info: list[dict]):
     kb_descriptions = []
@@ -132,34 +135,42 @@ def get_knowledge_base_descriptions_str(kb_info: list[dict]):
     else:
         return "\n\n".join(kb_descriptions)
 
+
 def format_relevant_knowledge_str(relevant_segments: list[dict]):
     relevant_knowledge_str = ""
     for segment in relevant_segments:
         relevant_knowledge_str += f"\n\n{segment['text']}"
     return relevant_knowledge_str.strip()
 
+
 def count_tokens(text: str) -> int:
     """Count the number of tokens in a string."""
     encoding = tiktoken.encoding_for_model("gpt-4o")
     return len(encoding.encode(text))
 
-def limit_chat_messages(chat_messages: list[dict], max_tokens: int = 8000) -> list[dict]:
+
+def limit_chat_messages(
+    chat_messages: list[dict], max_tokens: int = 8000
+) -> list[dict]:
     """Limit the total number of tokens in chat_messages."""
     if max_tokens is None:
         max_tokens = 8000
     total_tokens = 0
     limited_messages = []
-    
+
     # Count tokens from the end (most recent messages)
     for message in reversed(chat_messages):
-        message_tokens = count_tokens(message['content'])
+        message_tokens = count_tokens(message["content"])
         if total_tokens + message_tokens <= max_tokens:
-            limited_messages.insert(0, message) # Insert at the beginning since we are iterating in reverse
+            limited_messages.insert(
+                0, message
+            )  # Insert at the beginning since we are iterating in reverse
             total_tokens += message_tokens
         else:
             break
-    
+
     return limited_messages
+
 
 def _set_chat_thread_params(
     chat_thread_params: ChatThreadParams,
@@ -171,7 +182,7 @@ def _set_chat_thread_params(
     auto_query_guidance: str = None,
     target_output_length: str = None,
     max_chat_history_tokens: int = None,
-    rse_params: dict = None
+    rse_params: dict = None,
 ) -> ChatThreadParams:
     """Set and validate chat thread parameters.
 
@@ -194,61 +205,83 @@ def _set_chat_thread_params(
     """
     # set parameters - override if provided
     if kb_ids is not None:
-        chat_thread_params['kb_ids'] = kb_ids
-    elif 'kb_ids' not in chat_thread_params or chat_thread_params['kb_ids'] is None:
-        chat_thread_params['kb_ids'] = []
-    
+        chat_thread_params["kb_ids"] = kb_ids
+    elif "kb_ids" not in chat_thread_params or chat_thread_params["kb_ids"] is None:
+        chat_thread_params["kb_ids"] = []
+
     if model is not None:
-        chat_thread_params['model'] = model
-    elif 'model' not in chat_thread_params or chat_thread_params['model'] is None:
-        chat_thread_params['model'] = "gpt-4o-mini"
-    
+        chat_thread_params["model"] = model
+    elif "model" not in chat_thread_params or chat_thread_params["model"] is None:
+        chat_thread_params["model"] = "gpt-4o-mini"
+
     if temperature is not None:
-        chat_thread_params['temperature'] = temperature
-    elif 'temperature' not in chat_thread_params or chat_thread_params['temperature'] is None:
-        chat_thread_params['temperature'] = 0.2
+        chat_thread_params["temperature"] = temperature
+    elif (
+        "temperature" not in chat_thread_params
+        or chat_thread_params["temperature"] is None
+    ):
+        chat_thread_params["temperature"] = 0.2
 
     if system_message is not None:
-        chat_thread_params['system_message'] = system_message
-    elif 'system_message' not in chat_thread_params or chat_thread_params['system_message'] is None:
-        chat_thread_params['system_message'] = ""
+        chat_thread_params["system_message"] = system_message
+    elif (
+        "system_message" not in chat_thread_params
+        or chat_thread_params["system_message"] is None
+    ):
+        chat_thread_params["system_message"] = ""
 
     if auto_query_model is not None:
-        chat_thread_params['auto_query_model'] = auto_query_model
-    elif 'auto_query_model' not in chat_thread_params or chat_thread_params['auto_query_model'] is None:
-        chat_thread_params['auto_query_model'] = "gpt-4o-mini"
+        chat_thread_params["auto_query_model"] = auto_query_model
+    elif (
+        "auto_query_model" not in chat_thread_params
+        or chat_thread_params["auto_query_model"] is None
+    ):
+        chat_thread_params["auto_query_model"] = "gpt-4o-mini"
 
     if auto_query_guidance is not None:
-        chat_thread_params['auto_query_guidance'] = auto_query_guidance
-    elif 'auto_query_guidance' not in chat_thread_params or chat_thread_params['auto_query_guidance'] is None:
-        chat_thread_params['auto_query_guidance'] = ""
+        chat_thread_params["auto_query_guidance"] = auto_query_guidance
+    elif (
+        "auto_query_guidance" not in chat_thread_params
+        or chat_thread_params["auto_query_guidance"] is None
+    ):
+        chat_thread_params["auto_query_guidance"] = ""
 
     if target_output_length is not None:
-        chat_thread_params['target_output_length'] = target_output_length
-    elif 'target_output_length' not in chat_thread_params or chat_thread_params['target_output_length'] is None:
-        chat_thread_params['target_output_length'] = "medium"
+        chat_thread_params["target_output_length"] = target_output_length
+    elif (
+        "target_output_length" not in chat_thread_params
+        or chat_thread_params["target_output_length"] is None
+    ):
+        chat_thread_params["target_output_length"] = "medium"
 
     if max_chat_history_tokens is not None:
-        chat_thread_params['max_chat_history_tokens'] = max_chat_history_tokens
-    elif 'max_chat_history_tokens' not in chat_thread_params or chat_thread_params['max_chat_history_tokens'] is None:
-        chat_thread_params['max_chat_history_tokens'] = 8000
+        chat_thread_params["max_chat_history_tokens"] = max_chat_history_tokens
+    elif (
+        "max_chat_history_tokens" not in chat_thread_params
+        or chat_thread_params["max_chat_history_tokens"] is None
+    ):
+        chat_thread_params["max_chat_history_tokens"] = 8000
 
     if rse_params is not None:
-        chat_thread_params['rse_params'] = rse_params
-    elif 'rse_params' not in chat_thread_params or chat_thread_params['rse_params'] is None:
-        chat_thread_params['rse_params'] = {}
+        chat_thread_params["rse_params"] = rse_params
+    elif (
+        "rse_params" not in chat_thread_params
+        or chat_thread_params["rse_params"] is None
+    ):
+        chat_thread_params["rse_params"] = {}
 
     return chat_thread_params
+
 
 def _prepare_chat_context(
     input: str,
     kbs: dict,
     chat_thread_params: ChatThreadParams,
     chat_thread_interactions: list[dict],
-    metadata_filter: MetadataFilter = None
+    metadata_filter: MetadataFilter = None,
 ) -> tuple:
     """Prepare the chat context for generating a response.
-    
+
     This function handles the common setup work needed for both streaming and non-streaming responses.
 
     Args:
@@ -270,11 +303,11 @@ def _prepare_chat_context(
     # make note of the timestamp of the request
     request_timestamp = datetime.now().isoformat()
 
-    kb_ids = chat_thread_params['kb_ids']
+    kb_ids = chat_thread_params["kb_ids"]
 
     # set parameters - override if provided
     chat_thread_params = _set_chat_thread_params(
-        chat_thread_params=chat_thread_params, 
+        chat_thread_params=chat_thread_params,
         kb_ids=kb_ids,
         model=chat_thread_params.get("model"),
         temperature=chat_thread_params.get("temperature"),
@@ -283,11 +316,11 @@ def _prepare_chat_context(
         auto_query_guidance=chat_thread_params.get("auto_query_guidance"),
         target_output_length=chat_thread_params.get("target_output_length"),
         max_chat_history_tokens=chat_thread_params.get("max_chat_history_tokens"),
-        rse_params=chat_thread_params.get("rse_params")
+        rse_params=chat_thread_params.get("rse_params"),
     )
 
     kb_info = []
-    for kb_id in chat_thread_params['kb_ids']:
+    for kb_id in chat_thread_params["kb_ids"]:
         kb = kbs.get(kb_id)
         if not kb:
             continue
@@ -295,7 +328,9 @@ def _prepare_chat_context(
             {
                 "id": kb_id,
                 "title": kb.kb_metadata.get("title", "No title available"),
-                "description": kb.kb_metadata.get("description", "No description available"),
+                "description": kb.kb_metadata.get(
+                    "description", "No description available"
+                ),
             }
         )
 
@@ -304,12 +339,18 @@ def _prepare_chat_context(
     # construct chat messages from interactions and input
     chat_messages = []
     for interaction in chat_thread_interactions:
-        chat_messages.append({"role": "user", "content": interaction['user_input']['content']})
-        chat_messages.append({"role": "assistant", "content": interaction['model_response']['content']})
+        chat_messages.append(
+            {"role": "user", "content": interaction["user_input"]["content"]}
+        )
+        chat_messages.append(
+            {"role": "assistant", "content": interaction["model_response"]["content"]}
+        )
     chat_messages.append({"role": "user", "content": input})
 
     # limit total number of tokens in chat_messages
-    chat_messages = limit_chat_messages(chat_messages, chat_thread_params['max_chat_history_tokens'])
+    chat_messages = limit_chat_messages(
+        chat_messages, chat_thread_params["max_chat_history_tokens"]
+    )
 
     formatted_relevant_segments = {}
     all_doc_ids = {}
@@ -317,7 +358,13 @@ def _prepare_chat_context(
     if kb_info:
         # generate search queries
         try:
-            search_queries = get_search_queries(chat_messages=chat_messages, kb_info=kb_info, auto_query_guidance=chat_thread_params['auto_query_guidance'], max_queries=5, auto_query_model=chat_thread_params['auto_query_model'])
+            search_queries = get_search_queries(
+                chat_messages=chat_messages,
+                kb_info=kb_info,
+                auto_query_guidance=chat_thread_params["auto_query_guidance"],
+                max_queries=5,
+                auto_query_model=chat_thread_params["auto_query_model"],
+            )
         except Exception as e:
             print(f"Error generating search queries: {str(e)}")
             search_queries = []
@@ -331,15 +378,19 @@ def _prepare_chat_context(
                 search_queries_by_kb[kb_id] = []
             search_queries_by_kb[kb_id].append(query)
 
-        print (f"Search queries by KB: {search_queries_by_kb}")
+        print(f"Search queries by KB: {search_queries_by_kb}")
 
-        rse_params = chat_thread_params['rse_params']
+        rse_params = chat_thread_params["rse_params"]
 
         # run searches
         search_results = {}
         for kb_id, queries in search_queries_by_kb.items():
             kb = kbs.get(kb_id)
-            search_results[kb_id] = kb.query(search_queries=queries, rse_params=rse_params, metadata_filter=metadata_filter)
+            search_results[kb_id] = kb.query(
+                search_queries=queries,
+                rse_params=rse_params,
+                metadata_filter=metadata_filter,
+            )
 
         # convert doc_id to a sequential source_index for each result, and add the source_index to the result dictionary
         i = 0
@@ -355,16 +406,14 @@ def _prepare_chat_context(
             for result in results:
                 result["kb_id"] = kb_id
                 formatted_relevant_segments[kb_id].append(result)
-        
+
         # Format search results into citation-friendly context
         relevant_knowledge_str = ""
         for kb_id, result in formatted_relevant_segments.items():
             kb = kbs.get(kb_id)
             # Format search results into citation-friendly context
             [formatted_knowledge, doc_ids] = format_sources_for_context(
-                search_results=result,
-                kb_id=kb_id,
-                file_system=kb.file_system
+                search_results=result, kb_id=kb_id, file_system=kb.file_system
             )
             relevant_knowledge_str += formatted_knowledge
             for doc_id in doc_ids:
@@ -378,31 +427,37 @@ def _prepare_chat_context(
                 all_relevant_segments.append(result)
 
     else:
-        relevant_knowledge_str = "No knowledge bases provided, therefore no relevant knowledge to display."
+        relevant_knowledge_str = (
+            "No knowledge bases provided, therefore no relevant knowledge to display."
+        )
         search_queries = []
         formatted_relevant_segments = {}
         all_relevant_segments = []
 
     # deal with target_output_length
-    if chat_thread_params['target_output_length'] == "short":
+    if chat_thread_params["target_output_length"] == "short":
         response_length_guidance = SHORT_OUTPUT
-    elif chat_thread_params['target_output_length'] == "medium":
+    elif chat_thread_params["target_output_length"] == "medium":
         response_length_guidance = ""
-    elif chat_thread_params['target_output_length'] == "long":
+    elif chat_thread_params["target_output_length"] == "long":
         response_length_guidance = LONG_OUTPUT
     else:
         response_length_guidance = ""
-        print (f"ERROR: target_output_length {chat_thread_params['target_output_length']} not recognized. Using medium length output.")
+        print(
+            f"ERROR: target_output_length {chat_thread_params['target_output_length']} not recognized. Using medium length output."
+        )
 
     # format system message and add to chat messages
     formatted_system_message = MAIN_SYSTEM_MESSAGE.format(
-        user_configurable_message=chat_thread_params['system_message'],
+        user_configurable_message=chat_thread_params["system_message"],
         knowledge_base_descriptions=knowledge_base_descriptions,
         relevant_knowledge_str=relevant_knowledge_str,
-        response_length_guidance=response_length_guidance
+        response_length_guidance=response_length_guidance,
     )
-    chat_messages = [{"role": "system", "content": formatted_system_message}] + chat_messages
-    
+    chat_messages = [
+        {"role": "system", "content": formatted_system_message}
+    ] + chat_messages
+
     return (
         request_timestamp,
         chat_messages,
@@ -411,18 +466,19 @@ def _prepare_chat_context(
         formatted_relevant_segments,
         all_doc_ids,
         chat_thread_params,
-        source_index_to_doc_id
+        source_index_to_doc_id,
     )
+
 
 def _get_chat_response_streaming(
     input: str,
     kbs: dict,
     chat_thread_params: ChatThreadParams,
     chat_thread_interactions: list[dict],
-    metadata_filter: MetadataFilter = None
+    metadata_filter: MetadataFilter = None,
 ):
     """Generate a streaming response to a chat input using knowledge base search.
-    
+
     This function is a generator that yields partial responses.
 
     Args:
@@ -434,13 +490,12 @@ def _get_chat_response_streaming(
 
     Yields:
         dict: Partial interaction dictionaries during generation.
-        
+
     Returns:
         dict: Final complete interaction when generation is complete.
     """
     # Import here to avoid circular imports
-    from dsrag.chat.citations import PartialResponseWithCitations
-    
+
     # Prepare context
     (
         request_timestamp,
@@ -450,73 +505,78 @@ def _get_chat_response_streaming(
         formatted_relevant_segments,
         all_doc_ids,
         chat_thread_params,
-        source_index_to_doc_id
-    ) = _prepare_chat_context(input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
-    
+        source_index_to_doc_id,
+    ) = _prepare_chat_context(
+        input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter
+    )
+
     # Create a response stream
     response_stream = get_response(
         messages=chat_messages,
-        model_name=chat_thread_params['model'],
-        temperature=chat_thread_params['temperature'],
+        model_name=chat_thread_params["model"],
+        temperature=chat_thread_params["temperature"],
         max_tokens=4000,
         response_model=ResponseWithCitations,
-        stream=True
+        stream=True,
     )
-    
+
     # Create a base interaction that we'll update with each partial response
     interaction_base = {
-        "user_input": {
-            "content": input,
-            "timestamp": request_timestamp
-        },
+        "user_input": {"content": input, "timestamp": request_timestamp},
         "search_queries": search_queries,
-        "relevant_segments": []
+        "relevant_segments": [],
     }
-    
+
     # Keep track of the final response for later saving
     final_response = None
     final_citations = []
-    
+
     # Stream the partial responses
     for partial_response in response_stream:
         # Create a streaming response with what we have so far
         current_interaction = interaction_base.copy()
-        
+
         # Store the latest partial response for final saving
         final_response = partial_response
-        
+
         # Format the partial response for streaming
         content = ""
         # Try different ways to access the response content
-        if hasattr(partial_response, 'response'):
+        if hasattr(partial_response, "response"):
             content = partial_response.response
-        elif hasattr(partial_response, 'model_fields_set') and 'response' in partial_response.model_fields_set:
-            content = getattr(partial_response, 'response', "")
-        elif isinstance(partial_response, dict) and 'response' in partial_response:
-            content = partial_response['response']
-            
+        elif (
+            hasattr(partial_response, "model_fields_set")
+            and "response" in partial_response.model_fields_set
+        ):
+            content = getattr(partial_response, "response", "")
+        elif isinstance(partial_response, dict) and "response" in partial_response:
+            content = partial_response["response"]
+
         current_interaction["model_response"] = {
             "content": content,
             "citations": [],
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
-        
+
         # If we have citations in this partial response, format them
         citations_list = []
-        if hasattr(partial_response, 'citations') and partial_response.citations:
+        if hasattr(partial_response, "citations") and partial_response.citations:
             citations_list = partial_response.citations
-        elif hasattr(partial_response, 'model_fields_set') and 'citations' in partial_response.model_fields_set:
-            citations_list = getattr(partial_response, 'citations', [])
-        elif isinstance(partial_response, dict) and 'citations' in partial_response:
-            citations_list = partial_response['citations']
-            
+        elif (
+            hasattr(partial_response, "model_fields_set")
+            and "citations" in partial_response.model_fields_set
+        ):
+            citations_list = getattr(partial_response, "citations", [])
+        elif isinstance(partial_response, dict) and "citations" in partial_response:
+            citations_list = partial_response["citations"]
+
         if citations_list:
             formatted_stream_citations = []
             for citation in citations_list:
                 # Try different ways to access citation data
-                if hasattr(citation, 'model_dump'):
+                if hasattr(citation, "model_dump"):
                     citation_dict = citation.model_dump()
-                elif hasattr(citation, 'dict'):
+                elif hasattr(citation, "dict"):
                     citation_dict = citation.dict()
                 elif isinstance(citation, dict):
                     citation_dict = citation
@@ -530,51 +590,56 @@ def _get_chat_response_streaming(
                     continue
 
                 # convert source_index back to doc_id
-                citation_dict["doc_id"] = source_index_to_doc_id[citation_dict["source_index"]]
-                
+                citation_dict["doc_id"] = source_index_to_doc_id[
+                    citation_dict["source_index"]
+                ]
+
                 if citation_dict.get("doc_id") in all_doc_ids:
                     citation_dict["kb_id"] = all_doc_ids[citation_dict["doc_id"]]
                     formatted_stream_citations.append(citation_dict)
-                    
-            current_interaction["model_response"]["citations"] = formatted_stream_citations
+
+            current_interaction["model_response"]["citations"] = (
+                formatted_stream_citations
+            )
             final_citations = formatted_stream_citations
-        
+
         # Yield the current state
         yield current_interaction
-    
+
     # After streaming is complete, prepare the final response for returning
     # Get the final response content
     final_content = ""
-    if hasattr(final_response, 'response'):
+    if hasattr(final_response, "response"):
         final_content = final_response.response
-    elif hasattr(final_response, 'model_fields_set') and 'response' in final_response.model_fields_set:
-        final_content = getattr(final_response, 'response', "")
-    elif isinstance(final_response, dict) and 'response' in final_response:
-        final_content = final_response['response']
-        
+    elif (
+        hasattr(final_response, "model_fields_set")
+        and "response" in final_response.model_fields_set
+    ):
+        final_content = getattr(final_response, "response", "")
+    elif isinstance(final_response, dict) and "response" in final_response:
+        final_content = final_response["response"]
+
     final_interaction = {
-        "user_input": {
-            "content": input,
-            "timestamp": request_timestamp
-        },
+        "user_input": {"content": input, "timestamp": request_timestamp},
         "model_response": {
             "content": final_content,
             "citations": final_citations,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         },
         "search_queries": search_queries,
-        "relevant_segments": all_relevant_segments
+        "relevant_segments": all_relevant_segments,
     }
-    
+
     # Return the final interaction for saving to the database
     return final_interaction
+
 
 def _get_chat_response(
     input: str,
     kbs: dict,
     chat_thread_params: ChatThreadParams,
     chat_thread_interactions: list[dict],
-    metadata_filter: MetadataFilter = None
+    metadata_filter: MetadataFilter = None,
 ) -> dict:
     """Generate a response to a chat input using knowledge base search.
 
@@ -601,18 +666,20 @@ def _get_chat_response(
         formatted_relevant_segments,
         all_doc_ids,
         chat_thread_params,
-        source_index_to_doc_id
-    ) = _prepare_chat_context(input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
-    
+        source_index_to_doc_id,
+    ) = _prepare_chat_context(
+        input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter
+    )
+
     # Non-streaming case - get complete response
     response = get_response(
         messages=chat_messages,
-        model_name=chat_thread_params['model'],
-        temperature=chat_thread_params['temperature'],
+        model_name=chat_thread_params["model"],
+        temperature=chat_thread_params["temperature"],
         max_tokens=4000,
-        response_model=ResponseWithCitations
+        response_model=ResponseWithCitations,
     )
-    
+
     citations = response.citations
     # For each citation, add the kb_id to the citation
     formatted_citations = []
@@ -634,23 +701,21 @@ def _get_chat_response(
             # Skip citations with unknown doc_ids
             continue
         formatted_citations.append(citation)
-        
+
     # add interaction to chat thread
     interaction = {
-        "user_input": {
-            "content": input,
-            "timestamp": request_timestamp
-        },
+        "user_input": {"content": input, "timestamp": request_timestamp},
         "model_response": {
             "content": response.response,
             "citations": formatted_citations,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         },
         "search_queries": search_queries,
-        "relevant_segments": all_relevant_segments
+        "relevant_segments": all_relevant_segments,
     }
 
     return interaction
+
 
 def _get_filenames_and_types(interaction: dict, kbs: dict) -> dict:
     """Add file names and types to relevant segments.
@@ -682,16 +747,24 @@ def _get_filenames_and_types(interaction: dict, kbs: dict) -> dict:
                 document_type = "text"
             else:
                 file_name = document.get("metadata", {}).get("file_name", "")
-                document_type = document.get("metadata", {}).get("document_type", "text")
-        
+                document_type = document.get("metadata", {}).get(
+                    "document_type", "text"
+                )
+
         result["file_name"] = file_name
         result["document_type"] = document_type
         formatted_results.append(result)
-    
+
     interaction["relevant_segments"] = formatted_results
     return interaction
 
-def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict):
+
+def get_chat_thread_response_streaming(
+    thread_id: str,
+    get_response_input: ChatResponseInput,
+    chat_thread_db: ChatThreadDB,
+    knowledge_bases: dict,
+):
     """Get a streaming response for a chat thread using knowledge base search.
 
     Args:
@@ -708,17 +781,19 @@ def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatR
     chat_thread_params_override = get_response_input.chat_thread_params
     metadata_filter = get_response_input.metadata_filter
     thread = chat_thread_db.get_chat_thread(thread_id)
-    
+
     if chat_thread_params_override is not None:
         # Complete override of chat thread params
         chat_thread_params = chat_thread_params_override
     else:
         chat_thread_params = thread["params"]
-    
-    chat_thread_interactions = thread['interactions']
-    
+
+    chat_thread_interactions = thread["interactions"]
+
     # Get the kbs from the chat_thread_params
-    missing_kbs = [kb_id for kb_id in chat_thread_params["kb_ids"] if kb_id not in knowledge_bases]
+    missing_kbs = [
+        kb_id for kb_id in chat_thread_params["kb_ids"] if kb_id not in knowledge_bases
+    ]
     if missing_kbs:
         yield {"message": f"Missing knowledge bases: {', '.join(missing_kbs)}"}
         return
@@ -729,73 +804,80 @@ def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatR
     response_generator = _get_chat_response_streaming(
         user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter
     )
-    
+
     # Create initial placeholder interaction to get a message_id
     # We need to initialize the generator
     try:
         # Get the first item from the generator
         initial_response = next(response_generator)
-        
+
         # Set initial status to "pending"
         if "model_response" in initial_response:
             initial_response["model_response"]["status"] = "pending"
-        
+
         # Apply file name and type formatting to initial response
         formatted_initial = _get_filenames_and_types(initial_response, knowledge_bases)
-        
+
         # Save initial interaction to DB to get a message_id
         db_response = chat_thread_db.add_interaction(thread_id, initial_response)
         message_id = db_response["message_id"]
-        
+
         # Include message_id in the response
         formatted_initial["message_id"] = message_id
-        
+
         # Yield the first formatted response
         yield formatted_initial
-        
+
         # Continue with the rest of the responses, updating the DB each time
         for partial_response in response_generator:
             # Set status to "streaming" for partial responses
             if "model_response" in partial_response:
                 partial_response["model_response"]["status"] = "streaming"
-            
+
             # Apply file name and type formatting to partial response
-            formatted_partial = _get_filenames_and_types(partial_response, knowledge_bases)
+            formatted_partial = _get_filenames_and_types(
+                partial_response, knowledge_bases
+            )
             formatted_partial["message_id"] = message_id
-            
+
             # Update the interaction in the DB with each new response
             chat_thread_db.update_interaction(
                 thread_id,
                 message_id,
-                {
-                    "model_response": partial_response["model_response"]
-                }
+                {"model_response": partial_response["model_response"]},
             )
-            
+
             # Yield formatted partial response to the caller
             yield formatted_partial
-            
+
         # Set the final status to "finished" after streaming is complete
         final_update = {
             "model_response": {
                 "status": "finished",
                 "content": partial_response["model_response"]["content"],
-                "timestamp": partial_response["model_response"]["timestamp"]
+                "timestamp": partial_response["model_response"]["timestamp"],
             }
         }
-        
+
         # Include citations if they exist
         if "citations" in partial_response["model_response"]:
-            final_update["model_response"]["citations"] = partial_response["model_response"]["citations"]
-            
+            final_update["model_response"]["citations"] = partial_response[
+                "model_response"
+            ]["citations"]
+
         chat_thread_db.update_interaction(thread_id, message_id, final_update)
-            
+
     except StopIteration:
         # Handle case where generator is empty
         pass
 
 
-def get_chat_thread_response_non_streaming(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict) -> dict:
+def get_chat_thread_response_non_streaming(
+    thread_id: str,
+    get_response_input: ChatResponseInput,
+    chat_thread_db: ChatThreadDB,
+    knowledge_bases: dict,
+) -> dict:
     """Get a non-streaming response for a chat thread using knowledge base search.
 
     Args:
@@ -812,29 +894,33 @@ def get_chat_thread_response_non_streaming(thread_id: str, get_response_input: C
     chat_thread_params_override = get_response_input.chat_thread_params
     metadata_filter = get_response_input.metadata_filter
     thread = chat_thread_db.get_chat_thread(thread_id)
-    
+
     if chat_thread_params_override is not None:
         # Complete override of chat thread params
         chat_thread_params = chat_thread_params_override
     else:
         chat_thread_params = thread["params"]
-    
-    chat_thread_interactions = thread['interactions']
-    
+
+    chat_thread_interactions = thread["interactions"]
+
     # Get the kbs from the chat_thread_params
-    missing_kbs = [kb_id for kb_id in chat_thread_params["kb_ids"] if kb_id not in knowledge_bases]
+    missing_kbs = [
+        kb_id for kb_id in chat_thread_params["kb_ids"] if kb_id not in knowledge_bases
+    ]
     if missing_kbs:
         return {"message": f"Missing knowledge bases: {', '.join(missing_kbs)}"}
 
     kbs = {kb_id: knowledge_bases[kb_id] for kb_id in chat_thread_params["kb_ids"]}
 
     # Non-streaming case - get complete response with the non-streaming function
-    interaction = _get_chat_response(user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter)
-    
+    interaction = _get_chat_response(
+        user_input, kbs, chat_thread_params, chat_thread_interactions, metadata_filter
+    )
+
     # Set status to "finished" for non-streaming responses
     if "model_response" in interaction:
         interaction["model_response"]["status"] = "finished"
-    
+
     formatted_interaction = _get_filenames_and_types(interaction, knowledge_bases)
 
     # Add this interaction to the chat thread db
@@ -845,7 +931,13 @@ def get_chat_thread_response_non_streaming(thread_id: str, get_response_input: C
     return formatted_interaction
 
 
-def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict, stream: bool = False):
+def get_chat_thread_response(
+    thread_id: str,
+    get_response_input: ChatResponseInput,
+    chat_thread_db: ChatThreadDB,
+    knowledge_bases: dict,
+    stream: bool = False,
+):
     """Get a response for a chat thread using knowledge base search.
 
     This function is a router that calls the appropriate implementation based on the stream parameter.
@@ -869,159 +961,214 @@ def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInp
                 - relevant_segments (list): Retrieved relevant segments with file names and types
                 - message_id (str): Message ID for the saved interaction
                 - message (str, optional): Error message if something went wrong
-        
+
         If stream=True:
             Iterator: Yields partial response objects during generation
     """
     # Get a logger specific to chat operations
     chat_logger = logging.getLogger("dsrag.chat")
-    
+
     # Generate a unique message ID
     message_id = str(uuid.uuid4())
-    
+
     # Create a dictionary with base log context fields
     thread = chat_thread_db.get_chat_thread(thread_id)
     kb_ids = []
     if thread and "params" in thread and "kb_ids" in thread["params"]:
         kb_ids = thread["params"]["kb_ids"]
-    
-    base_extra = {
-        "thread_id": thread_id, 
-        "message_id": message_id,
-        "kb_ids": kb_ids
-    }
-    
+
+    base_extra = {"thread_id": thread_id, "message_id": message_id, "kb_ids": kb_ids}
+
     # Log start of chat response at INFO level
-    chat_logger.info("Starting chat response", extra={
-        **base_extra,
-        "stream": stream,
-        "user_input_length": len(get_response_input.user_input) if get_response_input.user_input else 0
-    })
-    
+    chat_logger.info(
+        "Starting chat response",
+        extra={
+            **base_extra,
+            "stream": stream,
+            "user_input_length": len(get_response_input.user_input)
+            if get_response_input.user_input
+            else 0,
+        },
+    )
+
     # Start timing the overall chat process
     overall_start_time = time.perf_counter()
-    
+
     try:
         # Log parameters at DEBUG level
-        chat_logger.debug("Chat parameters", extra={
-            **base_extra,
-            "user_input": get_response_input.user_input[:100] + "..." if len(get_response_input.user_input) > 100 else get_response_input.user_input,
-            "chat_thread_params_override": get_response_input.chat_thread_params is not None,
-            "metadata_filter": get_response_input.metadata_filter,
-            "num_messages_in_thread": len(thread.get("interactions", [])) if thread else 0
-        })
-        
+        chat_logger.debug(
+            "Chat parameters",
+            extra={
+                **base_extra,
+                "user_input": get_response_input.user_input[:100] + "..."
+                if len(get_response_input.user_input) > 100
+                else get_response_input.user_input,
+                "chat_thread_params_override": get_response_input.chat_thread_params
+                is not None,
+                "metadata_filter": get_response_input.metadata_filter,
+                "num_messages_in_thread": len(thread.get("interactions", []))
+                if thread
+                else 0,
+            },
+        )
+
         result = None
         if stream:
             # For streaming, we need to wrap the generator to log at the end
-            streaming_generator = get_chat_thread_response_streaming(thread_id, get_response_input, chat_thread_db, knowledge_bases)
-            
+            streaming_generator = get_chat_thread_response_streaming(
+                thread_id, get_response_input, chat_thread_db, knowledge_bases
+            )
+
             # Initialize variables to track the streaming process
             first_chunk = True
             last_result = None
-            
+
             # Define a generator that wraps the original one to add logging
             def logging_generator():
                 nonlocal first_chunk, last_result
-                
+
                 # Log auto_query step at the beginning
                 if first_chunk:
                     first_chunk = False
                     query_step_start_time = time.perf_counter()
-                
+
                 # Process each chunk from the original generator
                 for result in streaming_generator:
                     last_result = result
-                    
+
                     # For the first real result (with search_queries), log query info
-                    if first_chunk == False and "search_queries" in result and query_step_start_time:
-                        query_step_duration = time.perf_counter() - query_step_start_time
+                    if (
+                        first_chunk == False
+                        and "search_queries" in result
+                        and query_step_start_time
+                    ):
+                        query_step_duration = (
+                            time.perf_counter() - query_step_start_time
+                        )
                         search_queries = result.get("search_queries", [])
-                        
+
                         # Log auto_query completion
-                        chat_logger.debug("Auto-query complete", extra={
-                            **base_extra,
-                            "step": "auto_query",
-                            "duration_s": round(query_step_duration, 4),
-                            "num_queries_generated": len(search_queries),
-                            "queries": search_queries
-                        })
-                        
+                        chat_logger.debug(
+                            "Auto-query complete",
+                            extra={
+                                **base_extra,
+                                "step": "auto_query",
+                                "duration_s": round(query_step_duration, 4),
+                                "num_queries_generated": len(search_queries),
+                                "queries": search_queries,
+                            },
+                        )
+
                         # Start timing kb_search step
                         kb_search_start_time = time.perf_counter()
-                        first_chunk = None  # Set to None to indicate we've logged query info
-                    
+                        first_chunk = (
+                            None  # Set to None to indicate we've logged query info
+                        )
+
                     # For the first result with relevant_segments, log kb_search info
-                    if first_chunk is None and "relevant_segments" in result and len(result.get("relevant_segments", [])) > 0:
+                    if (
+                        first_chunk is None
+                        and "relevant_segments" in result
+                        and len(result.get("relevant_segments", [])) > 0
+                    ):
                         kb_search_duration = time.perf_counter() - kb_search_start_time
                         relevant_segments = result.get("relevant_segments", [])
-                        
+
                         # Log kb_search completion
-                        chat_logger.debug("Knowledge base search complete", extra={
-                            **base_extra, 
-                            "step": "kb_search",
-                            "duration_s": round(kb_search_duration, 4),
-                            "num_segments_retrieved": len(relevant_segments)
-                        })
-                        
+                        chat_logger.debug(
+                            "Knowledge base search complete",
+                            extra={
+                                **base_extra,
+                                "step": "kb_search",
+                                "duration_s": round(kb_search_duration, 4),
+                                "num_segments_retrieved": len(relevant_segments),
+                            },
+                        )
+
                         # Start timing llm_response step
                         llm_response_start_time = time.perf_counter()
                         first_chunk = False  # Reset first_chunk to avoid re-logging
-                    
+
                     # Yield this chunk to the caller
                     yield result
-                
+
                 # After all chunks are processed, log the overall completion
                 if last_result:
                     overall_duration = time.perf_counter() - overall_start_time
-                    chat_logger.info("Chat response streaming completed", extra={
-                        **base_extra,
-                        "total_duration_s": round(overall_duration, 4),
-                        "response_length": len(last_result.get("model_response", {}).get("content", "")) if last_result.get("model_response") else 0,
-                        "num_citations": len(last_result.get("model_response", {}).get("citations", [])) if last_result.get("model_response") else 0
-                    })
-            
+                    chat_logger.info(
+                        "Chat response streaming completed",
+                        extra={
+                            **base_extra,
+                            "total_duration_s": round(overall_duration, 4),
+                            "response_length": len(
+                                last_result.get("model_response", {}).get("content", "")
+                            )
+                            if last_result.get("model_response")
+                            else 0,
+                            "num_citations": len(
+                                last_result.get("model_response", {}).get(
+                                    "citations", []
+                                )
+                            )
+                            if last_result.get("model_response")
+                            else 0,
+                        },
+                    )
+
             # Return our logging generator
             return logging_generator()
         else:
             # For non-streaming, we can log before and after the call
-            
+
             # Log auto_query step
             auto_query_start_time = time.perf_counter()
-            
+
             # Get the response
-            result = get_chat_thread_response_non_streaming(thread_id, get_response_input, chat_thread_db, knowledge_bases)
-            
+            result = get_chat_thread_response_non_streaming(
+                thread_id, get_response_input, chat_thread_db, knowledge_bases
+            )
+
             # Log steps and completion
             overall_duration = time.perf_counter() - overall_start_time
-            
+
             # Calculate time spent on auto_query, kb_search, and llm_response
             search_queries = result.get("search_queries", [])
             relevant_segments = result.get("relevant_segments", [])
-            
+
             # Log completion
-            chat_logger.info("Chat response completed", extra={
-                **base_extra,
-                "total_duration_s": round(overall_duration, 4),
-                "response_length": len(result.get("model_response", {}).get("content", "")) if result.get("model_response") else 0,
-                "num_queries": len(search_queries),
-                "num_segments": len(relevant_segments),
-                "num_citations": len(result.get("model_response", {}).get("citations", [])) if result.get("model_response") else 0
-            })
-            
+            chat_logger.info(
+                "Chat response completed",
+                extra={
+                    **base_extra,
+                    "total_duration_s": round(overall_duration, 4),
+                    "response_length": len(
+                        result.get("model_response", {}).get("content", "")
+                    )
+                    if result.get("model_response")
+                    else 0,
+                    "num_queries": len(search_queries),
+                    "num_segments": len(relevant_segments),
+                    "num_citations": len(
+                        result.get("model_response", {}).get("citations", [])
+                    )
+                    if result.get("model_response")
+                    else 0,
+                },
+            )
+
             return result
-            
+
     except Exception as e:
         # Log error with exception info
         overall_duration = time.perf_counter() - overall_start_time
         chat_logger.error(
-            "Chat response failed", 
+            "Chat response failed",
             extra={
                 **base_extra,
                 "total_duration_s": round(overall_duration, 4),
-                "error": str(e)
+                "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         # Re-raise the exception
         raise
