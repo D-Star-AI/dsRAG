@@ -66,11 +66,13 @@ Note that an individual citation may only be associated with one page number. If
 SHORT_OUTPUT = """
 RESPONSE LENGTH GUIDANCE
 Please keep your response extremely short and concise. Answer in a single concise sentence whenever possible. If the question is more complex, then you may use up to a few sentences. IN NO CIRCUMSTANCE should your response be longer than one paragraph.
+The response should be well-structured and follow Markdown formatting conventions.
 """.strip()
 
 LONG_OUTPUT = """
 RESPONSE LENGTH GUIDANCE
 Please provide as much detail as possible in your response. If the question is very simple, then you may only need one paragraph, but most of the time you will need to use multiple paragraphs to provide a detailed response. Feel free to write up to a few pages if necessary. The most important thing is that you provide a detailed, thorough, and accurate response.
+The response should be well-structured and follow Markdown formatting conventions.
 """.strip()
 
 
