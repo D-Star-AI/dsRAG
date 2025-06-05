@@ -31,6 +31,7 @@ class SQLiteChatThreadDB(ChatThreadDB):
             "relevant_segments",
             "search_queries",
             "citations",
+            "model_response_status",
         ]
         self.chat_thread_column_types = [
             "VARCHAR(256) PRIMARY KEY",
@@ -47,6 +48,7 @@ class SQLiteChatThreadDB(ChatThreadDB):
         ]
         self.interactions_column_types = [
             "VARCHAR(256)",
+            "TEXT",
             "TEXT",
             "TEXT",
             "TEXT",
@@ -177,17 +179,15 @@ class SQLiteChatThreadDB(ChatThreadDB):
         formatted_interactions = []
         for interaction in interactions:
             formatted_interaction = {
-                "user_input": {"content": interaction[1], "timestamp": interaction[2]},
+                "user_input": {"content": interaction[2], "timestamp": interaction[3]},
                 "model_response": {
-                    "content": interaction[3],
-                    "timestamp": interaction[4],
-                    "citations": json.loads(interaction[7]) if interaction[7] else [],
-                    "status": interaction[8]
-                    if len(interaction) > 8 and interaction[8]
-                    else "finished",
+                    "content": interaction[4],
+                    "timestamp": interaction[5],
+                    "citations": json.loads(interaction[8]) if interaction[8] else [],
+                    "status": interaction[9] if interaction[9] else "finished",
                 },
-                "relevant_segments": json.loads(interaction[5]),
-                "search_queries": json.loads(interaction[6]),
+                "relevant_segments": json.loads(interaction[6]),
+                "search_queries": json.loads(interaction[7]),
             }
             formatted_interactions.append(formatted_interaction)
 

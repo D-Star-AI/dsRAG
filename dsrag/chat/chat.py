@@ -126,7 +126,7 @@ def create_new_chat_thread(
         chat_thread_params["supp_id"] = ""
     chat_thread_params = _set_chat_thread_params(chat_thread_params)
     print("chat_thread_params: ", chat_thread_params)
-    chat_thread_db.create_chat_thread(chat_thread_params=chat_thread_params)
+    chat_thread_db.create_chat_thread(chat_thread_params=chat_thread_params.copy())
     return thread_id
 
 
@@ -377,6 +377,8 @@ def _prepare_chat_context(
                 auto_query_guidance=chat_thread_params["auto_query_guidance"],
                 max_queries=5,
                 auto_query_model=chat_thread_params["auto_query_model"],
+                base_url=chat_thread_params.get("base_url", None),
+                api_key=chat_thread_params.get("api_key", None),
             )
         except Exception as e:
             print(f"Error generating search queries: {str(e)}")
@@ -691,6 +693,8 @@ def _get_chat_response(
         temperature=chat_thread_params["temperature"],
         max_tokens=4000,
         response_model=ResponseWithCitations,
+        base_url=chat_thread_params.get("base_url", None),
+        api_key=chat_thread_params.get("api_key", None),
     )
 
     citations = response.citations

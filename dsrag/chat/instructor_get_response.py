@@ -100,7 +100,13 @@ def get_response(
         )
     else:
         return _handle_instructor_mode(
-            final_messages, model_name, response_model, temperature, max_tokens
+            final_messages,
+            model_name,
+            response_model,
+            temperature,
+            max_tokens,
+            base_url,
+            api_key,
         )
 
 
@@ -129,7 +135,13 @@ def _handle_instructor_mode(
 
     if base_url and api_key:
         return _handle_openai_instructor(
-            messages, model_name, response_model, temperature, max_tokens
+            messages,
+            model_name,
+            response_model,
+            temperature,
+            max_tokens,
+            base_url,
+            api_key,
         )
 
     raise ValueError(f"Unsupported model for instructor: {model_name}")
