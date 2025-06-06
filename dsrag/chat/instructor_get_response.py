@@ -192,11 +192,11 @@ def _handle_openai_instructor(
         "messages": formatted,
         "response_model": response_model,
     }
-    if model_name.startswith("o"):
-        model_kwargs["max_completion_tokens"] = max_tokens
-    else:
-        model_kwargs["max_tokens"] = max_tokens
-        model_kwargs["temperature"] = temperature
+    # if model_name.startswith("o"):
+    #     model_kwargs["max_completion_tokens"] = max_tokens
+    # else:
+    #     model_kwargs["max_tokens"] = max_tokens
+    #     model_kwargs["temperature"] = temperature
 
     return client.chat.completions.create(**model_kwargs)
 

@@ -11,6 +11,23 @@ import logging
 import time
 
 
+class ExtraFormatter(logging.Formatter):
+    def format(self, record):
+        # Extract all extra fields (excluding standard LogRecord attrs)
+        reserved = set(logging.LogRecord("", 0, "", 0, "", (), None).__dict__.keys())
+        extra = {k: v for k, v in record.__dict__.items() if k not in reserved}
+        record.extra_str = str(extra)
+        return super().format(record)
+
+
+handler = logging.StreamHandler()
+handler.setFormatter(
+    ExtraFormatter(
+        "%(asctime)s %(name)s %(levelname)s: %(message)s | extra: %(extra_str)s"
+    )
+)
+
+
 MAIN_SYSTEM_MESSAGE = """
 INSTRUCTIONS AND GUIDANCE
 {user_configurable_message}
@@ -367,6 +384,8 @@ def _prepare_chat_context(
         chat_messages, chat_thread_params["max_chat_history_tokens"]
     )
 
+    print(chat_messages)
+
     formatted_relevant_segments = {}
     all_doc_ids = {}
     source_index_to_doc_id = {}
@@ -689,6 +708,7 @@ def _get_chat_response(
     )
 
     # Non-streaming case - get complete response
+    print(chat_messages)
     response = get_response(
         messages=chat_messages,
         model_name=chat_thread_params["model"],
@@ -986,6 +1006,8 @@ def get_chat_thread_response(
     """
     # Get a logger specific to chat operations
     chat_logger = logging.getLogger("dsrag.chat")
+    chat_logger.setLevel(logging.DEBUG)
+    chat_logger.addHandler(handler)
 
     # Generate a unique message ID
     message_id = str(uuid.uuid4())
@@ -1057,7 +1079,7 @@ def get_chat_thread_response(
 
                     # For the first real result (with search_queries), log query info
                     if (
-                        first_chunk == False
+                        first_chunk is False
                         and "search_queries" in result
                         and query_step_start_time
                     ):
@@ -1105,7 +1127,6 @@ def get_chat_thread_response(
                         )
 
                         # Start timing llm_response step
-                        llm_response_start_time = time.perf_counter()
                         first_chunk = False  # Reset first_chunk to avoid re-logging
 
                     # Yield this chunk to the caller
@@ -1138,9 +1159,6 @@ def get_chat_thread_response(
             return logging_generator()
         else:
             # For non-streaming, we can log before and after the call
-
-            # Log auto_query step
-            auto_query_start_time = time.perf_counter()
 
             # Get the response
             result = get_chat_thread_response_non_streaming(

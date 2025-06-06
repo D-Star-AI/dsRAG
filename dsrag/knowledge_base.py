@@ -1,3 +1,4 @@
+from __future__ import annotations
 import numpy as np
 import os
 import time
@@ -9,9 +10,9 @@ from tqdm import tqdm
 
 from dsrag.dsparse.main import parse_and_chunk
 from dsrag.add_document import (
-    auto_context, 
-    get_embeddings, 
-    add_chunks_to_db, 
+    auto_context,
+    get_embeddings,
+    add_chunks_to_db,
     add_vectors_to_db,
 )
 from dsrag.auto_context import get_segment_header
@@ -31,6 +32,7 @@ from dsrag.dsparse.file_parsing.file_system import FileSystem, LocalFileSystem
 from dsrag.metadata import MetadataStorage, LocalMetadataStorage
 from dsrag.chat.citations import convert_elements_to_page_content
 
+
 class KnowledgeBase:
     def __init__(
         self,
@@ -48,7 +50,7 @@ class KnowledgeBase:
         file_system: Optional[FileSystem] = None,
         exists_ok: bool = True,
         save_metadata_to_disk: bool = True,
-        metadata_storage: Optional[MetadataStorage] = None
+        metadata_storage: Optional[MetadataStorage] = None,
     ):
         """Initialize a KnowledgeBase instance.
 
@@ -59,21 +61,21 @@ class KnowledgeBase:
             description (str, optional): Description of the knowledge base. Defaults to "".
             language (str, optional): Language code for the knowledge base. Defaults to "en".
             storage_directory (str, optional): Base directory for storing files. Defaults to "~/dsRAG".
-            embedding_model (Optional[Embedding], optional): Model for generating embeddings. 
+            embedding_model (Optional[Embedding], optional): Model for generating embeddings.
                 Defaults to OpenAIEmbedding.
-            reranker (Optional[Reranker], optional): Model for reranking results. 
+            reranker (Optional[Reranker], optional): Model for reranking results.
                 Defaults to CohereReranker.
-            auto_context_model (Optional[LLM], optional): LLM for generating context. 
+            auto_context_model (Optional[LLM], optional): LLM for generating context.
                 Defaults to OpenAIChatAPI.
-            vector_db (Optional[VectorDB], optional): Vector database for storing embeddings. 
+            vector_db (Optional[VectorDB], optional): Vector database for storing embeddings.
                 Defaults to BasicVectorDB.
-            chunk_db (Optional[ChunkDB], optional): Database for storing text chunks. 
+            chunk_db (Optional[ChunkDB], optional): Database for storing text chunks.
                 Defaults to BasicChunkDB.
-            file_system (Optional[FileSystem], optional): File system for storing images. 
+            file_system (Optional[FileSystem], optional): File system for storing images.
                 Defaults to LocalFileSystem.
             exists_ok (bool, optional): Whether to load existing KB if it exists. Defaults to True.
             save_metadata_to_disk (bool, optional): Whether to persist metadata. Defaults to True.
-            metadata_storage (Optional[MetadataStorage], optional): Storage for KB metadata. 
+            metadata_storage (Optional[MetadataStorage], optional): Storage for KB metadata.
                 Defaults to LocalMetadataStorage.
 
         Raises:
@@ -81,7 +83,11 @@ class KnowledgeBase:
         """
         self.kb_id = kb_id
         self.storage_directory = os.path.expanduser(storage_directory)
-        self.metadata_storage = metadata_storage if metadata_storage else LocalMetadataStorage(self.storage_directory)
+        self.metadata_storage = (
+            metadata_storage
+            if metadata_storage
+            else LocalMetadataStorage(self.storage_directory)
+        )
 
         if save_metadata_to_disk:
             # load the KB if it exists; otherwise, initialize it and save it to disk
@@ -104,7 +110,12 @@ class KnowledgeBase:
                     "created_on": created_time,
                 }
                 self._initialize_components(
-                    embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system
+                    embedding_model,
+                    reranker,
+                    auto_context_model,
+                    vector_db,
+                    chunk_db,
+                    file_system,
                 )
                 self._save()  # save the config for the KB to disk
         else:
@@ -115,7 +126,12 @@ class KnowledgeBase:
                 "supp_id": supp_id,
             }
             self._initialize_components(
-                embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system
+                embedding_model,
+                reranker,
+                auto_context_model,
+                vector_db,
+                chunk_db,
+                file_system,
             )
 
     def _get_metadata_path(self):
@@ -152,7 +168,13 @@ class KnowledgeBase:
         self.chunk_db = (
             chunk_db if chunk_db else BasicChunkDB(self.kb_id, self.storage_directory)
         )
-        self.file_system = file_system if file_system else LocalFileSystem(base_path=os.path.join(self.storage_directory, "page_images"))
+        self.file_system = (
+            file_system
+            if file_system
+            else LocalFileSystem(
+                base_path=os.path.join(self.storage_directory, "page_images")
+            )
+        )
         self.vector_dimension = self.embedding_model.dimension
 
     def _save(self):
@@ -174,7 +196,14 @@ class KnowledgeBase:
 
         self.metadata_storage.save(full_data, self.kb_id)
 
-    def _load(self, auto_context_model=None, reranker=None, file_system=None, chunk_db=None, vector_db=None):
+    def _load(
+        self,
+        auto_context_model=None,
+        reranker=None,
+        file_system=None,
+        chunk_db=None,
+        vector_db=None,
+    ):
         """Load a knowledge base configuration from disk.
 
         Internal method to deserialize components and metadata.
@@ -200,9 +229,7 @@ class KnowledgeBase:
             components.get("embedding_model", {})
         )
         self.reranker = (
-            reranker
-            if reranker
-            else Reranker.from_dict(components.get("reranker", {}))
+            reranker if reranker else Reranker.from_dict(components.get("reranker", {}))
         )
         self.auto_context_model = (
             auto_context_model
@@ -212,14 +239,20 @@ class KnowledgeBase:
         # Log warnings for overridden components
         base_extra = {"kb_id": self.kb_id}
         if vector_db is not None:
-            logging.warning(f"Overriding stored vector_db for KB '{self.kb_id}' during load.", extra=base_extra)
+            logging.warning(
+                f"Overriding stored vector_db for KB '{self.kb_id}' during load.",
+                extra=base_extra,
+            )
         self.vector_db = (
             vector_db
             if vector_db
             else VectorDB.from_dict(components.get("vector_db", {}))
         )
         if chunk_db is not None:
-            logging.warning(f"Overriding stored chunk_db for KB '{self.kb_id}' during load.", extra=base_extra)
+            logging.warning(
+                f"Overriding stored chunk_db for KB '{self.kb_id}' during load.",
+                extra=base_extra,
+            )
             self.chunk_db = chunk_db
         else:
             self.chunk_db = ChunkDB.from_dict(components.get("chunk_db", {}))
@@ -227,7 +260,10 @@ class KnowledgeBase:
         file_system_dict = components.get("file_system", None)
 
         if file_system is not None:
-            logging.warning(f"Overriding stored file_system for KB '{self.kb_id}' during load.", extra=base_extra)
+            logging.warning(
+                f"Overriding stored file_system for KB '{self.kb_id}' during load.",
+                extra=base_extra,
+            )
             # If the file system does not exist but is provided, use the provided file system
             self.file_system = file_system
         elif file_system_dict is not None:
@@ -266,8 +302,8 @@ class KnowledgeBase:
         file_parsing_config: dict = {},
         semantic_sectioning_config: dict = {},
         chunking_config: dict = {},
-        chunk_size: int = None,
-        min_length_for_chunking: int = None,
+        chunk_size: int | None = None,
+        min_length_for_chunking: int | None = None,
         supp_id: str = "",
         metadata: dict = {},
     ):
@@ -290,22 +326,22 @@ class KnowledgeBase:
                 {
                     # Whether to use an LLM-generated title if no title is provided
                     "use_generated_title": True,
-                    
+
                     # Guidance for generating the document title
                     "document_title_guidance": "Generate a concise title",
-                    
+
                     # Whether to get a document summary
                     "get_document_summary": True,
-                    
+
                     # Guidance for document summarization
                     "document_summarization_guidance": "Summarize key points",
-                    
+
                     # Whether to get section summaries
                     "get_section_summaries": False,
-                    
+
                     # Guidance for section summarization
                     "section_summarization_guidance": "Summarize each section",
-                    
+
                     # Custom term mappings (key: term to map to, value: list of terms to map from)
                     "custom_term_mapping": {
                         "AI": ["artificial intelligence", "machine learning"],
@@ -318,31 +354,31 @@ class KnowledgeBase:
                 {
                     # Whether to use VLM for parsing
                     "use_vlm": False,
-                    
+
                     # VLM configuration (ignored if use_vlm is False)
                     "vlm_config": {
                         # VLM provider (currently only "gemini" and "vertex_ai" supported)
                         "provider": "vertex_ai",
-                        
+
                         # The VLM model to use
                         "model": "model_name",
-                        
+
                         # GCP project ID (required for "vertex_ai")
                         "project_id": "your-project-id",
-                        
+
                         # GCP location (required for "vertex_ai")
                         "location": "us-central1",
-                        
+
                         # Path to save intermediate files
                         "save_path": "/path/to/save",
-                        
+
                         # Element types to exclude
                         "exclude_elements": ["Header", "Footer"],
-                        
+
                         # Whether images are pre-extracted
                         "images_already_exist": False
                     },
-                    
+
                     # Save images even if VLM unused
                     "always_save_page_images": False
                 }
@@ -352,10 +388,10 @@ class KnowledgeBase:
                 {
                     # LLM provider for semantic sectioning
                     "llm_provider": "openai",  # or "anthropic" or "gemini"
-                    
+
                     # LLM model to use
                     "model": "gpt-4o-mini",
-                    
+
                     # Whether to use semantic sectioning
                     "use_semantic_sectioning": True
                 }
@@ -365,7 +401,7 @@ class KnowledgeBase:
                 {
                     # Maximum characters per chunk
                     "chunk_size": 800,
-                    
+
                     # Minimum text length to allow chunking
                     "min_length_for_chunking": 2000
                 }
@@ -385,7 +421,7 @@ class KnowledgeBase:
         """
         # Get a logger specific to ingestion operations
         ingestion_logger = logging.getLogger("dsrag.ingestion")
-        
+
         # Create a dictionary with base log context fields
         base_extra = {"kb_id": self.kb_id, "doc_id": doc_id}
         if file_path:
@@ -393,7 +429,7 @@ class KnowledgeBase:
 
         # Log start of ingestion at INFO level
         ingestion_logger.info("Starting document ingestion", extra=base_extra)
-        
+
         # Log configuration parameters at DEBUG level
         config_extra = {
             **base_extra,
@@ -401,10 +437,10 @@ class KnowledgeBase:
             "provided_file_parsing_config": file_parsing_config,
             "provided_semantic_sectioning_config": semantic_sectioning_config,
             "provided_chunking_config": chunking_config,
-            "metadata": metadata
+            "metadata": metadata,
         }
         ingestion_logger.debug("Ingestion parameters", extra=config_extra)
-        
+
         # Start timing the overall ingestion process
         overall_start_time = time.perf_counter()
 
@@ -414,7 +450,7 @@ class KnowledgeBase:
                 chunking_config["chunk_size"] = chunk_size
             if min_length_for_chunking is not None:
                 chunking_config["min_length_for_chunking"] = min_length_for_chunking
-            
+
             # verify that either text or file_path is provided
             if text == "" and file_path == "":
                 raise ValueError("Either text or file_path must be provided")
@@ -422,35 +458,38 @@ class KnowledgeBase:
             # verify that the document does not already exist in the KB - the doc_id should be unique
             if doc_id in self.chunk_db.get_all_doc_ids():
                 ingestion_logger.warning(
-                    "Document already exists in knowledge base, skipping", 
-                    extra=base_extra
+                    "Document already exists in knowledge base, skipping",
+                    extra=base_extra,
                 )
                 return
-            
+
             # verify the doc_id is valid
             if "/" in doc_id:
                 raise ValueError("doc_id cannot contain '/' characters")
-            
+
             # --- Parsing and Chunking Step ---
             step_start_time = time.perf_counter()
             sections, chunks = parse_and_chunk(
                 kb_id=self.kb_id,
                 doc_id=doc_id,
-                file_path=file_path, 
-                text=text, 
-                file_parsing_config=file_parsing_config, 
-                semantic_sectioning_config=semantic_sectioning_config, 
+                file_path=file_path,
+                text=text,
+                file_parsing_config=file_parsing_config,
+                semantic_sectioning_config=semantic_sectioning_config,
                 chunking_config=chunking_config,
                 file_system=self.file_system,
             )
             step_duration = time.perf_counter() - step_start_time
-            ingestion_logger.debug("Parsing and Chunking complete", extra={
-                **base_extra, 
-                "step": "parse_chunk", 
-                "duration_s": round(step_duration, 4),
-                "num_sections": len(sections), 
-                "num_chunks": len(chunks)
-            })
+            ingestion_logger.debug(
+                "Parsing and Chunking complete",
+                extra={
+                    **base_extra,
+                    "step": "parse_chunk",
+                    "duration_s": round(step_duration, 4),
+                    "num_sections": len(sections),
+                    "num_chunks": len(chunks),
+                },
+            )
 
             # construct full document text from sections (for auto_context)
             document_text = ""
@@ -460,16 +499,16 @@ class KnowledgeBase:
             # --- AutoContext Step ---
             chunks, chunks_to_embed = auto_context(
                 kb_id=self.kb_id,
-                auto_context_model=self.auto_context_model, 
-                sections=sections, 
-                chunks=chunks, 
-                text=document_text, 
-                doc_id=doc_id, 
-                document_title=document_title, 
-                auto_context_config=auto_context_config, 
+                auto_context_model=self.auto_context_model,
+                sections=sections,
+                chunks=chunks,
+                text=document_text,
+                doc_id=doc_id,
+                document_title=document_title,
+                auto_context_config=auto_context_config,
                 language=self.kb_metadata["language"],
             )
-            
+
             # --- Embedding Step ---
             step_start_time = time.perf_counter()
             chunk_embeddings = get_embeddings(
@@ -477,14 +516,17 @@ class KnowledgeBase:
                 chunks_to_embed=chunks_to_embed,
             )
             step_duration = time.perf_counter() - step_start_time
-            ingestion_logger.debug("Embedding complete", extra={
-                **base_extra, 
-                "step": "embedding", 
-                "duration_s": round(step_duration, 4),
-                "num_embeddings": len(chunk_embeddings), 
-                "model": self.embedding_model.__class__.__name__
-            })
-            
+            ingestion_logger.debug(
+                "Embedding complete",
+                extra={
+                    **base_extra,
+                    "step": "embedding",
+                    "duration_s": round(step_duration, 4),
+                    "num_embeddings": len(chunk_embeddings),
+                    "model": self.embedding_model.__class__.__name__,
+                },
+            )
+
             # --- DB Storage Step ---
             step_start_time = time.perf_counter()
             add_chunks_to_db(
@@ -494,7 +536,7 @@ class KnowledgeBase:
                 chunk_embeddings=chunk_embeddings,
                 metadata=metadata,
                 doc_id=doc_id,
-                supp_id=supp_id
+                supp_id=supp_id,
             )
             add_vectors_to_db(
                 vector_db=self.vector_db,
@@ -504,59 +546,67 @@ class KnowledgeBase:
                 doc_id=doc_id,
             )
             step_duration = time.perf_counter() - step_start_time
-            ingestion_logger.debug("Database storage complete", extra={
-                **base_extra,
-                "step": "db_storage", 
-                "duration_s": round(step_duration, 4),
-                "vector_db": self.vector_db.__class__.__name__,
-                "chunk_db": self.chunk_db.__class__.__name__
-            })
+            ingestion_logger.debug(
+                "Database storage complete",
+                extra={
+                    **base_extra,
+                    "step": "db_storage",
+                    "duration_s": round(step_duration, 4),
+                    "vector_db": self.vector_db.__class__.__name__,
+                    "chunk_db": self.chunk_db.__class__.__name__,
+                },
+            )
 
             # Convert elements to page content if the document was processed with page numbers
-            if file_path and file_parsing_config.get('use_vlm', False):
+            if file_path and file_parsing_config.get("use_vlm", False):
                 try:
                     step_start_time = time.perf_counter()
-                    elements = self.file_system.load_data(kb_id=self.kb_id, doc_id=doc_id, data_name="elements")
+                    elements = self.file_system.load_data(
+                        kb_id=self.kb_id, doc_id=doc_id, data_name="elements"
+                    )
                     if elements:
                         convert_elements_to_page_content(
                             elements=elements,
                             kb_id=self.kb_id,
                             doc_id=doc_id,
-                            file_system=self.file_system
+                            file_system=self.file_system,
                         )
                     step_duration = time.perf_counter() - step_start_time
-                    ingestion_logger.debug("Page content conversion complete", extra={
-                        **base_extra,
-                        "step": "page_content", 
-                        "duration_s": round(step_duration, 4),
-                        "num_elements": len(elements) if elements else 0
-                    })
+                    ingestion_logger.debug(
+                        "Page content conversion complete",
+                        extra={
+                            **base_extra,
+                            "step": "page_content",
+                            "duration_s": round(step_duration, 4),
+                            "num_elements": len(elements) if elements else 0,
+                        },
+                    )
                 except Exception as e:
                     ingestion_logger.warning(
-                        "Failed to load or process elements for page content", 
-                        extra={**base_extra, "error": str(e)}
+                        "Failed to load or process elements for page content",
+                        extra={**base_extra, "error": str(e)},
                     )
 
             self._save()  # save to disk after adding a document
-            
+
             # Log successful completion with total duration
             overall_duration = time.perf_counter() - overall_start_time
-            ingestion_logger.info("Document ingestion successful", extra={
-                **base_extra,
-                "total_duration_s": round(overall_duration, 4)
-            })
-            
+            ingestion_logger.info(
+                "Document ingestion successful",
+                extra={**base_extra, "total_duration_s": round(overall_duration, 4)},
+            )
+
         except Exception as e:
             # Log error with exception info
             overall_duration = time.perf_counter() - overall_start_time
             ingestion_logger.error(
-                "Document ingestion failed", 
+                "Document ingestion failed",
                 extra={
                     **base_extra,
                     "total_duration_s": round(overall_duration, 4),
-                    "error": str(e)
+                    "error": str(e),
                 },
-                exc_info=True
+                exc_info=True,
             )
             # Re-raise the exception
             raise
@@ -569,7 +619,7 @@ class KnowledgeBase:
         rate_limit_pause: float = 1.0,
     ) -> List[str]:
         """Add multiple documents to the knowledge base in parallel.
-        
+
         Args:
             documents (List[Dict[str, Union[str, dict]]]): List of document dictionaries. Each must contain:
                 - 'doc_id' (str): Unique identifier for the document
@@ -596,31 +646,33 @@ class KnowledgeBase:
             The default implementations (BasicVectorDB and BasicChunkDB) are not thread-safe.
         """
         successful_uploads = []
-        
+
         def process_document(doc: Dict) -> Optional[str]:
             try:
                 # Extract required parameters
-                doc_id = doc['doc_id']
+                doc_id = doc["doc_id"]
                 print(f"Starting to process document: {doc_id}")  # Debug log
-                
+
                 # Create a copy of the document dict to avoid modification during iteration
                 doc_params = doc.copy()
-                
+
                 # Extract required parameters from the copy
-                text = doc_params.get('text', '')
-                file_path = doc_params.get('file_path', '')
-                
+                text = doc_params.get("text", "")
+                file_path = doc_params.get("file_path", "")
+
                 # Extract optional parameters with defaults
-                document_title = doc_params.get('document_title', '')
-                auto_context_config = doc_params.get('auto_context_config', {}).copy()
-                file_parsing_config = doc_params.get('file_parsing_config', {}).copy()
-                semantic_sectioning_config = doc_params.get('semantic_sectioning_config', {}).copy()
-                chunking_config = doc_params.get('chunking_config', {}).copy()
-                supp_id = doc_params.get('supp_id', '')
-                metadata = doc_params.get('metadata', {}).copy()
-                
+                document_title = doc_params.get("document_title", "")
+                auto_context_config = doc_params.get("auto_context_config", {}).copy()
+                file_parsing_config = doc_params.get("file_parsing_config", {}).copy()
+                semantic_sectioning_config = doc_params.get(
+                    "semantic_sectioning_config", {}
+                ).copy()
+                chunking_config = doc_params.get("chunking_config", {}).copy()
+                supp_id = doc_params.get("supp_id", "")
+                metadata = doc_params.get("metadata", {}).copy()
+
                 print(f"Extracted parameters for {doc_id}")  # Debug log
-                
+
                 # Call add_document with extracted parameters
                 self.add_document(
                     doc_id=doc_id,
@@ -632,18 +684,21 @@ class KnowledgeBase:
                     semantic_sectioning_config=semantic_sectioning_config,
                     chunking_config=chunking_config,
                     supp_id=supp_id,
-                    metadata=metadata
+                    metadata=metadata,
                 )
-                
+
                 print(f"Successfully processed document: {doc_id}")  # Debug log
-                
+
                 # Pause to avoid rate limits
                 time.sleep(rate_limit_pause)
                 return doc_id
-                
+
             except Exception as e:
                 import traceback
-                error_msg = f"Error processing document {doc.get('doc_id', 'unknown')}:\n"
+
+                error_msg = (
+                    f"Error processing document {doc.get('doc_id', 'unknown')}:\n"
+                )
                 error_msg += f"Error type: {type(e).__name__}\n"
                 error_msg += f"Error message: {str(e)}\n"
                 error_msg += "Traceback:\n"
@@ -655,25 +710,24 @@ class KnowledgeBase:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Create futures
             future_to_doc = {
-                executor.submit(process_document, doc): doc 
-                for doc in documents
+                executor.submit(process_document, doc): doc for doc in documents
             }
-            
+
             # Process results with optional progress bar
             if show_progress:
                 futures = tqdm(
                     concurrent.futures.as_completed(future_to_doc),
                     total=len(documents),
-                    desc="Processing documents"
+                    desc="Processing documents",
                 )
             else:
                 futures = concurrent.futures.as_completed(future_to_doc)
-                
+
             for future in futures:
                 doc_id = future.result()
                 if doc_id:
                     successful_uploads.append(doc_id)
-        
+
         return successful_uploads
 
     def delete_document(self, doc_id: str):
@@ -692,14 +746,14 @@ class KnowledgeBase:
         Internal method to retrieve chunk text from the chunk database.
         """
         return self.chunk_db.get_chunk_text(doc_id, chunk_index)
-    
+
     def _get_is_visual(self, doc_id: str, chunk_index: int) -> bool:
         """Check if a chunk contains visual content.
 
         Internal method to check chunk type.
         """
         return self.chunk_db.get_is_visual(doc_id, chunk_index)
-    
+
     def _get_chunk_content(self, doc_id: str, chunk_index: int) -> tuple[str, str]:
         """Get the full content of a specific chunk.
 
@@ -733,7 +787,9 @@ class KnowledgeBase:
         """
         return np.dot(v1, v2)
 
-    def _search(self, query: str, top_k: int, metadata_filter: Optional[MetadataFilter] = None) -> list:
+    def _search(
+        self, query: str, top_k: int, metadata_filter: Optional[MetadataFilter] = None
+    ) -> list:
         """Search the knowledge base for relevant chunks.
 
         Internal method for single query search.
@@ -745,20 +801,29 @@ class KnowledgeBase:
         search_results = self.reranker.rerank_search_results(query, search_results)
         return search_results
 
-    def _get_all_ranked_results(self, search_queries: list[str], metadata_filter: Optional[MetadataFilter] = None):
+    def _get_all_ranked_results(
+        self,
+        search_queries: list[str],
+        metadata_filter: Optional[MetadataFilter] = None,
+    ):
         """Execute multiple search queries.
 
         Internal method for parallel query execution.
         """
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = [executor.submit(self._search, query, 200, metadata_filter) for query in search_queries]
+            futures = [
+                executor.submit(self._search, query, 200, metadata_filter)
+                for query in search_queries
+            ]
             all_ranked_results = []
             for future in futures:
                 ranked_results = future.result()
                 all_ranked_results.append(ranked_results)
         return all_ranked_results
-    
-    def _get_segment_page_numbers(self, doc_id: str, chunk_start: int, chunk_end: int) -> tuple:
+
+    def _get_segment_page_numbers(
+        self, doc_id: str, chunk_start: int, chunk_end: int
+    ) -> tuple:
         """Get page numbers for a segment.
 
         Internal method for page number lookup.
@@ -766,8 +831,10 @@ class KnowledgeBase:
         start_page_number, _ = self.chunk_db.get_chunk_page_numbers(doc_id, chunk_start)
         _, end_page_number = self.chunk_db.get_chunk_page_numbers(doc_id, chunk_end - 1)
         return start_page_number, end_page_number
-    
-    def _get_segment_content_from_database(self, doc_id: str, chunk_start: int, chunk_end: int, return_mode: str):
+
+    def _get_segment_content_from_database(
+        self, doc_id: str, chunk_start: int, chunk_end: int, return_mode: str
+    ):
         """Retrieve segment content from database.
 
         Internal method for content retrieval.
@@ -797,11 +864,20 @@ class KnowledgeBase:
             return segment_text.strip()
         else:
             # get the page numbers that the segment starts and ends on
-            start_page_number, end_page_number = self._get_segment_page_numbers(doc_id, chunk_start, chunk_end)
-            page_image_paths = self.file_system.get_files(kb_id=self.kb_id, doc_id=doc_id, page_start=start_page_number, page_end=end_page_number)
+            start_page_number, end_page_number = self._get_segment_page_numbers(
+                doc_id, chunk_start, chunk_end
+            )
+            page_image_paths = self.file_system.get_files(
+                kb_id=self.kb_id,
+                doc_id=doc_id,
+                page_start=start_page_number,
+                page_end=end_page_number,
+            )
             # If there are no page images, fallback to using text mode
             if page_image_paths == []:
-                page_image_paths = self._get_segment_content_from_database(doc_id, chunk_start, chunk_end, return_mode="text")
+                page_image_paths = self._get_segment_content_from_database(
+                    doc_id, chunk_start, chunk_end, return_mode="text"
+                )
             return page_image_paths
 
     def query(
@@ -821,32 +897,32 @@ class KnowledgeBase:
                 {
                     # Maximum segment length in chunks
                     "max_length": 5,
-                    
+
                     # Maximum total length of all segments
                     "overall_max_length": 20,
-                    
+
                     # Minimum relevance value for segments
                     "minimum_value": 0.5,
-                    
+
                     # Penalty for irrelevant chunks (0-1)
                     "irrelevant_chunk_penalty": 0.8,
-                    
+
                     # Length increase per additional query
                     "overall_max_length_extension": 5,
-                    
+
                     # Rate at which relevance decays
                     "decay_rate": 0.1,
-                    
+
                     # Number of documents to consider
                     "top_k_for_document_selection": 10,
-                    
+
                     # Whether to scale by chunk length
                     "chunk_length_adjustment": True
                 }
                 ```
                 Alternatively, use preset names: "balanced" (default), "precise", or "comprehensive"
             latency_profiling (bool, optional): Whether to print timing info. Defaults to False.
-            metadata_filter (Optional[MetadataFilter], optional): Filter for document selection. 
+            metadata_filter (Optional[MetadataFilter], optional): Filter for document selection.
                 Defaults to None.
             return_mode (str, optional): Content return format. One of:
                 - "text": Return segments as text
@@ -861,22 +937,22 @@ class KnowledgeBase:
                 {
                     # Document identifier
                     "doc_id": "example_doc",
-                    
+
                     # Starting chunk index
                     "chunk_start": 0,
-                    
+
                     # Ending chunk index (exclusive)
                     "chunk_end": 5,
-                    
+
                     # Segment content (text or image paths)
                     "content": "Example text content...",
-                    
+
                     # Starting page number
                     "segment_page_start": 1,
-                    
+
                     # Ending page number
                     "segment_page_end": 3,
-                    
+
                     # Relevance score
                     "score": 0.95
                 }
@@ -884,33 +960,38 @@ class KnowledgeBase:
         """
         # Get a logger specific to query operations
         query_logger = logging.getLogger("dsrag.query")
-        
+
         # Generate a unique query ID
         query_id = str(uuid.uuid4())
-        
+
         # Create a dictionary with base log context fields
         base_extra = {"kb_id": self.kb_id, "query_id": query_id}
-        
+
         # Log start of query operation at INFO level
-        query_logger.info("Starting query", extra={
-            **base_extra, 
-            "num_search_queries": len(search_queries)
-        })
-        
+        query_logger.info(
+            "Starting query",
+            extra={**base_extra, "num_search_queries": len(search_queries)},
+        )
+
         # Start timing the overall query process
         overall_start_time = time.perf_counter()
 
         try:
             # Log query parameters at DEBUG level
-            query_logger.debug("Query parameters", extra={
-                **base_extra,
-                "search_queries": search_queries,
-                "rse_params": rse_params if isinstance(rse_params, dict) else {"preset": rse_params},
-                "metadata_filter": metadata_filter,
-                "return_mode": return_mode,
-                "reranker_model": self.reranker.__class__.__name__
-            })
-            
+            query_logger.debug(
+                "Query parameters",
+                extra={
+                    **base_extra,
+                    "search_queries": search_queries,
+                    "rse_params": rse_params
+                    if isinstance(rse_params, dict)
+                    else {"preset": rse_params},
+                    "metadata_filter": metadata_filter,
+                    "return_mode": return_mode,
+                    "reranker_model": self.reranker.__class__.__name__,
+                },
+            )
+
             # check if the rse_params is a preset name and convert it to a dictionary if it is
             if isinstance(rse_params, str) and rse_params in RSE_PARAMS_PRESETS:
                 rse_params = RSE_PARAMS_PRESETS[rse_params]
@@ -927,7 +1008,8 @@ class KnowledgeBase:
                 "minimum_value", default_rse_params["minimum_value"]
             )
             irrelevant_chunk_penalty = rse_params.get(
-                "irrelevant_chunk_penalty", default_rse_params["irrelevant_chunk_penalty"]
+                "irrelevant_chunk_penalty",
+                default_rse_params["irrelevant_chunk_penalty"],
             )
             overall_max_length_extension = rse_params.get(
                 "overall_max_length_extension",
@@ -943,27 +1025,32 @@ class KnowledgeBase:
             )
 
             overall_max_length += (
-                len(search_queries) - 1
-            ) * overall_max_length_extension  # increase the overall max length for each additional query
+                (len(search_queries) - 1) * overall_max_length_extension
+            )  # increase the overall max length for each additional query
 
             # --- Search/Rerank Step ---
             step_start_time = time.perf_counter()
-            all_ranked_results = self._get_all_ranked_results(search_queries=search_queries, metadata_filter=metadata_filter)
+            all_ranked_results = self._get_all_ranked_results(
+                search_queries=search_queries, metadata_filter=metadata_filter
+            )
             step_duration = time.perf_counter() - step_start_time
-            
+
             # Get the number of initial results per query
             initial_results_per_query = [len(results) for results in all_ranked_results]
-            
+
             # Log information about search/rerank step
-            query_logger.debug("Search/Rerank complete", extra={
-                **base_extra, 
-                "step": "search_rerank", 
-                "duration_s": round(step_duration, 4),
-                "num_initial_results_per_query": initial_results_per_query,
-                "total_initial_results": sum(initial_results_per_query),
-                "reranker": self.reranker.__class__.__name__
-            })
-            
+            query_logger.debug(
+                "Search/Rerank complete",
+                extra={
+                    **base_extra,
+                    "step": "search_rerank",
+                    "duration_s": round(step_duration, 4),
+                    "num_initial_results_per_query": initial_results_per_query,
+                    "total_initial_results": sum(initial_results_per_query),
+                    "reranker": self.reranker.__class__.__name__,
+                },
+            )
+
             if latency_profiling:
                 print(
                     f"get_all_ranked_results took {step_duration} seconds to run for {len(search_queries)} queries"
@@ -971,14 +1058,18 @@ class KnowledgeBase:
 
             # --- RSE Step ---
             step_start_time = time.perf_counter()
-            document_splits, document_start_points, unique_document_ids = get_meta_document(
-                all_ranked_results=all_ranked_results,
-                top_k_for_document_selection=top_k_for_document_selection,
+            document_splits, document_start_points, unique_document_ids = (
+                get_meta_document(
+                    all_ranked_results=all_ranked_results,
+                    top_k_for_document_selection=top_k_for_document_selection,
+                )
             )
 
             # verify that we have a valid meta-document - otherwise return an empty list of segments
             if len(document_splits) == 0:
-                query_logger.info("Query returned no results (empty meta-document)", extra=base_extra)
+                query_logger.info(
+                    "Query returned no results (empty meta-document)", extra=base_extra
+                )
                 return []
 
             # get the length of the meta-document so we don't have to pass in the whole list of splits
@@ -1002,19 +1093,22 @@ class KnowledgeBase:
                 minimum_value=minimum_value,
             )
             step_duration = time.perf_counter() - step_start_time
-            
+
             # Log information about RSE step
-            query_logger.debug("RSE complete", extra={
-                **base_extra,
-                "step": "rse", 
-                "duration_s": round(step_duration, 4),
-                "num_final_segments": len(best_segments),
-                "segment_scores": [round(s, 4) for s in scores]
-            })
+            query_logger.debug(
+                "RSE complete",
+                extra={
+                    **base_extra,
+                    "step": "rse",
+                    "duration_s": round(step_duration, 4),
+                    "num_final_segments": len(best_segments),
+                    "segment_scores": [round(s, 4) for s in scores],
+                },
+            )
 
             # --- Content Retrieval Step ---
             step_start_time = time.perf_counter()
-            
+
             # convert the best segments into a list of dictionaries that contain the document id and the start and end of the chunk
             relevant_segment_info = []
             for segment_index, (start, end) in enumerate(best_segments):
@@ -1045,7 +1139,7 @@ class KnowledgeBase:
                 start_page_number, end_page_number = self._get_segment_page_numbers(
                     segment_info["doc_id"],
                     segment_info["chunk_start"],
-                    segment_info["chunk_end"]
+                    segment_info["chunk_end"],
                 )
                 segment_info["segment_page_start"] = start_page_number
                 segment_info["segment_page_end"] = end_page_number
@@ -1059,38 +1153,44 @@ class KnowledgeBase:
                     segment_info["text"] = segment_info["content"]
                 else:
                     segment_info["text"] = ""
-            
+
             step_duration = time.perf_counter() - step_start_time
-            
+
             # Log information about content retrieval step
-            query_logger.debug("Content retrieval complete", extra={
-                **base_extra, 
-                "step": "content_retrieval", 
-                "duration_s": round(step_duration, 4),
-                "return_mode": return_mode
-            })
-            
+            query_logger.debug(
+                "Content retrieval complete",
+                extra={
+                    **base_extra,
+                    "step": "content_retrieval",
+                    "duration_s": round(step_duration, 4),
+                    "return_mode": return_mode,
+                },
+            )
+
             # Calculate and log overall query duration
             overall_duration = time.perf_counter() - overall_start_time
-            query_logger.info("Query successful", extra={
-                **base_extra, 
-                "total_duration_s": round(overall_duration, 4), 
-                "num_final_segments": len(relevant_segment_info)
-            })
+            query_logger.info(
+                "Query successful",
+                extra={
+                    **base_extra,
+                    "total_duration_s": round(overall_duration, 4),
+                    "num_final_segments": len(relevant_segment_info),
+                },
+            )
 
             return relevant_segment_info
-            
+
         except Exception as e:
             # Log error with exception info
             overall_duration = time.perf_counter() - overall_start_time
             query_logger.error(
-                "Query failed", 
+                "Query failed",
                 extra={
                     **base_extra,
                     "total_duration_s": round(overall_duration, 4),
-                    "error": str(e)
+                    "error": str(e),
                 },
-                exc_info=True
+                exc_info=True,
             )
             # Re-raise the exception
             raise
