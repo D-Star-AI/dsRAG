@@ -11,16 +11,25 @@ You are a query generation system. Please generate one or more search queries (u
 
 Each of the queries you generate will be used to search a knowledge base for information that can be used to respond to the user input. Make sure each query is specific enough to return relevant information. If multiple pieces of information would be useful, you should generate multiple queries, one for each specific piece of information needed.
 
+These are the knowledge bases that you can query:
+{knowledge_base_descriptions}
+
 {auto_query_guidance}
 """.strip()
 
 
-def get_search_queries(user_input: str, auto_query_guidance: str = "", max_queries: int = 5):
+def get_search_queries(
+    user_input: str, auto_query_guidance: str = "", max_queries: int = 5
+):
     base_url = os.environ.get("DSRAG_ANTHROPIC_BASE_URL", None)
     if base_url is not None:
-        client = instructor.from_anthropic(Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url))
+        client = instructor.from_anthropic(
+            Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url)
+        )
     else:
-        client = instructor.from_anthropic(Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]))
+        client = instructor.from_anthropic(
+            Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        )
 
     class Queries(BaseModel):
         queries: List[str]
@@ -29,13 +38,10 @@ def get_search_queries(user_input: str, auto_query_guidance: str = "", max_queri
         model="claude-3-5-sonnet-20241022",
         max_tokens=400,
         temperature=0.2,
-        system=SYSTEM_MESSAGE.format(max_queries=max_queries, auto_query_guidance=auto_query_guidance),
-        messages=[
-            {
-                "role": "user",
-                "content": user_input
-            }
-        ],
+        system=SYSTEM_MESSAGE.format(
+            max_queries=max_queries, auto_query_guidance=auto_query_guidance
+        ),
+        messages=[{"role": "user", "content": user_input}],
         response_model=Queries,
     )
 
