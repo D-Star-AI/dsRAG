@@ -87,7 +87,7 @@ class KnowledgeBase:
             # load the KB if it exists; otherwise, initialize it and save it to disk
             if self.metadata_storage.kb_exists(self.kb_id) and exists_ok:
                 self._load(
-                    embedding_model, auto_context_model, reranker, file_system, chunk_db, vector_db
+                    auto_context_model, reranker, file_system, chunk_db, vector_db
                 )
                 self._save()
             elif self.metadata_storage.kb_exists(self.kb_id) and not exists_ok:
@@ -196,11 +196,9 @@ class KnowledgeBase:
         }
         components = data.get("components", {})
         # Deserialize components
-        self.embedding_model = (
-            embedding_model
-            if embedding_model
-            else Embedding.from_dict(components.get("embedding_model", {}))
-        )
+        self.embedding_model = Embedding.from_dict(
+            components.get("embedding_model", {}))
+        
         self.reranker = (
             reranker
             if reranker
