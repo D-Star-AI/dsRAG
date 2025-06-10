@@ -1,7 +1,6 @@
 from typing import Optional, Sequence
 import json
 import numpy as np
-from psycopg2 import sql
 
 from dsrag.database.vector.db import VectorDB
 from dsrag.database.vector.types import VectorSearchResult, MetadataFilter, ChunkMetadata, Vector
@@ -92,6 +91,8 @@ class PostgresVectorDB(VectorDB):
         from pgvector.psycopg2 import register_vector
         register_vector(conn)
 
+        from psycopg2 import sql
+
         cur.execute(
             sql.SQL(
                 "SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = {})")
@@ -136,6 +137,8 @@ class PostgresVectorDB(VectorDB):
         )
 
         try:
+            from psycopg2 import sql
+
             cur = conn.cursor()
             cur.execute(
                 sql.SQL("SELECT COUNT(*) FROM {}").FORMAT(sql.Identifier(self.table_name)))
@@ -162,6 +165,7 @@ class PostgresVectorDB(VectorDB):
         data_to_insert = [(id, json.dumps(content), embedding)
                           for id, content, embedding in zip(ids, metadata, vectors)]
 
+        from psycopg2 import sql
         insert_sql = sql.SQL("INSERT INTO {} (id, metadata, embedding) VALUES (%s, %s, %s)").format(
             sql.Identifier(self.table_name)).as_string(cur)
 
@@ -183,6 +187,7 @@ class PostgresVectorDB(VectorDB):
         # Delete all vectors with the given doc_id
         condition = {"doc_id": doc_id}
 
+        from psycopg2 import sql
         cur.execute(
             sql.SQL(
                 "DELETE FROM {} WHERE metadata @> %s").format(sql.Identifier(self.table_name)),
@@ -208,6 +213,7 @@ class PostgresVectorDB(VectorDB):
         if metadata_filter:
             filter_expression = format_metadata_filter(metadata_filter)
 
+        from psycopg2 import sql
         if metadata_filter:
             filter_value = metadata_filter['value']
 
@@ -265,6 +271,7 @@ class PostgresVectorDB(VectorDB):
             port=self.port
         )
 
+        from psycopg2 import sql
         cur = conn.cursor()
         cur.execute(sql.SQL("DROP TABLE {}").format(
             sql.Identifier(self.table_name)))
