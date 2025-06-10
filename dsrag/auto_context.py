@@ -159,8 +159,6 @@ def get_document_summary(
 def get_chunk_summary(
     auto_context_model: LLM,
     chunk_text: str,
-    document_title: str = "",
-    document_summary: str = "",
     chunk_summarization_guidance: str = "",
     language: str = "en",
 ):
@@ -185,8 +183,6 @@ def get_chunk_summary(
     prompt = CHUNK_SUMMARIZATION_PROMPT.format(
         chunk_summarization_guidance=chunk_summarization_guidance,
         non_english_addendum=non_english_addendum,
-        document_title=document_title,
-        document_summary=document_summary,
         chunk_text=chunk_text,
         truncation_message=truncation_message,
     )
