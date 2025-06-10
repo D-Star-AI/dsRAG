@@ -872,8 +872,9 @@ class KnowledgeBase:
             for chunk_index in range(chunk_start, chunk_end):
                 chunk_text = self._get_chunk_text(doc_id, chunk_index) or ""
                 chunk_body += chunk_text
-            segment_summary = self._get_segment_context(chunk_body=chunk_body)
-            segment_text += segment_summary + "\n\n" + chunk_body
+            # Seems way too long to get the summary
+            # segment_summary = self._get_segment_context(chunk_body=chunk_body)
+            segment_text += chunk_body
             return segment_text.strip()
         else:
             # get the page numbers that the segment starts and ends on
