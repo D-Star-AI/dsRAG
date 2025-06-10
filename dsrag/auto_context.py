@@ -65,7 +65,8 @@ CHUNK_SUMMARIZATION_PROMPT = """
 INSTRUCTIONS
 What is the following excerpted text, and what is it about?
 
-Your response should be a single sentence, and it shouldn't be an excessively long sentence. DO NOT respond with anything else.
+Please give a short succinct context to situate this excerpt within the overall document for the purposes of improving search retrieval of the excerpt. Include a one sentence description of the excerpt with identifying info.
+Answer ONLY with the succinct context and nothing else.
 
 Your response should take the form of "This excerpt is about: X". For example, if the excerpt is  about the history of the United States, your response might be "This excerpt is about: the history of the United States, covering the period from 1776 to the present day." If the excerpt is about the 2023 Form 10-K for Apple Inc., your response might be "This excerpt is about: the financial performance and operations of Apple Inc. during the fiscal year 2023."
 
@@ -76,9 +77,6 @@ Your response should take the form of "This excerpt is about: X". For example, i
 {truncation_message}
 
 EXCERPT
-From document: {document_title}
-Summary of document: {document_summary}
-
 {chunk_text}
 """.strip()
 

@@ -15,7 +15,7 @@ from dsrag.add_document import (
     add_chunks_to_db,
     add_vectors_to_db,
 )
-from dsrag.auto_context import get_segment_header
+from dsrag.auto_context import get_segment_header, get_chunk_summary
 from dsrag.rse import (
     get_relevance_values,
     get_best_segments,
@@ -762,6 +762,22 @@ class KnowledgeBase:
         chunk_text = self.chunk_db.get_chunk_text(doc_id, chunk_index)
         return chunk_text
 
+    def _get_segment_context(
+        self, doc_id: str, chunk_index: int, chunk_body: str
+    ) -> str:
+        """Generate context for a segment.
+
+        Internal method to create segment context.
+        """
+        document_title = self.chunk_db.get_document_title(doc_id, chunk_index) or ""
+        document_summary = self.chunk_db.get_document_summary(doc_id, chunk_index) or ""
+        return get_chunk_summary(
+            auto_context_model=self.auto_context_model,
+            chunk_text=chunk_body,
+            document_title=document_title,
+            document_summary=document_summary,
+        )
+
     def _get_segment_header(self, doc_id: str, chunk_index: int) -> str:
         """Generate a header for a segment.
 
@@ -858,9 +874,14 @@ class KnowledgeBase:
 
         if return_mode == "text":
             segment_text = f"{self._get_segment_header(doc_id=doc_id, chunk_index=chunk_start)}\n\n"  # initialize the segment with the segment header
+            chunk_body = ""
             for chunk_index in range(chunk_start, chunk_end):
                 chunk_text = self._get_chunk_text(doc_id, chunk_index) or ""
-                segment_text += chunk_text
+                chunk_body += chunk_text
+            segment_summary = self._get_segment_context(
+                doc_id=doc_id, chunk_index=chunk_start, chunk_body=chunk_body
+            )
+            segment_text += segment_summary + "\n\n" + chunk_body
             return segment_text.strip()
         else:
             # get the page numbers that the segment starts and ends on
