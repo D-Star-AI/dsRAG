@@ -19,11 +19,11 @@ DOCUMENT
 
 DOCUMENT_SUMMARIZATION_PROMPT = """
 INSTRUCTIONS
-What is the following document, and what is it about? 
+What is the following document, and what is it about?
 
 Your response should be a single sentence, and it shouldn't be an excessively long sentence. DO NOT respond with anything else.
 
-Your response should take the form of "This document is about: X" (This part should be translated into the language of the document if it's not in English). For example, if the document is a book about the history of the United States called A People's History of the United States, your response might be "This document is about: the history of the United States, covering the period from 1776 to the present day." If the document is the 2023 Form 10-K for Apple Inc., your response might be "This document is about: the financial performance and operations of Apple Inc. during the fiscal year 2023." If the document is the novel Les Miserables by Victor Hugo, your response might be "Ce document concerne : le roman "Les Misérables" de Victor Hugo, qui explore les thèmes de l'injustice sociale, de la rédemption et des luttes de divers personnages dans la France du XIXe siècle."
+Your response should take the form of "This document is about: X" (This part should be translated into the language of the document if it's not in English). For example, if the document is a book about the history of the United States called A People's History of the United States, your response might be "This document is about: the history of the United States, covering the period from 1776 to the present day." If the document is the 2023 Form 10-K for Apple Inc., your response might be "This document is about: the financial performance and operations of Apple Inc. during the fiscal year 2023."
 
 {document_summarization_guidance}
 
@@ -43,7 +43,7 @@ Also note that the document text provided below is just the first ~{num_words} w
 
 SECTION_SUMMARIZATION_PROMPT = """
 INSTRUCTIONS
-What is the following section about? 
+What is the following section about?
 
 Your response should be a single sentence, and it shouldn't be an excessively long sentence. DO NOT respond with anything else.
 
@@ -62,15 +62,22 @@ Section name: {section_title}
 
 LANGUAGE_ADDENDUM = "YOU MUST use the same language as the document for your entire response. If the document is in English, your response MUST BE entirely in English. If the document is in another language, your response MUST BE entirely in that language."
 
+
 def truncate_content(content: str, max_tokens: int):
-    TOKEN_ENCODER = tiktoken.encoding_for_model('gpt-3.5-turbo')
+    TOKEN_ENCODER = tiktoken.encoding_for_model("gpt-3.5-turbo")
     tokens = TOKEN_ENCODER.encode(content, disallowed_special=())
     truncated_tokens = tokens[:max_tokens]
     return TOKEN_ENCODER.decode(truncated_tokens), min(len(tokens), max_tokens)
 
-def get_document_title(auto_context_model: LLM, document_text: str, document_title_guidance: str = "", language: str = "en"):
+
+def get_document_title(
+    auto_context_model: LLM,
+    document_text: str,
+    document_title_guidance: str = "",
+    language: str = "en",
+):
     # truncate the content if it's too long
-    max_content_tokens = 4000 # if this number changes, also update num_words in the truncation message below
+    max_content_tokens = 4000  # if this number changes, also update num_words in the truncation message below
     document_text, num_tokens = truncate_content(document_text, max_content_tokens)
     if num_tokens < max_content_tokens:
         truncation_message = ""
@@ -85,24 +92,31 @@ def get_document_title(auto_context_model: LLM, document_text: str, document_tit
 
     # get document title
     prompt = DOCUMENT_TITLE_PROMPT.format(
-        document_title_guidance=document_title_guidance, 
-        non_english_addendum=non_english_addendum, 
-        document_text=document_text, 
-        truncation_message=truncation_message
+        document_title_guidance=document_title_guidance,
+        non_english_addendum=non_english_addendum,
+        document_text=document_text,
+        truncation_message=truncation_message,
     )
     chat_messages = [{"role": "user", "content": prompt}]
     document_title = auto_context_model.make_llm_call(chat_messages)
     return document_title
 
-def get_document_summary(auto_context_model: LLM, document_text: str, document_title: str, document_summarization_guidance: str = "", language: str = "en"):
+
+def get_document_summary(
+    auto_context_model: LLM,
+    document_text: str,
+    document_title: str,
+    document_summarization_guidance: str = "",
+    language: str = "en",
+):
     # truncate the content if it's too long
-    max_content_tokens = 8000 # if this number changes, also update num_words in the truncation message below
+    max_content_tokens = 8000  # if this number changes, also update num_words in the truncation message below
     document_text, num_tokens = truncate_content(document_text, max_content_tokens)
     if num_tokens < max_content_tokens:
         truncation_message = ""
     else:
         truncation_message = TRUNCATION_MESSAGE.format(num_words=6000)
-    
+
     # see if we need to add an addendum about non-English responses
     if language != "en":
         non_english_addendum = LANGUAGE_ADDENDUM
@@ -111,31 +125,53 @@ def get_document_summary(auto_context_model: LLM, document_text: str, document_t
 
     # get document summary
     prompt = DOCUMENT_SUMMARIZATION_PROMPT.format(
-        document_summarization_guidance=document_summarization_guidance, 
-        non_english_addendum=non_english_addendum, 
-        document_text=document_text, 
-        document_title=document_title, 
-        truncation_message=truncation_message
+        document_summarization_guidance=document_summarization_guidance,
+        non_english_addendum=non_english_addendum,
+        document_text=document_text,
+        document_title=document_title,
+        truncation_message=truncation_message,
     )
     chat_messages = [{"role": "user", "content": prompt}]
     document_summary = auto_context_model.make_llm_call(chat_messages)
     return document_summary
 
-def get_section_summary(auto_context_model: LLM, section_text: str, document_title: str, section_title: str, section_summarization_guidance: str = "", language: str = "en"):
+
+def get_section_summary(
+    auto_context_model: LLM,
+    section_text: str,
+    document_title: str,
+    section_title: str,
+    section_summarization_guidance: str = "",
+    language: str = "en",
+):
     # see if we need to add an addendum about non-English responses
     if language != "en":
         non_english_addendum = LANGUAGE_ADDENDUM
     else:
         non_english_addendum = ""
-    
-    prompt = SECTION_SUMMARIZATION_PROMPT.format(section_summarization_guidance=section_summarization_guidance, non_english_addendum=non_english_addendum, section_text=section_text, document_title=document_title, section_title=section_title)
+
+    prompt = SECTION_SUMMARIZATION_PROMPT.format(
+        section_summarization_guidance=section_summarization_guidance,
+        non_english_addendum=non_english_addendum,
+        section_text=section_text,
+        document_title=document_title,
+        section_title=section_title,
+    )
     chat_messages = [{"role": "user", "content": prompt}]
     section_summary = auto_context_model.make_llm_call(chat_messages)
     return section_summary
 
-def get_chunk_header(document_title: str = "", document_summary: str = "", section_title: str = "", section_summary: str = ""):
-    """
-    The chunk header is what gets prepended to each chunk before embedding or reranking. At the very least, it should contain the document title.
+
+def get_chunk_header(
+    document_title: str = "",
+    document_summary: str = "",
+    section_title: str = "",
+    section_summary: str = "",
+):
+    """The chunk header is what gets prepended to each chunk before embedding or
+    reranking.
+
+    At the very least, it should contain the document title.
     """
     chunk_header = ""
     if document_title:
@@ -144,9 +180,15 @@ def get_chunk_header(document_title: str = "", document_summary: str = "", secti
         chunk_header += f"\n\nSection context: this excerpt is from the section titled '{section_title}'. {section_summary}"
     return chunk_header
 
+
 def get_segment_header(document_title: str = "", document_summary: str = ""):
-    """
-    The segment header is what gets prepended to each segment (i.e. search result). This provides context to the LLM about the segment. The segment header only contains document-level information. Section-level information is not needed here, because either the segment will be large enough to not need section-level context, or the it will be a chunk where the section-level context isn't relevant to the query (because otherwise more of the section would have been included in the segment).
+    """The segment header is what gets prepended to each segment (i.e. search result).
+
+    This provides context to the LLM about the segment. The segment header only contains
+    document-level information. Section-level information is not needed here, because
+    either the segment will be large enough to not need section-level context, or the it
+    will be a chunk where the section-level context isn't relevant to the query (because
+    otherwise more of the section would have been included in the segment).
     """
     segment_header = ""
     if document_title:
