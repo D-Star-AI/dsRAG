@@ -116,7 +116,7 @@ class DynamoDBMetadataStorage(MetadataStorage):
         dynamodb_client = self.create_dynamo_client()
         try:
             dynamodb_client.create_table(
-                TableName="metadata_storage",
+                TableName=self.table_name,
                 KeySchema=[
                     {
                         'AttributeName': 'kb_id',
@@ -133,7 +133,7 @@ class DynamoDBMetadataStorage(MetadataStorage):
             )
         except Exception as e:
             # Probably the table already exists
-            print (e)
+            print(e)
 
     def kb_exists(self, kb_id: str) -> bool:
         dynamodb_client = self.create_dynamo_client()
@@ -151,22 +151,37 @@ class DynamoDBMetadataStorage(MetadataStorage):
             key: value for key, value in data.items() if key != "components"
         }
         components = data.get("components", {})
-        full_data = {**kb_metadata, "components": components}
+
+        full_data = {**kb_metadata, "components": components,
+                     "language": item.get("language", "en")}
+
         converted_data = convert_decimal_to_numbers(full_data)
         return converted_data
 
     def save(self, full_data: dict, kb_id: str) -> None:
-
         # Check if any of the items are a float or int, and convert them to Decimal
         converted_data = convert_numbers_to_decimal(full_data)
 
-        # Upload this data to the dynamo table, where the kb_id is the primary key
+        update_params = {
+            "Key": {
+                "kb_id": kb_id
+            },
+            "UpdateExpression": "SET metadata = :metadata",
+            "ExpressionAttributeValues": {
+                ":metadata": converted_data
+            },
+            "ReturnValues": "ALL_NEW"
+        }
+
         dynamodb_client = self.create_dynamo_client()
         table = dynamodb_client.Table(self.table_name)
-        table.put_item(Item={'kb_id': kb_id, 'metadata': converted_data})
+
+        if self.kb_exists(kb_id):
+            table.update_item(**update_params)
+        else:
+            table.put_item(Item={'kb_id': kb_id, 'metadata': converted_data})
 
     def delete(self, kb_id: str) -> None:
         dynamodb_client = self.create_dynamo_client()
         table = dynamodb_client.Table(self.table_name)
         table.delete_item(Key={'kb_id': kb_id})
-
