@@ -60,6 +60,28 @@ Section name: {section_title}
 {section_text}
 """.strip()
 
+
+CHUNK_SUMMARIZATION_PROMPT = """
+INSTRUCTIONS
+What is the following excerpted text, and what is it about?
+
+Your response should be a single sentence, and it shouldn't be an excessively long sentence. DO NOT respond with anything else.
+
+Your response should take the form of "This excerpt is about: X". For example, if the excerpt is  about the history of the United States, your response might be "This excerpt is about: the history of the United States, covering the period from 1776 to the present day." If the excerpt is about the 2023 Form 10-K for Apple Inc., your response might be "This excerpt is about: the financial performance and operations of Apple Inc. during the fiscal year 2023."
+
+{chunk_summarization_guidance}
+
+{non_english_addendum}
+
+{truncation_message}
+
+EXCERPT
+From document: {document_title}
+Summary of document: {document_summary}
+
+{chunk_text}
+""".strip()
+
 LANGUAGE_ADDENDUM = "YOU MUST use the same language as the document for your entire response. If the document is in English, your response MUST BE entirely in English. If the document is in another language, your response MUST BE entirely in that language."
 
 
@@ -136,6 +158,45 @@ def get_document_summary(
     return document_summary
 
 
+def get_chunk_summary(
+    auto_context_model: LLM,
+    chunk_text: str,
+    document_title: str = "",
+    document_summary: str = "",
+    chunk_summarization_guidance: str = "",
+    language: str = "en",
+):
+    """Get a summary for a chunk of text, which may include document."""
+    # truncate the content if it's too long
+    max_content_tokens = 1000  # if this number changes, also update num_words in the truncation message below
+    chunk_text, num_tokens = truncate_content(chunk_text, max_content_tokens)
+    if num_tokens < max_content_tokens:
+        truncation_message = ""
+    else:
+        truncation_message = TRUNCATION_MESSAGE.format(
+            num_words=len(chunk_text.split(" "))
+        )
+
+    # see if we need to add an addendum about non-English responses
+    if language != "en":
+        non_english_addendum = LANGUAGE_ADDENDUM
+    else:
+        non_english_addendum = ""
+
+    # get document summary
+    prompt = CHUNK_SUMMARIZATION_PROMPT.format(
+        chunk_summarization_guidance=chunk_summarization_guidance,
+        non_english_addendum=non_english_addendum,
+        document_title=document_title,
+        document_summary=document_summary,
+        chunk_text=chunk_text,
+        truncation_message=truncation_message,
+    )
+    chat_messages = [{"role": "user", "content": prompt}]
+    chunk_summary = auto_context_model.make_llm_call(chat_messages)
+    return chunk_summary
+
+
 def get_section_summary(
     auto_context_model: LLM,
     section_text: str,
@@ -167,6 +228,7 @@ def get_chunk_header(
     document_summary: str = "",
     section_title: str = "",
     section_summary: str = "",
+    chunk_summary: str = "",
 ):
     """The chunk header is what gets prepended to each chunk before embedding or
     reranking.
@@ -178,6 +240,8 @@ def get_chunk_header(
         chunk_header += f"Document context: the following excerpt is from a document titled '{document_title}'. {document_summary}"
     if section_title:
         chunk_header += f"\n\nSection context: this excerpt is from the section titled '{section_title}'. {section_summary}"
+    if chunk_summary:
+        chunk_header += f"\n\nExcerpt context: {chunk_summary}"
     return chunk_header
 
 
