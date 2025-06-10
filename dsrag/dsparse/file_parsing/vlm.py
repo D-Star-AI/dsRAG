@@ -23,9 +23,16 @@ def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gem
                 compressed_image,
                 system_message
             ],
-            generation_config=generation_config
+            generation_config=generation_config,
+            stream=True
         )
-        return response.text
+
+        full_response = ""
+        for chunk in response:
+            full_response += chunk.text
+
+        return full_response
+#        return response.text
     finally:
         # Ensure image is closed even if an error occurs
         if 'image' in locals():
