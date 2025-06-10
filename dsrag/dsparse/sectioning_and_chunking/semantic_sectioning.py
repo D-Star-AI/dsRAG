@@ -2,20 +2,36 @@ import os
 import time
 import logging
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any
+from typing import List
 from ..utils.imports import instructor
-from ..models.types import SemanticSectioningConfig, Line, Section, Element, ElementType, ChunkingConfig
+from ..models.types import (
+    SemanticSectioningConfig,
+    Line,
+    Section,
+    Element,
+    ElementType,
+    ChunkingConfig,
+)
 
 # Get the dsparse logger
 logger = logging.getLogger("dsrag.dsparse.semantic_sectioning")
 
+
 class DocumentSection(BaseModel):
-    title: str = Field(description="main topic of this section of the document (very descriptive)")
-    start_index: int = Field(description="line number where the section begins (inclusive)")
+    title: str = Field(
+        description="main topic of this section of the document (very descriptive)"
+    )
+    start_index: int = Field(
+        description="line number where the section begins (inclusive)"
+    )
+
 
 class StructuredDocument(BaseModel):
-    """obtains meaningful sections, each centered around a single concept/topic"""
-    sections: List[DocumentSection] = Field(description="an ordered list of sections of the document")
+    """Obtains meaningful sections, each centered around a single concept/topic."""
+
+    sections: List[DocumentSection] = Field(
+        description="an ordered list of sections of the document"
+    )
 
 
 SYSTEM_PROMPT = """
@@ -30,7 +46,9 @@ Note: the document provided to you may just be an excerpt from a larger document
 LANGUAGE_ADDENDUM = "For your section titles, YOU MUST use the same language as the document. If the document is in English, your section titles should be in English. If the document is in another language, your section titles should be in that language."
 
 
-def get_document_with_lines(document_lines: List[Line], start_line: int, max_characters: int) -> tuple[str, int]:
+def get_document_with_lines(
+    document_lines: List[Line], start_line: int, max_characters: int
+) -> tuple[str, int]:
     document_with_line_numbers = ""
     character_count = 0
     for i in range(start_line, len(document_lines)):
@@ -42,7 +60,14 @@ def get_document_with_lines(document_lines: List[Line], start_line: int, max_cha
             break
     return document_with_line_numbers, end_line
 
-def get_structured_document(document_with_line_numbers: str, start_line: int, llm_provider: str, model: str, language: str) -> StructuredDocument:
+
+def get_structured_document(
+    document_with_line_numbers: str,
+    start_line: int,
+    llm_provider: str,
+    model: str,
+    language: str,
+) -> StructuredDocument:
     """
     Note: This function relies on Instructor, which only supports certain model providers. That's why this function doesn't use the LLM abstract base class that is used elsewhere in the project.
     """
@@ -53,11 +78,16 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, ll
 
     if llm_provider == "anthropic":
         from anthropic import Anthropic
+
         base_url = os.environ.get("DSRAG_ANTHROPIC_BASE_URL", None)
         if base_url is not None:
-            client = instructor.from_anthropic(Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url))
+            client = instructor.from_anthropic(
+                Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], base_url=base_url)
+            )
         else:
-            client = instructor.from_anthropic(Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]))
+            client = instructor.from_anthropic(
+                Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+            )
         return client.chat.completions.create(
             model=model,
             response_model=StructuredDocument,
@@ -73,11 +103,16 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, ll
         )
     elif llm_provider == "openai":
         from openai import OpenAI
+
         base_url = os.environ.get("DSRAG_OPENAI_BASE_URL", None)
         if base_url is not None:
-            client = instructor.from_openai(OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url))
+            client = instructor.from_openai(
+                OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=base_url)
+            )
         else:
-            client = instructor.from_openai(OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
+            client = instructor.from_openai(
+                OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+            )
         return client.chat.completions.create(
             model=model,
             response_model=StructuredDocument,
@@ -96,31 +131,30 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, ll
         )
     elif llm_provider == "gemini":
         import google.generativeai as genai
+
         genai.configure(api_key=os.environ["GEMINI_API_KEY"])
         client = instructor.from_gemini(
             client=genai.GenerativeModel(model_name=f"models/{model}"),
-            mode=instructor.Mode.GEMINI_JSON
+            mode=instructor.Mode.GEMINI_JSON,
         )
         # For Gemini, prepend the system prompt to the user message
         combined_prompt = f"{formatted_system_prompt}\n\n<document>\n{document_with_line_numbers}\n</document>"
         return client.messages.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": combined_prompt
-                }
-            ],
+            messages=[{"role": "user", "content": combined_prompt}],
             response_model=StructuredDocument,
-            generation_config={
-                "temperature": 0.0,
-                "max_output_tokens": 4000
-            }
+            generation_config={"temperature": 0.0, "max_output_tokens": 4000},
         )
     else:
-        raise ValueError("Invalid provider. Must be one of: 'anthropic', 'openai', 'gemini'.")
+        raise ValueError(
+            "Invalid provider. Must be one of: 'anthropic', 'openai', 'gemini'."
+        )
 
-def validate_and_fix_sections(sections: List[DocumentSection], document_length: int) -> List[DocumentSection]:
-    """Validates and fixes section indices to ensure they are strictly ordered within document bounds."""
+
+def validate_and_fix_sections(
+    sections: List[DocumentSection], document_length: int
+) -> List[DocumentSection]:
+    """Validates and fixes section indices to ensure they are strictly ordered within
+    document bounds."""
     if not sections:
         return sections
 
@@ -137,46 +171,56 @@ def validate_and_fix_sections(sections: List[DocumentSection], document_length: 
     original_order = [s.start_index for s in sections]
     sections = sorted(sections, key=lambda x: x.start_index)
     sorted_order = [s.start_index for s in sections]
-    
+
     if original_order != sorted_order:
-        print(f"Warning: Sections were out of order. Original indices: {original_order}, Sorted indices: {sorted_order}")
-    
+        print(
+            f"Warning: Sections were out of order. Original indices: {original_order}, Sorted indices: {sorted_order}"
+        )
+
     # Validate and fix each section's start index
     fixed_sections = []
     last_start = -1
-    
+
     for section in sections:
         original_start = section.start_index
-        
+
         # Skip sections that start beyond document length
         if original_start >= document_length:
-            print(f"Warning: Skipping section '{section.title}' as it starts beyond document length")
+            print(
+                f"Warning: Skipping section '{section.title}' as it starts beyond document length"
+            )
             continue
-            
+
         # Ensure start index is valid and after the previous section
         start = max(last_start + 1, min(section.start_index, document_length - 1))
-            
+
         if start != original_start:
-            print(f"Warning: Section '{section.title}' start index adjusted from {original_start} to {start}")
-        
-        fixed_sections.append(DocumentSection(
-            title=section.title,
-            start_index=start
-        ))
+            print(
+                f"Warning: Section '{section.title}' start index adjusted from {original_start} to {start}"
+            )
+
+        fixed_sections.append(DocumentSection(title=section.title, start_index=start))
         last_start = start
-    
+
     # Ensure we have at least one section
     if not fixed_sections:
-        fixed_sections.append(DocumentSection(
-            title="Document",
-            start_index=0
-        ))
-    
+        fixed_sections.append(DocumentSection(title="Document", start_index=0))
+
     return fixed_sections
 
-def get_sections(document_lines: List[Line], max_iterations: int, max_characters: int = 20000, llm_provider: str = "openai", model: str = "gpt-4o-mini", language: str = "en", kb_id: str = "", doc_id: str = "") -> List[Section]:
-    """
-    Inputs
+
+def get_sections(
+    document_lines: List[Line],
+    max_iterations: int,
+    max_characters: int = 20000,
+    llm_provider: str = "openai",
+    model: str = "gpt-4o-mini",
+    language: str = "en",
+    kb_id: str = "",
+    doc_id: str = "",
+) -> List[Section]:
+    """Inputs.
+
     - document_lines: list[dict] - the text of the document
     - max_iterations: int - the maximum number of iterations to run (used as a safety measure to prevent the possibility of an infinite loop)
     - max_characters: int - the maximum number of characters to process in one call to the LLM
@@ -198,25 +242,30 @@ def get_sections(document_lines: List[Line], max_iterations: int, max_characters
         base_extra["kb_id"] = kb_id
     if doc_id:
         base_extra["doc_id"] = doc_id
-    
+
     # Log start of sectioning operation
-    logger.debug("Starting semantic sectioning", extra={
-        **base_extra,
-        "document_lines_count": len(document_lines),
-        "llm_provider": llm_provider,
-        "model": model
-    })
-    
+    logger.debug(
+        "Starting semantic sectioning",
+        extra={
+            **base_extra,
+            "document_lines_count": len(document_lines),
+            "llm_provider": llm_provider,
+            "model": model,
+        },
+    )
+
     start_time = time.perf_counter()
     start_line = 0
     all_sections = []
     iteration_count = 0
-    
+
     for iteration in range(max_iterations):
         iteration_count = iteration + 1
         iter_start_time = time.perf_counter()
-        
-        document_with_line_numbers, end_line = get_document_with_lines(document_lines, start_line, max_characters)
+
+        document_with_line_numbers, end_line = get_document_with_lines(
+            document_lines, start_line, max_characters
+        )
 
         # Retry logic for get_structured_document
         max_retries = 3
@@ -227,54 +276,98 @@ def get_sections(document_lines: List[Line], max_iterations: int, max_characters
 
         for attempt in range(max_retries):
             try:
-                structured_doc = get_structured_document(document_with_line_numbers, start_line, llm_provider=llm_provider, model=model, language=language)
+                structured_doc = get_structured_document(
+                    document_with_line_numbers,
+                    start_line,
+                    llm_provider=llm_provider,
+                    model=model,
+                    language=language,
+                )
                 # If successful, break the loop
                 break
             except Exception as e:
-                logger.warning(f"Attempt {attempt + 1}/{max_retries} failed for get_structured_document: {e}", extra={**base_extra, "iteration": iteration_count, "start_line": start_line})
+                logger.warning(
+                    f"Attempt {attempt + 1}/{max_retries} failed for get_structured_document: {e}",
+                    extra={
+                        **base_extra,
+                        "iteration": iteration_count,
+                        "start_line": start_line,
+                    },
+                )
                 if attempt < max_retries - 1:
-                    logger.info(f"Retrying in {current_delay:.2f} seconds...", extra={**base_extra, "iteration": iteration_count, "start_line": start_line})
+                    logger.info(
+                        f"Retrying in {current_delay:.2f} seconds...",
+                        extra={
+                            **base_extra,
+                            "iteration": iteration_count,
+                            "start_line": start_line,
+                        },
+                    )
                     time.sleep(current_delay)
                     current_delay *= backoff_factor
                 else:
                     # If all retries fail, log the final error and re-raise
-                    logger.error(f"All {max_retries} attempts failed for get_structured_document.", extra={**base_extra, "iteration": iteration_count, "start_line": start_line})
-                    raise e # Re-raise the last exception
+                    logger.error(
+                        f"All {max_retries} attempts failed for get_structured_document.",
+                        extra={
+                            **base_extra,
+                            "iteration": iteration_count,
+                            "start_line": start_line,
+                        },
+                    )
+                    raise e  # Re-raise the last exception
 
         # Ensure structured_doc is not None after the loop (should not happen if exception is raised)
         if structured_doc is None:
-             # This case should ideally not be reached if the exception is always re-raised on final failure.
-             # However, adding a safeguard in case the logic changes or the exception is caught unexpectedly later.
-             logger.error("structured_doc is None after retry loop without raising an exception. This should not happen.", extra={**base_extra, "iteration": iteration_count, "start_line": start_line})
-             # Handle this unexpected state, perhaps by raising a runtime error or skipping the rest of the iteration.
-             # For now, let's raise a specific error.
-             raise RuntimeError(f"Failed to obtain structured document for start_line {start_line} after {max_retries} retries.")
+            # This case should ideally not be reached if the exception is always re-raised on final failure.
+            # However, adding a safeguard in case the logic changes or the exception is caught unexpectedly later.
+            logger.error(
+                "structured_doc is None after retry loop without raising an exception. This should not happen.",
+                extra={
+                    **base_extra,
+                    "iteration": iteration_count,
+                    "start_line": start_line,
+                },
+            )
+            # Handle this unexpected state, perhaps by raising a runtime error or skipping the rest of the iteration.
+            # For now, let's raise a specific error.
+            raise RuntimeError(
+                f"Failed to obtain structured document for start_line {start_line} after {max_retries} retries."
+            )
 
         # Validate and fix the sections from this batch
-        new_sections = validate_and_fix_sections(structured_doc.sections, len(document_lines))
-        
-        logger.debug("Sectioning iteration complete", extra={
-            **base_extra,
-            "iteration": iteration_count,
-            "start_line": start_line,
-            "end_line": end_line,
-            "sections_found": len(new_sections),
-            "duration_s": round(time.perf_counter() - iter_start_time, 4)
-        })
-        
-        if not new_sections:
-            # If we got no valid sections, something went wrong - move forward anyway
-            logger.warning("No valid sections returned from LLM", extra={
+        new_sections = validate_and_fix_sections(
+            structured_doc.sections, len(document_lines)
+        )
+
+        logger.debug(
+            "Sectioning iteration complete",
+            extra={
                 **base_extra,
                 "iteration": iteration_count,
                 "start_line": start_line,
-                "end_line": end_line
-            })
+                "end_line": end_line,
+                "sections_found": len(new_sections),
+                "duration_s": round(time.perf_counter() - iter_start_time, 4),
+            },
+        )
+
+        if not new_sections:
+            # If we got no valid sections, something went wrong - move forward anyway
+            logger.warning(
+                "No valid sections returned from LLM",
+                extra={
+                    **base_extra,
+                    "iteration": iteration_count,
+                    "start_line": start_line,
+                    "end_line": end_line,
+                },
+            )
             start_line = end_line + 1
             continue
-            
+
         all_sections.extend(new_sections)
-        
+
         if end_line >= len(document_lines) - 1:
             # reached the end of the document
             break
@@ -285,7 +378,7 @@ def get_sections(document_lines: List[Line], max_iterations: int, max_characters
                 all_sections.pop()
             else:
                 start_line = end_line + 1
-                
+
         # Safety check - ensure we're making progress
         if start_line >= len(document_lines):
             break
@@ -295,42 +388,52 @@ def get_sections(document_lines: List[Line], max_iterations: int, max_characters
 
     # get the section text
     sections = get_sections_text(all_sections, document_lines)
-    
+
     # Calculate and log overall duration
     total_duration = time.perf_counter() - start_time
-    logger.debug("Semantic sectioning complete", extra={
-        **base_extra,
-        "total_duration_s": round(total_duration, 4), 
-        "iterations_used": iteration_count,
-        "sections_count": len(sections)
-    })
+    logger.debug(
+        "Semantic sectioning complete",
+        extra={
+            **base_extra,
+            "total_duration_s": round(total_duration, 4),
+            "iterations_used": iteration_count,
+            "sections_count": len(sections),
+        },
+    )
 
     return sections
 
-def get_sections_text(sections: List[DocumentSection], document_lines: List[Line]) -> List[Section]:
-    """
-    Takes in a list of DocumentSection objects and returns a list of Section objects
-    with content and properly computed end indices.
-    """
+
+def get_sections_text(
+    sections: List[DocumentSection], document_lines: List[Line]
+) -> List[Section]:
+    """Takes in a list of DocumentSection objects and returns a list of Section objects
+    with content and properly computed end indices."""
     section_dicts = []
     doc_length = len(document_lines)
-    
+
     for i, s in enumerate(sections):
         if i == len(sections) - 1:
             end_index = doc_length - 1  # Last section ends at document end
         else:
-            end_index = min(sections[i+1].start_index - 1, doc_length - 1)  # Section ends right before next section starts
-            
+            end_index = min(
+                sections[i + 1].start_index - 1, doc_length - 1
+            )  # Section ends right before next section starts
+
         # Double check bounds
         start_index = min(s.start_index, doc_length - 1)
         end_index = min(end_index, doc_length - 1)
-        
+
         if start_index > end_index:
-            print(f"Warning: Section '{s.title}' has invalid bounds: {start_index} > {end_index}")
+            print(
+                f"Warning: Section '{s.title}' has invalid bounds: {start_index} > {end_index}"
+            )
             continue
-            
+
         try:
-            contents = [document_lines[j]["content"] for j in range(start_index, end_index+1)]
+            contents = [
+                document_lines[j]["content"] for j in range(start_index, end_index + 1)
+            ]
         except Exception as e:
             print(f"Error in get_sections_text: {e}")
             print(f"Section: {s}")
@@ -338,24 +441,28 @@ def get_sections_text(sections: List[DocumentSection], document_lines: List[Line
             print(f"Document length: {doc_length}")
             raise e
 
-        section_dicts.append(Section(
-            title=s.title,
-            content="\n".join(contents),
-            start=start_index,
-            end=end_index
-        ))
+        section_dicts.append(
+            Section(
+                title=s.title,
+                content="\n".join(contents),
+                start=start_index,
+                end=end_index,
+            )
+        )
     return section_dicts
 
+
 def split_long_line(line: str, max_line_length: int = 200) -> List[str]:
-    """Split a long line into multiple shorter lines while trying to preserve word boundaries."""
+    """Split a long line into multiple shorter lines while trying to preserve word
+    boundaries."""
     if len(line) <= max_line_length:
         return [line]
-    
+
     words = line.split()
     lines = []
     current_line = []
     current_length = 0
-    
+
     for word in words:
         # +1 for the space that would be added
         if current_length + len(word) + 1 <= max_line_length or not current_line:
@@ -365,15 +472,21 @@ def split_long_line(line: str, max_line_length: int = 200) -> List[str]:
             lines.append(" ".join(current_line))
             current_line = [word]
             current_length = len(word)
-    
+
     if current_line:
         lines.append(" ".join(current_line))
-    
+
     return lines
 
-def elements_to_lines(elements: List[Element], exclude_elements: List[str], visual_elements: List[str], max_line_length: int = 200) -> List[Line]:
-    """
-    Inputs
+
+def elements_to_lines(
+    elements: List[Element],
+    exclude_elements: List[str],
+    visual_elements: List[str],
+    max_line_length: int = 200,
+) -> List[Line]:
+    """Inputs.
+
     - elements: list[dict] - the elements of the document
     - exclude_elements: list[str] - the types of elements to exclude
     - visual_elements: list[str] - the types of elements that are visual and therefore should not be split
@@ -386,32 +499,38 @@ def elements_to_lines(elements: List[Element], exclude_elements: List[str], visu
                 continue
             elif element["type"] in visual_elements:
                 # don't split visual elements
-                document_lines.append({
-                    "content": element["content"],
-                    "element_type": element["type"],
-                    "page_number": element.get("page_number", None),
-                    "is_visual": True,
-                })
+                document_lines.append(
+                    {
+                        "content": element["content"],
+                        "element_type": element["type"],
+                        "page_number": element.get("page_number", None),
+                        "is_visual": True,
+                    }
+                )
             else:
                 lines = element["content"].split("\n")
                 for line in lines:
                     if len(line) <= max_line_length:
-                        document_lines.append({
-                            "content": line,
-                            "element_type": element["type"],
-                            "page_number": element.get("page_number", None),
-                            "is_visual": False,
-                        })
+                        document_lines.append(
+                            {
+                                "content": line,
+                                "element_type": element["type"],
+                                "page_number": element.get("page_number", None),
+                                "is_visual": False,
+                            }
+                        )
                     else:
                         # Only split if line is too long
                         split_lines = split_long_line(line, max_line_length)
                         for split_line in split_lines:
-                            document_lines.append({
-                                "content": split_line,
-                                "element_type": element["type"],
-                                "page_number": element.get("page_number", None),
-                                "is_visual": False,
-                            })
+                            document_lines.append(
+                                {
+                                    "content": split_line,
+                                    "element_type": element["type"],
+                                    "page_number": element.get("page_number", None),
+                                    "is_visual": False,
+                                }
+                            )
         except Exception as e:
             print("error in elements_to_lines", e)
             print("element", element)
@@ -419,29 +538,35 @@ def elements_to_lines(elements: List[Element], exclude_elements: List[str], visu
 
     return document_lines
 
+
 def str_to_lines(document: str, max_line_length: int = 200) -> List[Line]:
     document_lines = []
     lines = document.split("\n")
     for line in lines:
         if len(line) <= max_line_length:
-            document_lines.append({
-                "content": line,
-                "element_type": "NarrativeText",
-                "page_number": None,
-                "is_visual": False,
-            })
+            document_lines.append(
+                {
+                    "content": line,
+                    "element_type": "NarrativeText",
+                    "page_number": None,
+                    "is_visual": False,
+                }
+            )
         else:
             # Only split if line is too long
             split_lines = split_long_line(line, max_line_length)
             for split_line in split_lines:
-                document_lines.append({
-                    "content": split_line,
-                    "element_type": "NarrativeText",
-                    "page_number": None,
-                    "is_visual": False,
-                })
+                document_lines.append(
+                    {
+                        "content": split_line,
+                        "element_type": "NarrativeText",
+                        "page_number": None,
+                        "is_visual": False,
+                    }
+                )
 
     return document_lines
+
 
 def pages_to_lines(pages: List[str], max_line_length: int = 200) -> List[Line]:
     document_lines = []
@@ -449,93 +574,140 @@ def pages_to_lines(pages: List[str], max_line_length: int = 200) -> List[Line]:
         lines = page.split("\n")
         for line in lines:
             if len(line) <= max_line_length:
-                document_lines.append({
-                    "content": line,
-                    "element_type": "NarrativeText",
-                    "page_number": i+1,  # page numbers are 1-indexed
-                    "is_visual": False,
-                })
+                document_lines.append(
+                    {
+                        "content": line,
+                        "element_type": "NarrativeText",
+                        "page_number": i + 1,  # page numbers are 1-indexed
+                        "is_visual": False,
+                    }
+                )
             else:
                 # Only split if line is too long
                 split_lines = split_long_line(line, max_line_length)
                 for split_line in split_lines:
-                    document_lines.append({
-                        "content": split_line,
-                        "element_type": "NarrativeText",
-                        "page_number": i+1,  # page numbers are 1-indexed
-                        "is_visual": False,
-                    })
+                    document_lines.append(
+                        {
+                            "content": split_line,
+                            "element_type": "NarrativeText",
+                            "page_number": i + 1,  # page numbers are 1-indexed
+                            "is_visual": False,
+                        }
+                    )
 
     return document_lines
 
+
 def no_semantic_sectioning(document: str, num_lines: int) -> List[Section]:
     # return the entire document as a single section
-    sections = [{
-        "title": "",
-        "content": document,
-        "start": 0,
-        "end": num_lines - 1 # 0-indexed and inclusive
-    }]
+    sections = [
+        {
+            "title": "",
+            "content": document,
+            "start": 0,
+            "end": num_lines - 1,  # 0-indexed and inclusive
+        }
+    ]
     return sections
 
-def get_sections_from_elements(elements: List[Element], element_types: List[ElementType], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, chunking_config: ChunkingConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
+
+def get_sections_from_elements(
+    elements: List[Element],
+    element_types: List[ElementType],
+    exclude_elements: List[str] = [],
+    max_characters: int = 20000,
+    semantic_sectioning_config: SemanticSectioningConfig = {},
+    chunking_config: ChunkingConfig = {},
+    kb_id: str = "",
+    doc_id: str = "",
+) -> tuple[List[Section], List[Line]]:
     # get the semantic sectioning config params, using defaults if not provided
-    use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
+    use_semantic_sectioning = semantic_sectioning_config.get(
+        "use_semantic_sectioning", True
+    )
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
     min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
     visual_elements = [e["name"] for e in element_types if e["is_visual"]]
 
-    document_lines = elements_to_lines(elements=elements, exclude_elements=exclude_elements, visual_elements=visual_elements)
+    document_lines = elements_to_lines(
+        elements=elements,
+        exclude_elements=exclude_elements,
+        visual_elements=visual_elements,
+    )
     document_lines_str = [line["content"] for line in document_lines]
     document_str = "\n".join(document_lines_str)
-    
+
     if use_semantic_sectioning and len(document_str) > min_length_for_chunking:
-        max_iterations = 2*(len(document_str) // max_characters + 1)
+        max_iterations = 2 * (len(document_str) // max_characters + 1)
         sections = get_sections(
-            document_lines=document_lines, 
-            max_iterations=max_iterations, 
-            max_characters=max_characters, 
-            llm_provider=llm_provider, 
-            model=model, 
+            document_lines=document_lines,
+            max_iterations=max_iterations,
+            max_characters=max_characters,
+            llm_provider=llm_provider,
+            model=model,
             language=language,
             kb_id=kb_id,
-            doc_id=doc_id
+            doc_id=doc_id,
         )
     else:
-        sections = no_semantic_sectioning(document=document_str, num_lines=len(document_lines))
-    
+        sections = no_semantic_sectioning(
+            document=document_str, num_lines=len(document_lines)
+        )
+
     return sections, document_lines
 
-def get_sections_from_str(document: str, max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, chunking_config: ChunkingConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
+
+def get_sections_from_str(
+    document: str,
+    max_characters: int = 20000,
+    semantic_sectioning_config: SemanticSectioningConfig = {},
+    chunking_config: ChunkingConfig = {},
+    kb_id: str = "",
+    doc_id: str = "",
+) -> tuple[List[Section], List[Line]]:
     # get the semantic sectioning config params, using defaults if not provided
-    use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
+    use_semantic_sectioning = semantic_sectioning_config.get(
+        "use_semantic_sectioning", True
+    )
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
     min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
     document_lines = str_to_lines(document)
-    
+
     if use_semantic_sectioning and len(document) > min_length_for_chunking:
-        max_iterations = 2*(len(document) // max_characters + 1)
+        max_iterations = 2 * (len(document) // max_characters + 1)
         sections = get_sections(
-            document_lines=document_lines, 
-            max_iterations=max_iterations, 
-            max_characters=max_characters, 
-            llm_provider=llm_provider, 
-            model=model, 
+            document_lines=document_lines,
+            max_iterations=max_iterations,
+            max_characters=max_characters,
+            llm_provider=llm_provider,
+            model=model,
             language=language,
             kb_id=kb_id,
-            doc_id=doc_id
+            doc_id=doc_id,
         )
     else:
-        sections = no_semantic_sectioning(document=document, num_lines=len(document_lines))
+        sections = no_semantic_sectioning(
+            document=document, num_lines=len(document_lines)
+        )
     return sections, document_lines
 
-def get_sections_from_pages(pages: List[str], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, chunking_config: ChunkingConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
+
+def get_sections_from_pages(
+    pages: List[str],
+    max_characters: int = 20000,
+    semantic_sectioning_config: SemanticSectioningConfig = {},
+    chunking_config: ChunkingConfig = {},
+    kb_id: str = "",
+    doc_id: str = "",
+) -> tuple[List[Section], List[Line]]:
     # get the semantic sectioning config params, using defaults if not provided
-    use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
+    use_semantic_sectioning = semantic_sectioning_config.get(
+        "use_semantic_sectioning", True
+    )
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
@@ -546,18 +718,20 @@ def get_sections_from_pages(pages: List[str], max_characters: int = 20000, seman
     document_str = "\n".join(document_lines_str)
 
     if use_semantic_sectioning and len(document_str) > min_length_for_chunking:
-        max_iterations = 2*(len(document_str) // max_characters + 1)
+        max_iterations = 2 * (len(document_str) // max_characters + 1)
         sections = get_sections(
-            document_lines=document_lines, 
-            max_iterations=max_iterations, 
-            max_characters=max_characters, 
-            llm_provider=llm_provider, 
-            model=model, 
+            document_lines=document_lines,
+            max_iterations=max_iterations,
+            max_characters=max_characters,
+            llm_provider=llm_provider,
+            model=model,
             language=language,
             kb_id=kb_id,
-            doc_id=doc_id
+            doc_id=doc_id,
         )
     else:
-        sections = no_semantic_sectioning(document=document_str, num_lines=len(document_lines))
-    
+        sections = no_semantic_sectioning(
+            document=document_str, num_lines=len(document_lines)
+        )
+
     return sections, document_lines
