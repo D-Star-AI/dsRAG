@@ -190,19 +190,7 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
                 return 429
             else:
                 logger.error(f"Error in make_llm_call_vertex: {e}", extra=base_extra)
-                error_data = {
-                    "error": f"Error in make_llm_call_vertex: {e}",
-                    "function": "parse_page",
-                    "page_number": page_number
-                }
-
-                try:
-                    if log_errors:
-                        file_system.log_error(kb_id, doc_id, error_data)
-                except Exception as log_error:
-                    logger.error(f"Failed to log error: {log_error}", extra=base_extra)
-                finally:
-                    return 429
+                return 429
                 
     elif vlm_config["provider"] == "gemini":
         try:
@@ -226,21 +214,10 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
                 return 429
             else:
                 logger.error(f"Error in make_llm_call_gemini: {e}", extra=base_extra)
-                error_data = {
-                    "error": f"Error in make_llm_call_gemini: {e}",
-                    "function": "parse_page",
-                    "page_number": page_number
-                }
-                try:
-                    if log_errors:
-                        file_system.log_error(kb_id, doc_id, error_data)
-                except Exception as log_error:
-                    logger.error(f"Failed to log error: {log_error}", extra=base_extra)
-                finally:
-                    llm_output = json.dumps([{
-                        "type": "text",
-                        "content": "Unable to process page"
-                    }])
+                llm_output = json.dumps([{
+                    "type": "text", 
+                    "content": "Unable to process page"
+                }])
                     
     else:
         raise ValueError("Invalid provider specified in the VLM config. Only 'vertex_ai' and 'gemini' are supported for now.")
@@ -257,18 +234,6 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
             "full_model_output": llm_output
         })
         
-        error_data = {
-            "error": f"Error parsing JSON for {page_image_path}: {e}",
-            "function": "parse_page",
-            "page_number": page_number,
-            "full_model_output": llm_output  # Also save the full output to the error log
-        }
-
-        try:
-            if log_errors:
-                file_system.log_error(kb_id, doc_id, error_data)
-        except Exception as log_error:
-            logger.error(f"Failed to log error: {log_error}", extra=base_extra)
         page_content = []
 
     # add page number to each element
@@ -324,14 +289,17 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
                 file_system=file_system,
                 page_number=page_number,
                 vlm_config=vlm_config,
-                element_types=element_types,
-                log_errors=(tries == max_retries - 1)
-            )  # Let's log error to dynamodb only if it's the last attempt
+                element_types=element_types
+            )
 
             # Handle rate limit errors
             if content == 429:
-                logger.warning(f"Rate limit exceeded. Sleeping for 10 seconds before retrying...", 
-                              extra={**base_extra, "retry_attempt": tries+1})
+                if tries == max_retries - 1:
+                    logger.error(f"Rate limit exceeded on final retry attempt {tries+1}/{max_retries}", 
+                                extra={**base_extra, "retry_attempt": tries+1, "final_attempt": True})
+                else:
+                    logger.warning(f"Rate limit exceeded. Sleeping for 10 seconds before retrying...", 
+                                  extra={**base_extra, "retry_attempt": tries+1})
                 time.sleep(10)
                 tries += 1
                 continue
@@ -339,8 +307,12 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
             # Check if the content is empty - a signal that JSON parsing failed
             if isinstance(content, list) and len(content) == 0:
                 # This suggests we had a JSON parsing error
-                logger.warning(f"Empty content returned, likely due to JSON parsing error. Retrying...",
-                               extra={**base_extra, "retry_attempt": tries+1})
+                if tries == max_retries - 1:
+                    logger.error(f"Empty content returned on final retry attempt {tries+1}/{max_retries}",
+                                extra={**base_extra, "retry_attempt": tries+1, "final_attempt": True})
+                else:
+                    logger.warning(f"Empty content returned, likely due to JSON parsing error. Retrying...",
+                                   extra={**base_extra, "retry_attempt": tries+1})
                 tries += 1
                 continue
                 

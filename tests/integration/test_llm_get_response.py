@@ -3,7 +3,7 @@ import os
 import base64
 from pydantic import BaseModel, Field
 from typing import Optional
-from dsrag.utils.llm import get_response
+from dsrag.chat.instructor_get_response import get_response
 
 
 class TestLLM(unittest.TestCase):
@@ -53,7 +53,7 @@ class TestLLM(unittest.TestCase):
                     "type": "image",
                     "source": {
                         "type": "base64",
-                        "media_type": "image/png",
+                        "media_type": "image/jpeg",
                         "data": self.image_data
                     }
                 }

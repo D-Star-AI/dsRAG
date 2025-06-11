@@ -161,9 +161,9 @@ class LocalFileSystem(FileSystem):
         page_images_path = os.path.join(self.base_path, kb_id, doc_id)
         image_file_paths = []
         
-        # Try both .png and .jpg extensions since we don't know which one was used
+        # Try multiple extensions for backward compatibility, but only return first found per page
         for i in range(page_start, page_end + 1):
-            for ext in ['.png', '.jpg']:
+            for ext in ['.jpg', '.jpeg', '.png']:  # Try in order of preference
                 image_file_path = os.path.join(page_images_path, f'page_{i}{ext}')
                 if os.path.exists(image_file_path):
                     image_file_paths.append(image_file_path)
@@ -178,8 +178,8 @@ class LocalFileSystem(FileSystem):
         page_images_path = os.path.join(self.base_path, kb_id, doc_id)
         image_file_paths = []
         for file in os.listdir(page_images_path):
-            # Make sure the file is an image
-            if not file.endswith('.jpg'):
+            # Make sure the file is an image (support multiple formats for backward compatibility)
+            if not (file.endswith('.jpg') or file.endswith('.jpeg') or file.endswith('.png')):
                 continue
             image_file_paths.append(os.path.join(page_images_path, file))
 
@@ -357,27 +357,38 @@ class S3FileSystem(FileSystem):
         """
         if page_start is None or page_end is None:
             return []
-        filenames = [f"{kb_id}/{doc_id}/page_{i}.jpg" for i in range(page_start, page_end + 1)]
+        
         s3_client = self.create_s3_client()
         file_paths = []
-        for filename in filenames:
-            output_folder = os.path.join(self.base_path, kb_id, doc_id)
-            if not os.path.exists(output_folder):
+        
+        # Try multiple extensions for backward compatibility, but only return first found per page
+        for i in range(page_start, page_end + 1):
+            found_file = False
+            for ext in ['.jpg', '.jpeg', '.png']:  # Try in order of preference
+                filename = f"{kb_id}/{doc_id}/page_{i}{ext}"
+                output_folder = os.path.join(self.base_path, kb_id, doc_id)
+                if not os.path.exists(output_folder):
+                    try:
+                        os.makedirs(output_folder)
+                    except FileExistsError:
+                        # Since this function can be called in parallel, the folder may have been created by another process
+                        pass
+                output_filepath = os.path.join(self.base_path, filename)
                 try:
-                    os.makedirs(output_folder)
-                except FileExistsError:
-                    # Since this function can be called in parallel, the folder may have been created by another process
-                    pass
-            output_filepath = os.path.join(self.base_path, filename)
-            try:
-                s3_client.download_file(
-                    self.bucket_name,
-                    filename,
-                    output_filepath
-                )
-                file_paths.append(output_filepath)
-            except Exception as e:
-                print ("Error downloading file:", e)
+                    s3_client.download_file(
+                        self.bucket_name,
+                        filename,
+                        output_filepath
+                    )
+                    file_paths.append(output_filepath)
+                    found_file = True
+                    break  # Found file for this page, don't try other extensions
+                except Exception as e:
+                    # File doesn't exist with this extension, try next extension
+                    continue
+            
+            if not found_file:
+                print(f"Warning: No image file found for page {i} in S3")
             
         return file_paths
     
@@ -406,9 +417,9 @@ class S3FileSystem(FileSystem):
             if 'Contents' not in response:
                 return []
             
-            # Filter for JPG files
+            # Filter for image files (support multiple formats for backward compatibility)
             jpg_files = [obj['Key'] for obj in response['Contents'] 
-                        if obj['Key'].lower().endswith('.jpg')]
+                        if obj['Key'].lower().endswith(('.jpg', '.jpeg', '.png'))]
             
             # Create local directory if it doesn't exist
             output_folder = os.path.join(self.base_path, kb_id, doc_id)
