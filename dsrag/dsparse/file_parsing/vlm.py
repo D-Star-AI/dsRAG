@@ -25,6 +25,7 @@ def make_llm_call_gemini(image_path: str, system_message: str, model: str = "gem
             ],
             generation_config=generation_config
         )
+
         return response.text
     finally:
         # Ensure image is closed even if an error occurs
