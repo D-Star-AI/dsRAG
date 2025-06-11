@@ -64,8 +64,10 @@ def format_metadata_filter(metadata_filter: MetadataFilter) -> dict:
 
 
 class PostgresVectorDB(VectorDB):
-    def __init__(self, kb_id: str, username: str, password: str, database: str, host: str="localhost", port: int = 5432, vector_dimension: int = 768):
+    def __init__(self, kb_id: str, username: str, password: str, database: str, host: str = "localhost", port: int = 5432, vector_dimension: int = 768):
         self.kb_id = kb_id
+        self.table_name = f'{kb_id}_vectors'
+        self.index_name = f'{kb_id}_embedding_index'
         self.username = username
         self.password = password
         self.database = database
@@ -84,22 +86,43 @@ class PostgresVectorDB(VectorDB):
         cur = conn.cursor()
         cur.execute('CREATE EXTENSION IF NOT EXISTS vector')
         conn.commit()
-        
+
         # Import register_vector only when needed
         from pgvector.psycopg2 import register_vector
         register_vector(conn)
 
-        cur.execute(f"SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = '{kb_id}_vectors')")
+        from psycopg2 import sql
+
+        cur.execute(
+            sql.SQL(
+                "SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = {})")
+            .format(sql.Literal(self.table_name))
+        )
         exists = cur.fetchone()[0]
-        print ("exists", exists)
+        print("exists", exists)
 
         # Create the table for this kb id if it doesn't exist
         if not exists:
-            cur.execute(f"CREATE TABLE {kb_id}_vectors (id TEXT PRIMARY KEY, metadata JSONB, embedding vector({vector_dimension}))")
+            cur.execute(
+                sql.SQL(
+                    "CREATE TABLE {} (id TEXT PRIMARY KEY, metadata JSONB, embedding vector(%s))")
+                .format(sql.Identifier(self.table_name)),
+                [vector_dimension]
+            )
             conn.commit()
 
             # Create the index
-            cur.execute(f'CREATE INDEX {kb_id}_embedding_index ON {kb_id}_vectors USING hnsw(embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64)')
+            cur.execute(
+                sql.SQL(
+                    """
+                    CREATE INDEX {} ON {} USING hnsw(embedding vector_cosine_ops)
+                    WITH (m = 16, ef_construction = 64)
+                    """)
+                .format(
+                    sql.Identifier(self.index_name),
+                    sql.Identifier(self.table_name)
+                )
+            )
             conn.commit()
 
         conn.close()
@@ -112,10 +135,16 @@ class PostgresVectorDB(VectorDB):
             host=self.host,
             port=self.port
         )
-        cur = conn.cursor()
-        cur.execute(f"SELECT COUNT(*) FROM {self.kb_id}_vectors")
-        count = cur.fetchone()[0]
-        conn.close()
+
+        try:
+            from psycopg2 import sql
+
+            cur = conn.cursor()
+            cur.execute(
+                sql.SQL("SELECT COUNT(*) FROM {}").FORMAT(sql.Identifier(self.table_name)))
+            count = cur.fetchone()[0]
+        finally:
+            conn.close()
         return count
 
     def add_vectors(self, vectors: Sequence[Vector], metadata: Sequence[ChunkMetadata]):
@@ -131,14 +160,21 @@ class PostgresVectorDB(VectorDB):
 
         vectors = np.array(vectors)
         # Create the ids from the doc_id and chunk_index
-        ids = [f"{content['doc_id']}_{content['chunk_index']}" for content in metadata]
-        data_to_insert = [(id, json.dumps(content), embedding) for id, content, embedding in zip(ids, metadata, vectors)]
-        cur.executemany(f'INSERT INTO {self.kb_id}_vectors (id, metadata, embedding) VALUES (%s, %s, %s)', data_to_insert)
+        ids = [
+            f"{content['doc_id']}_{content['chunk_index']}" for content in metadata]
+        data_to_insert = [(id, json.dumps(content), embedding)
+                          for id, content, embedding in zip(ids, metadata, vectors)]
+
+        from psycopg2 import sql
+        insert_sql = sql.SQL("INSERT INTO {} (id, metadata, embedding) VALUES (%s, %s, %s)").format(
+            sql.Identifier(self.table_name)).as_string(cur)
+
+        cur.executemany(insert_sql, data_to_insert)
         conn.commit()
         conn.close()
 
     def remove_document(self, doc_id):
-        
+
         conn = psycopg2.connect(
             dbname=self.database,
             user=self.username,
@@ -149,12 +185,20 @@ class PostgresVectorDB(VectorDB):
         cur = conn.cursor()
 
         # Delete all vectors with the given doc_id
-        cur.execute(f"DELETE FROM {self.kb_id}_vectors WHERE metadata @> %s", (json.dumps({"doc_id": doc_id}),))
+        condition = {"doc_id": doc_id}
+
+        from psycopg2 import sql
+        cur.execute(
+            sql.SQL(
+                "DELETE FROM {} WHERE metadata @> %s").format(sql.Identifier(self.table_name)),
+            [json.dumps(condition)]
+        )
+
         conn.commit()
         conn.close()
 
-    def search(self, query_vector: list, top_k: int=10, metadata_filter: Optional[MetadataFilter] = None):
-        
+    def search(self, query_vector: list, top_k: int = 10, metadata_filter: Optional[MetadataFilter] = None):
+
         conn = psycopg2.connect(
             dbname=self.database,
             user=self.username,
@@ -169,14 +213,21 @@ class PostgresVectorDB(VectorDB):
         if metadata_filter:
             filter_expression = format_metadata_filter(metadata_filter)
 
+        from psycopg2 import sql
         if metadata_filter:
             filter_value = metadata_filter['value']
-            query = f"""
+
+            query = sql.SQL("""
                 SELECT metadata, embedding, 1 - (embedding <=> %s) AS cosine_similarity
-                FROM {self.kb_id}_vectors
-                WHERE {filter_expression}
-                ORDER BY cosine_similarity DESC LIMIT %s
-            """
+                FROM {} 
+                WHERE {} 
+                ORDER BY cosine_similarity DESC 
+                LIMIT %s
+            """).format(
+                sql.Identifier(self.table_name),
+                sql.SQL(filter_expression)
+            )
+
             if isinstance(filter_value, list):
                 params = (query_vector, *filter_value, top_k)
             else:
@@ -184,11 +235,12 @@ class PostgresVectorDB(VectorDB):
 
             cur.execute(query, params)
         else:
-            query = f"""
+            query = sql.SQL("""
                 SELECT metadata, embedding, 1 - (embedding <=> %s) AS cosine_similarity
-                FROM {self.kb_id}_vectors
-                ORDER BY cosine_similarity DESC LIMIT %s
-            """
+                FROM {}
+                ORDER BY cosine_similarity DESC
+                LIMIT %s
+            """).format(sql.Identifier(self.table_name))
             cur.execute(query, (query_vector, top_k))
 
         results = cur.fetchall()
@@ -208,7 +260,6 @@ class PostgresVectorDB(VectorDB):
         conn.close()
 
         return formatted_results
-    
 
     def delete(self):
         # Delete the table
@@ -220,11 +271,12 @@ class PostgresVectorDB(VectorDB):
             port=self.port
         )
 
+        from psycopg2 import sql
         cur = conn.cursor()
-        cur.execute(f"DROP TABLE {self.kb_id}_vectors")
+        cur.execute(sql.SQL("DROP TABLE {}").format(
+            sql.Identifier(self.table_name)))
         conn.commit()
         conn.close()
-
 
     def to_dict(self):
         return {
@@ -237,4 +289,3 @@ class PostgresVectorDB(VectorDB):
             "port": self.port,
             "vector_dimension": self.vector_dimension
         }
-

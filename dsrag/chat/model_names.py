@@ -1,3 +1,6 @@
+# NOTE: this is deprecated but remains for backwards compatibility.
+# The new way to specify model names for Chat is {provider}/{model_name} so we don't have to do this lookup (and maintain an up-to-date mapping here).
+
 ANTHROPIC_MODEL_NAMES = [
     "claude-3-haiku-20240307",
     "claude-3-5-haiku-20241022",

@@ -245,6 +245,7 @@ class TestVectorDB(unittest.TestCase):
         self.assertEqual(len(results), 2)
 
 
+@unittest.skipIf(os.environ.get('GITHUB_ACTIONS') == 'true', "ChromaDB is not available on GitHub Actions")
 class TestChromaDB(unittest.TestCase):
     def setUp(self):
         self.kb_id = "test_chroma_kb"
@@ -391,6 +392,7 @@ class TestChromaDB(unittest.TestCase):
         )
 
 
+@unittest.skipIf(os.environ.get('GITHUB_ACTIONS') == 'true', "Weaviate is not available on GitHub Actions")
 class TestWeaviateVectorDB(unittest.TestCase):
     def setUp(self):
         self.kb_id = "test_kb"

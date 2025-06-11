@@ -197,8 +197,8 @@ class KnowledgeBase:
         components = data.get("components", {})
         # Deserialize components
         self.embedding_model = Embedding.from_dict(
-            components.get("embedding_model", {})
-        )
+            components.get("embedding_model", {}))
+        
         self.reranker = (
             reranker
             if reranker
@@ -463,14 +463,14 @@ class KnowledgeBase:
             # --- AutoContext Step ---
             chunks, chunks_to_embed = auto_context(
                 kb_id=self.kb_id,
-                auto_context_model=self.auto_context_model, 
-                sections=sections, 
-                chunks=chunks, 
-                text=document_text, 
-                doc_id=doc_id, 
-                document_title=document_title, 
-                auto_context_config=auto_context_config, 
-                language=self.kb_metadata["language"],
+                auto_context_model=self.auto_context_model,
+                sections=sections,
+                chunks=chunks,
+                text=document_text,
+                doc_id=doc_id,
+                document_title=document_title,
+                auto_context_config=auto_context_config,
+                language=self.kb_metadata.get("language", "en"),
             )
             
             # --- Embedding Step ---

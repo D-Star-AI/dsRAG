@@ -180,7 +180,7 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
                 project_id=vlm_config["project_id"], 
                 location=vlm_config["location"],
                 response_schema=response_schema,
-                max_tokens=4000,
+                max_tokens=vlm_config.get("max_tokens", 4000),
                 temperature=temperature
             )
         except Exception as e:
@@ -193,9 +193,12 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
                 error_data = {
                     "error": f"Error in make_llm_call_vertex: {e}",
                     "function": "parse_page",
+                    "page_number": page_number
                 }
+
                 try:
-                    file_system.log_error(kb_id, doc_id, error_data)
+                    if log_errors:
+                        file_system.log_error(kb_id, doc_id, error_data)
                 except Exception as log_error:
                     logger.error(f"Failed to log error: {log_error}", extra=base_extra)
                 finally:
@@ -213,7 +216,7 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
                 system_message=system_message, 
                 model=vlm_config["model"],
                 response_schema=response_schema,
-                max_tokens=4000,
+                max_tokens=vlm_config.get("max_tokens", 4000),
                 temperature=temperature
             )
         except Exception as e:
@@ -226,9 +229,11 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
                 error_data = {
                     "error": f"Error in make_llm_call_gemini: {e}",
                     "function": "parse_page",
+                    "page_number": page_number
                 }
                 try:
-                    file_system.log_error(kb_id, doc_id, error_data)
+                    if log_errors:
+                        file_system.log_error(kb_id, doc_id, error_data)
                 except Exception as log_error:
                     logger.error(f"Failed to log error: {log_error}", extra=base_extra)
                 finally:
@@ -255,11 +260,13 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
         error_data = {
             "error": f"Error parsing JSON for {page_image_path}: {e}",
             "function": "parse_page",
+            "page_number": page_number,
             "full_model_output": llm_output  # Also save the full output to the error log
         }
-        
+
         try:
-            file_system.log_error(kb_id, doc_id, error_data)
+            if log_errors:
+                file_system.log_error(kb_id, doc_id, error_data)
         except Exception as log_error:
             logger.error(f"Failed to log error: {log_error}", extra=base_extra)
         page_content = []
@@ -316,10 +323,11 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
                 doc_id=doc_id,
                 file_system=file_system,
                 page_number=page_number,
-                vlm_config=vlm_config, 
-                element_types=element_types
-            )
-            
+                vlm_config=vlm_config,
+                element_types=element_types,
+                log_errors=(tries == max_retries - 1)
+            )  # Let's log error to dynamodb only if it's the last attempt
+
             # Handle rate limit errors
             if content == 429:
                 logger.warning(f"Rate limit exceeded. Sleeping for 10 seconds before retrying...", 

@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from dsrag.knowledge_base import KnowledgeBase
 from dsrag.database.vector.chroma_db import ChromaDB
 
+@unittest.skipIf(os.environ.get('GITHUB_ACTIONS') == 'true', "ChromaDB is not available on GitHub Actions")
 class TestCreateKB(unittest.TestCase):
     def test__001_create_kb_and_query(self):
         self.cleanup()  # delete the KnowledgeBase object if it exists so we can start fresh
