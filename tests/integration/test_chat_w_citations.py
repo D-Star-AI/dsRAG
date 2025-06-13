@@ -178,6 +178,126 @@ class TestChat(unittest.TestCase):
         self.assertIn("doc_id", first_citation)
         self.assertEqual(first_citation["doc_id"], "levels_of_agi.pdf")
 
+    def test_004_get_chat_response_streaming_gemini(self):
+        # Test streaming with Gemini model
+        gemini_chat_thread_params = {
+            "kb_ids": ["levels_of_agi"],
+            "model": "gemini/gemini-2.5-flash-preview-05-20",
+            "temperature": 0.0,
+            "system_message": "",
+            "auto_query_model": "openai/gpt-4.1-mini",
+            "rse_params": self.chat_thread_params["rse_params"]
+        }
+        
+        thread_id = create_new_chat_thread(
+            chat_thread_params=gemini_chat_thread_params,
+            chat_thread_db=self.chat_thread_db
+        )
+        
+        chat_response_input = ChatResponseInput(
+            user_input="What are the different levels of AGI mentioned in the paper?",
+            chat_thread_params=None,
+            metadata_filter=None
+        )
+        
+        response_generator = get_chat_thread_response(
+            thread_id=thread_id,
+            get_response_input=chat_response_input,
+            chat_thread_db=self.chat_thread_db,
+            knowledge_bases=self.knowledge_bases,
+            stream=True
+        )
+        
+        accumulated_content = ""
+        final_citations = []
+        message_id = None
+
+        for partial_response in response_generator:
+            self.assertIn("model_response", partial_response)
+            self.assertIn("content", partial_response["model_response"])
+            self.assertIn("status", partial_response["model_response"])
+            self.assertIn("message_id", partial_response)
+            
+            if message_id is None:
+                message_id = partial_response["message_id"]
+            else:
+                self.assertEqual(message_id, partial_response["message_id"])
+
+            accumulated_content = partial_response["model_response"]["content"]
+            if "citations" in partial_response["model_response"]:
+                final_citations = partial_response["model_response"]["citations"]
+        
+        # Verify final accumulated response
+        self.assertGreater(len(accumulated_content), 0)
+        
+        # Verify citations received
+        self.assertGreater(len(final_citations), 0)
+        
+        # Verify citation structure
+        first_citation = final_citations[0]
+        self.assertIn("doc_id", first_citation)
+        self.assertEqual(first_citation["doc_id"], "levels_of_agi.pdf")
+
+    def test_005_get_chat_response_streaming_anthropic(self):
+        # Test streaming with Anthropic model
+        anthropic_chat_thread_params = {
+            "kb_ids": ["levels_of_agi"],
+            "model": "anthropic/claude-3-5-sonnet-20241022",
+            "temperature": 0.0,
+            "system_message": "",
+            "auto_query_model": "openai/gpt-4.1-mini",
+            "rse_params": self.chat_thread_params["rse_params"]
+        }
+        
+        thread_id = create_new_chat_thread(
+            chat_thread_params=anthropic_chat_thread_params,
+            chat_thread_db=self.chat_thread_db
+        )
+        
+        chat_response_input = ChatResponseInput(
+            user_input="Describe the AGI competency levels discussed in the document.",
+            chat_thread_params=None,
+            metadata_filter=None
+        )
+        
+        response_generator = get_chat_thread_response(
+            thread_id=thread_id,
+            get_response_input=chat_response_input,
+            chat_thread_db=self.chat_thread_db,
+            knowledge_bases=self.knowledge_bases,
+            stream=True
+        )
+        
+        accumulated_content = ""
+        final_citations = []
+        message_id = None
+
+        for partial_response in response_generator:
+            self.assertIn("model_response", partial_response)
+            self.assertIn("content", partial_response["model_response"])
+            self.assertIn("status", partial_response["model_response"])
+            self.assertIn("message_id", partial_response)
+            
+            if message_id is None:
+                message_id = partial_response["message_id"]
+            else:
+                self.assertEqual(message_id, partial_response["message_id"])
+
+            accumulated_content = partial_response["model_response"]["content"]
+            if "citations" in partial_response["model_response"]:
+                final_citations = partial_response["model_response"]["citations"]
+        
+        # Verify final accumulated response
+        self.assertGreater(len(accumulated_content), 0)
+        
+        # Verify citations received
+        self.assertGreater(len(final_citations), 0)
+        
+        # Verify citation structure
+        first_citation = final_citations[0]
+        self.assertIn("doc_id", first_citation)
+        self.assertEqual(first_citation["doc_id"], "levels_of_agi.pdf")
+
     @classmethod
     def cleanup(cls):
         try:
