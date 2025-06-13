@@ -302,10 +302,13 @@ class KnowledgeBase:
                     
                     # Whether to get section summaries
                     "get_section_summaries": False,
-                    
+
                     # Guidance for section summarization
                     "section_summarization_guidance": "Summarize each section",
-                    
+
+                    # Maximum concurrent requests for section summarization
+                    "llm_max_concurrent_requests": 5,
+
                     # Custom term mappings (key: term to map to, value: list of terms to map from)
                     "custom_term_mapping": {
                         "AI": ["artificial intelligence", "machine learning"],

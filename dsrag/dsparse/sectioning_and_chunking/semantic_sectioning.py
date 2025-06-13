@@ -1,14 +1,15 @@
 import os
 import time
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Optional
+
+# Assuming these are in a discoverable path or defined elsewhere
 from ..utils.imports import instructor
 from ..models.types import SemanticSectioningConfig, Line, Section, Element, ElementType, ChunkingConfig
 
-# Get the dsparse logger
-logger = logging.getLogger("dsrag.dsparse.semantic_sectioning")
-
+# --- Pydantic Models (from original) ---
 class DocumentSection(BaseModel):
     title: str = Field(description="main topic of this section of the document (very descriptive)")
     start_index: int = Field(description="line number where the section begins (inclusive)")
@@ -17,37 +18,74 @@ class StructuredDocument(BaseModel):
     """obtains meaningful sections, each centered around a single concept/topic"""
     sections: List[DocumentSection] = Field(description="an ordered list of sections of the document")
 
-
+# --- Prompts (from original) ---
 SYSTEM_PROMPT = """
 Read the document below and extract a StructuredDocument object from it where each section of the document is centered around a single concept/topic. Whenever possible, your sections (and section titles) should match up with the natural sections of the document (i.e. Introduction, Conclusion, References, etc.). Sections can vary in length, but should generally be anywhere from a few paragraphs to a few pages long.
+
 Each line of the document is marked with its line number in square brackets (e.g. [1], [2], [3], etc). Use the line numbers to indicate section start.
+
 The start line numbers will be treated as inclusive. For example, if the first line of a section is line 5, the start_index should be 5. Your goal is to find the starting line number of a given section, where a section is a group of lines that are thematically related.
-The first section must start at the first line number of the document ({start_line} in this case). The sections MUST cover the entire document, and they MUST be in order.
+
+The first section must start at the first line number of the document window provided ({start_line} in this case). The sections MUST cover the entire document window, and they MUST be in order.
+
 Section titles should be descriptive enough such that a person who is just skimming over the section titles and not actually reading the document can get a clear idea of what each section is about.
+
 Note: the document provided to you may just be an excerpt from a larger document, rather than a complete document. Therefore, you can't always assume, for example, that the first line of the document is the beginning of the Introduction section and the last line is the end of the Conclusion section (if those section are even present).
 """
 
 LANGUAGE_ADDENDUM = "For your section titles, YOU MUST use the same language as the document. If the document is in English, your section titles should be in English. If the document is in another language, your section titles should be in that language."
 
+# Get the dsparse logger
+logger = logging.getLogger("dsrag.dsparse.semantic_sectioning_parallel") # Changed logger name
 
-def get_document_with_lines(document_lines: List[Line], start_line: int, max_characters: int) -> tuple[str, int]:
+# --- Existing Functions (Modified or Reused with new signatures if needed) ---
+
+def get_document_text_for_window(document_lines: List[Line], window_start_line: int, window_end_line: int) -> str:
+    """
+    Prepares a string representation of a specific slice of document_lines
+    (from window_start_line to window_end_line inclusive), prefixing each
+    line with its global line number for the LLM prompt.
+
+    Args:
+        document_lines: The full list of Line objects for the document.
+        window_start_line: The global starting line index for this window.
+        window_end_line: The global ending line index for this window.
+
+    Returns:
+        A string containing the lines for the window, with global line numbers.
+    """
     document_with_line_numbers = ""
-    character_count = 0
-    for i in range(start_line, len(document_lines)):
+    for i in range(window_start_line, min(window_end_line + 1, len(document_lines))):
         line = document_lines[i]["content"]
         document_with_line_numbers += f"[{i}] {line}\n"
-        character_count += len(line)
-        if character_count > max_characters or i == len(document_lines) - 1:
-            end_line = i
-            break
-    return document_with_line_numbers, end_line
 
-def get_structured_document(document_with_line_numbers: str, start_line: int, llm_provider: str, model: str, language: str) -> StructuredDocument:
-    """
-    Note: This function relies on Instructor, which only supports certain model providers. That's why this function doesn't use the LLM abstract base class that is used elsewhere in the project.
-    """
+    return document_with_line_numbers
 
-    formatted_system_prompt = SYSTEM_PROMPT.format(start_line=start_line)
+def get_structured_document_for_window(
+    window_text_with_lines: str,
+    first_line_number_in_window_prompt: int,
+    llm_provider: str,
+    model: str,
+    language: str
+) -> StructuredDocument:
+    """
+    Sends a single window's text (with global line numbers in brackets) to the LLM
+    and gets back a StructuredDocument. The LLM's returned start_index values
+    are expected to be global line numbers.
+
+    Args:
+        window_text_with_lines: The text of the current window, with lines
+                                prefixed by their global line numbers (e.g., "[101] text...").
+        first_line_number_in_window_prompt: The global line number of the first line in this
+                                            window, used to format the system prompt.
+        llm_provider: The LLM provider (e.g., "openai", "anthropic").
+        model: The specific LLM model name.
+        language: The language of the document.
+
+    Returns:
+        A StructuredDocument object containing sections identified by the LLM for this window.
+    """
+    formatted_system_prompt = SYSTEM_PROMPT.format(start_line=first_line_number_in_window_prompt)
     if language != "en":
         formatted_system_prompt += "\n" + LANGUAGE_ADDENDUM
 
@@ -67,7 +105,7 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, ll
             messages=[
                 {
                     "role": "user",
-                    "content": document_with_line_numbers,
+                    "content": window_text_with_lines,
                 },
             ],
         )
@@ -90,7 +128,7 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, ll
                 },
                 {
                     "role": "user",
-                    "content": document_with_line_numbers,
+                    "content": window_text_with_lines,
                 },
             ],
         )
@@ -102,7 +140,7 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, ll
             mode=instructor.Mode.GEMINI_JSON
         )
         # For Gemini, prepend the system prompt to the user message
-        combined_prompt = f"{formatted_system_prompt}\n\n<document>\n{document_with_line_numbers}\n</document>"
+        combined_prompt = f"{formatted_system_prompt}\n\n<document>\n{window_text_with_lines}\n</document>"
         return client.messages.create(
             messages=[
                 {
@@ -119,10 +157,34 @@ def get_structured_document(document_with_line_numbers: str, start_line: int, ll
     else:
         raise ValueError("Invalid provider. Must be one of: 'anthropic', 'openai', 'gemini'.")
 
-def validate_and_fix_sections(sections: List[DocumentSection], document_length: int) -> List[DocumentSection]:
-    """Validates and fixes section indices to ensure they are strictly ordered within document bounds."""
+def validate_and_fix_window_sections(
+    sections: List[DocumentSection],
+    window_start_line: int,
+    window_end_line: int,
+    document_length: int
+) -> List[DocumentSection]:
+    """
+    Validates and fixes section indices returned for a single window.
+    Ensures they are ordered, unique, and fall within that window's global
+    line boundaries (window_start_line to window_end_line). It also ensures
+    the first section in the window starts at window_start_line if possible,
+    and that sections don't exceed document_length.
+
+    Args:
+        sections: List of DocumentSection objects from the LLM for a window.
+        window_start_line: The global starting line index of the window.
+        window_end_line: The global ending line index of the window.
+        document_length: The total number of lines in the entire document.
+
+    Returns:
+        A validated and potentially corrected list of DocumentSection objects for the window.
+    """
     if not sections:
-        return sections
+        # If no sections were identified, create a default one for the entire window
+        return [DocumentSection(
+            title=f"Window {window_start_line}-{window_end_line}",
+            start_index=window_start_line
+        )]
 
     # Remove sections with duplicate start_indices (keep first occurrence)
     seen_indices = set()
@@ -137,205 +199,87 @@ def validate_and_fix_sections(sections: List[DocumentSection], document_length: 
     original_order = [s.start_index for s in sections]
     sections = sorted(sections, key=lambda x: x.start_index)
     sorted_order = [s.start_index for s in sections]
-    
-    if original_order != sorted_order:
-        print(f"Warning: Sections were out of order. Original indices: {original_order}, Sorted indices: {sorted_order}")
-    
+
+    logger.debug(f"Window {window_start_line}-{window_end_line}: Original indices: {original_order}, Sorted indices: {sorted_order}")
+
     # Validate and fix each section's start index
     fixed_sections = []
-    last_start = -1
-    
+    last_start = window_start_line - 1  # Initialize to just before window start
+
     for section in sections:
         original_start = section.start_index
-        
-        # Skip sections that start beyond document length
-        if original_start >= document_length:
-            print(f"Warning: Skipping section '{section.title}' as it starts beyond document length")
+
+        # Skip sections that start beyond document length or window end
+        if original_start >= document_length or original_start > window_end_line:
+            logger.debug(f"Window {window_start_line}-{window_end_line}: Skipping section '{section.title}' with invalid start {original_start}")
             continue
-            
-        # Ensure start index is valid and after the previous section
-        start = max(last_start + 1, min(section.start_index, document_length - 1))
-            
+
+        # Ensure start index is valid, after the previous section, and within window bounds
+        # For the first section, ensure it starts at window_start_line
+        if len(fixed_sections) == 0:
+            # First section should start at window_start_line
+            start = window_start_line
+        else:
+            # Subsequent sections should be after prior section and within window
+            start = max(last_start + 1, min(section.start_index, window_end_line))
+
         if start != original_start:
-            print(f"Warning: Section '{section.title}' start index adjusted from {original_start} to {start}")
-        
+            logger.debug(f"Window {window_start_line}-{window_end_line}: Section '{section.title}' start index adjusted from {original_start} to {start}")
+
         fixed_sections.append(DocumentSection(
             title=section.title,
             start_index=start
         ))
         last_start = start
-    
+
     # Ensure we have at least one section
     if not fixed_sections:
         fixed_sections.append(DocumentSection(
-            title="Document",
-            start_index=0
+            title=f"Window {window_start_line}-{window_end_line}",
+            start_index=window_start_line
         ))
-    
+
     return fixed_sections
 
-def get_sections(document_lines: List[Line], max_iterations: int, max_characters: int = 20000, llm_provider: str = "openai", model: str = "gpt-4o-mini", language: str = "en", kb_id: str = "", doc_id: str = "") -> List[Section]:
+def get_sections_text(
+    final_sections: List[DocumentSection],
+    document_lines: List[Line]
+) -> List[Section]:
     """
-    Inputs
-    - document_lines: list[dict] - the text of the document
-    - max_iterations: int - the maximum number of iterations to run (used as a safety measure to prevent the possibility of an infinite loop)
-    - max_characters: int - the maximum number of characters to process in one call to the LLM
-    - llm_provider: str - the LLM provider to use (either "anthropic" or "openai")
-    - model: str - the name of the LLM model to use
-    - kb_id: str - the knowledge base identifier (for logging)
-    - doc_id: str - the document identifier (for logging)
+    Takes the final, globally merged list of DocumentSection objects and the full
+    document_lines to populate the 'content' and calculate 'end' indices for each Section.
 
-    Returns
-    - sections: a list of dictionaries, each containing the following keys:
-        - title: str - the main topic of this section of the document (very descriptive)
-        - start: int - line number where the section begins (inclusive)
-        - end: int - line number where the section ends (inclusive)
-        - content: str - the text of the section
-    """
-    # Create base logging context with identifiers
-    base_extra = {}
-    if kb_id:
-        base_extra["kb_id"] = kb_id
-    if doc_id:
-        base_extra["doc_id"] = doc_id
-    
-    # Log start of sectioning operation
-    logger.debug("Starting semantic sectioning", extra={
-        **base_extra,
-        "document_lines_count": len(document_lines),
-        "llm_provider": llm_provider,
-        "model": model
-    })
-    
-    start_time = time.perf_counter()
-    start_line = 0
-    all_sections = []
-    iteration_count = 0
-    
-    for iteration in range(max_iterations):
-        iteration_count = iteration + 1
-        iter_start_time = time.perf_counter()
-        
-        document_with_line_numbers, end_line = get_document_with_lines(document_lines, start_line, max_characters)
+    Args:
+        final_sections: The complete, ordered list of DocumentSection objects for the entire document.
+        document_lines: The full list of Line objects for the document.
 
-        # Retry logic for get_structured_document
-        max_retries = 3
-        initial_delay = 5.0  # seconds
-        backoff_factor = 2.0
-        current_delay = initial_delay
-        structured_doc = None
-
-        for attempt in range(max_retries):
-            try:
-                structured_doc = get_structured_document(document_with_line_numbers, start_line, llm_provider=llm_provider, model=model, language=language)
-                # If successful, break the loop
-                break
-            except Exception as e:
-                logger.warning(f"Attempt {attempt + 1}/{max_retries} failed for get_structured_document: {e}", extra={**base_extra, "iteration": iteration_count, "start_line": start_line})
-                if attempt < max_retries - 1:
-                    logger.info(f"Retrying in {current_delay:.2f} seconds...", extra={**base_extra, "iteration": iteration_count, "start_line": start_line})
-                    time.sleep(current_delay)
-                    current_delay *= backoff_factor
-                else:
-                    # If all retries fail, log the final error and re-raise
-                    logger.error(f"All {max_retries} attempts failed for get_structured_document.", extra={**base_extra, "iteration": iteration_count, "start_line": start_line})
-                    raise e # Re-raise the last exception
-
-        # Ensure structured_doc is not None after the loop (should not happen if exception is raised)
-        if structured_doc is None:
-             # This case should ideally not be reached if the exception is always re-raised on final failure.
-             # However, adding a safeguard in case the logic changes or the exception is caught unexpectedly later.
-             logger.error("structured_doc is None after retry loop without raising an exception. This should not happen.", extra={**base_extra, "iteration": iteration_count, "start_line": start_line})
-             # Handle this unexpected state, perhaps by raising a runtime error or skipping the rest of the iteration.
-             # For now, let's raise a specific error.
-             raise RuntimeError(f"Failed to obtain structured document for start_line {start_line} after {max_retries} retries.")
-
-        # Validate and fix the sections from this batch
-        new_sections = validate_and_fix_sections(structured_doc.sections, len(document_lines))
-        
-        logger.debug("Sectioning iteration complete", extra={
-            **base_extra,
-            "iteration": iteration_count,
-            "start_line": start_line,
-            "end_line": end_line,
-            "sections_found": len(new_sections),
-            "duration_s": round(time.perf_counter() - iter_start_time, 4)
-        })
-        
-        if not new_sections:
-            # If we got no valid sections, something went wrong - move forward anyway
-            logger.warning("No valid sections returned from LLM", extra={
-                **base_extra,
-                "iteration": iteration_count,
-                "start_line": start_line,
-                "end_line": end_line
-            })
-            start_line = end_line + 1
-            continue
-            
-        all_sections.extend(new_sections)
-        
-        if end_line >= len(document_lines) - 1:
-            # reached the end of the document
-            break
-        else:
-            if len(new_sections) > 1:
-                # Start from the beginning of the last section to ensure proper overlap handling
-                start_line = all_sections[-1].start_index
-                all_sections.pop()
-            else:
-                start_line = end_line + 1
-                
-        # Safety check - ensure we're making progress
-        if start_line >= len(document_lines):
-            break
-
-    # Validate the complete set of sections one final time
-    all_sections = validate_and_fix_sections(all_sections, len(document_lines))
-
-    # get the section text
-    sections = get_sections_text(all_sections, document_lines)
-    
-    # Calculate and log overall duration
-    total_duration = time.perf_counter() - start_time
-    logger.debug("Semantic sectioning complete", extra={
-        **base_extra,
-        "total_duration_s": round(total_duration, 4), 
-        "iterations_used": iteration_count,
-        "sections_count": len(sections)
-    })
-
-    return sections
-
-def get_sections_text(sections: List[DocumentSection], document_lines: List[Line]) -> List[Section]:
-    """
-    Takes in a list of DocumentSection objects and returns a list of Section objects
-    with content and properly computed end indices.
+    Returns:
+        A list of Section objects, with content and end indices populated.
     """
     section_dicts = []
     doc_length = len(document_lines)
-    
-    for i, s in enumerate(sections):
-        if i == len(sections) - 1:
+
+    for i, s in enumerate(final_sections):
+        if i == len(final_sections) - 1:
             end_index = doc_length - 1  # Last section ends at document end
         else:
-            end_index = min(sections[i+1].start_index - 1, doc_length - 1)  # Section ends right before next section starts
-            
+            end_index = min(final_sections[i+1].start_index - 1, doc_length - 1)  # Section ends right before next section starts
+
         # Double check bounds
         start_index = min(s.start_index, doc_length - 1)
         end_index = min(end_index, doc_length - 1)
-        
+
         if start_index > end_index:
-            print(f"Warning: Section '{s.title}' has invalid bounds: {start_index} > {end_index}")
+            logger.warning(f"Section '{s.title}' has invalid bounds: {start_index} > {end_index}")
             continue
-            
+
         try:
             contents = [document_lines[j]["content"] for j in range(start_index, end_index+1)]
         except Exception as e:
-            print(f"Error in get_sections_text: {e}")
-            print(f"Section: {s}")
-            print(f"Start: {start_index}, End: {end_index}")
-            print(f"Document length: {doc_length}")
+            logger.error(f"Error in get_sections_text: {e}")
+            logger.error(f"Section: {s}")
+            logger.error(f"Start: {start_index}, End: {end_index}")
+            logger.error(f"Document length: {doc_length}")
             raise e
 
         section_dicts.append(Section(
@@ -347,15 +291,17 @@ def get_sections_text(sections: List[DocumentSection], document_lines: List[Line
     return section_dicts
 
 def split_long_line(line: str, max_line_length: int = 200) -> List[str]:
-    """Split a long line into multiple shorter lines while trying to preserve word boundaries."""
+    """
+    Split a long line into multiple shorter lines while trying to preserve word boundaries.
+    """
     if len(line) <= max_line_length:
         return [line]
-    
+
     words = line.split()
     lines = []
     current_line = []
     current_length = 0
-    
+
     for word in words:
         # +1 for the space that would be added
         if current_length + len(word) + 1 <= max_line_length or not current_line:
@@ -365,19 +311,29 @@ def split_long_line(line: str, max_line_length: int = 200) -> List[str]:
             lines.append(" ".join(current_line))
             current_line = [word]
             current_length = len(word)
-    
+
     if current_line:
         lines.append(" ".join(current_line))
-    
+
     return lines
 
-def elements_to_lines(elements: List[Element], exclude_elements: List[str], visual_elements: List[str], max_line_length: int = 200) -> List[Line]:
+def elements_to_lines(
+    elements: List[Element],
+    exclude_elements: List[str],
+    visual_elements: List[str],
+    max_line_length: int = 200
+) -> List[Line]:
     """
-    Inputs
-    - elements: list[dict] - the elements of the document
-    - exclude_elements: list[str] - the types of elements to exclude
-    - visual_elements: list[str] - the types of elements that are visual and therefore should not be split
-    - max_line_length: int - maximum length for a single line before splitting
+    Converts a list of Element objects into a list of Line objects.
+
+    Args:
+        elements: List of Element objects to convert.
+        exclude_elements: Types of elements to exclude.
+        visual_elements: Types of elements that are visual and shouldn't be split.
+        max_line_length: Maximum length for a line before splitting.
+
+    Returns:
+        List of Line objects.
     """
     document_lines = []
     for element in elements:
@@ -413,13 +369,23 @@ def elements_to_lines(elements: List[Element], exclude_elements: List[str], visu
                                 "is_visual": False,
                             })
         except Exception as e:
-            print("error in elements_to_lines", e)
-            print("element", element)
+            logger.error(f"Error in elements_to_lines: {e}")
+            logger.error(f"Element: {element}")
             raise e
 
     return document_lines
 
 def str_to_lines(document: str, max_line_length: int = 200) -> List[Line]:
+    """
+    Converts a document string into a list of Line objects.
+
+    Args:
+        document: String to convert.
+        max_line_length: Maximum length for a line before splitting.
+
+    Returns:
+        List of Line objects.
+    """
     document_lines = []
     lines = document.split("\n")
     for line in lines:
@@ -444,6 +410,16 @@ def str_to_lines(document: str, max_line_length: int = 200) -> List[Line]:
     return document_lines
 
 def pages_to_lines(pages: List[str], max_line_length: int = 200) -> List[Line]:
+    """
+    Converts a list of page strings into a list of Line objects.
+
+    Args:
+        pages: List of page strings to convert.
+        max_line_length: Maximum length for a line before splitting.
+
+    Returns:
+        List of Line objects.
+    """
     document_lines = []
     for i, page in enumerate(pages):
         lines = page.split("\n")
@@ -468,96 +444,619 @@ def pages_to_lines(pages: List[str], max_line_length: int = 200) -> List[Line]:
 
     return document_lines
 
-def no_semantic_sectioning(document: str, num_lines: int) -> List[Section]:
-    # return the entire document as a single section
-    sections = [{
-        "title": "",
-        "content": document,
-        "start": 0,
-        "end": num_lines - 1 # 0-indexed and inclusive
-    }]
-    return sections
+def no_semantic_sectioning(document_content: str, num_lines: int) -> List[Section]:
+    """
+    Fallback if semantic sectioning is disabled or fails. Returns the entire
+    document content as a single section.
 
-def get_sections_from_elements(elements: List[Element], element_types: List[ElementType], exclude_elements: List[str] = [], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, chunking_config: ChunkingConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
-    # get the semantic sectioning config params, using defaults if not provided
+    Args:
+        document_content: The full document content as a string.
+        num_lines: The number of lines in the document.
+
+    Returns:
+        A list containing a single Section covering the whole document.
+    """
+    # return the entire document as a single section
+    return [Section(
+        title="",
+        content=document_content,
+        start=0,
+        end=num_lines - 1 # 0-indexed and inclusive
+    )]
+
+
+# --- New Functions for Parallel Processing ---
+
+def create_document_windows(
+    document_lines: List[Line],
+    max_characters_per_window: int,
+) -> List[Tuple[int, int]]:
+    """
+    Divides the document_lines into a list of non-overlapping windows.
+    Each window is represented by a tuple of (global_start_line_index, global_end_line_index),
+    inclusive. It aims to keep each window's total character count
+    (approximately) under max_characters_per_window.
+
+    Args:
+        document_lines: The full list of Line objects for the document.
+        max_characters_per_window: The target maximum number of characters for each window.
+
+    Returns:
+        A list of tuples, where each tuple is (start_line_idx, end_line_idx)
+        defining a window.
+    """
+    windows = []
+    doc_length = len(document_lines)
+
+    if doc_length == 0:
+        return windows
+
+    window_start = 0
+    character_count = 0
+
+    for i in range(doc_length):
+        line = document_lines[i]["content"]
+        character_count += len(line)
+
+        # Check if we've reached the max characters or end of document
+        # We use 0.9 * max_characters to leave room for line numbers which add to token count
+        if character_count >= 0.9 * max_characters_per_window or i == doc_length - 1:
+            windows.append((window_start, i))
+            window_start = i + 1
+            character_count = 0
+
+    # If we have a partial window at the end
+    if window_start < doc_length and window_start not in [w[0] for w in windows]:
+        windows.append((window_start, doc_length - 1))
+
+    logger.debug(f"Created {len(windows)} document windows")
+    return windows
+
+def process_window_with_retries(
+    window_text_with_lines: str,
+    first_line_number_in_window_prompt: int,
+    llm_provider: str,
+    model: str,
+    language: str,
+    max_retries: int = 3,
+    initial_delay: float = 5.0,
+    backoff_factor: float = 2.0,
+    kb_id: str = "",
+    doc_id: str = ""
+) -> Optional[StructuredDocument]:
+    """
+    Processes a single document window by calling the LLM, including retry logic
+    for transient errors. This function is intended to be run in parallel for
+    multiple windows.
+
+    Args:
+        window_text_with_lines: The text of the current window for the LLM.
+        first_line_number_in_window_prompt: The global line number of the first line
+                                            in this window for the system prompt.
+        llm_provider: LLM provider name.
+        model: LLM model name.
+        language: Document language.
+        max_retries: Maximum number of retries for the LLM call.
+        initial_delay: Initial delay in seconds before the first retry.
+        backoff_factor: Factor by which the delay increases for subsequent retries.
+        kb_id: Knowledge base identifier (for logging).
+        doc_id: Document identifier (for logging).
+
+    Returns:
+        A StructuredDocument object if successful, or None if all retries fail.
+    """
+    # Create base logging context with identifiers
+    base_extra = {
+        "window_start": first_line_number_in_window_prompt,
+        "llm_provider": llm_provider,
+        "model": model
+    }
+    if kb_id:
+        base_extra["kb_id"] = kb_id
+    if doc_id:
+        base_extra["doc_id"] = doc_id
+
+    # Retry logic for LLM call
+    current_delay = initial_delay
+
+    for attempt in range(max_retries):
+        try:
+            logger.debug(f"Processing window starting at line {first_line_number_in_window_prompt} (attempt {attempt+1}/{max_retries})",
+                        extra=base_extra)
+
+            # Call the LLM to get structured document
+            structured_doc = get_structured_document_for_window(
+                window_text_with_lines,
+                first_line_number_in_window_prompt,
+                llm_provider,
+                model,
+                language
+            )
+
+            # If successful, return the result
+            logger.debug(f"Successfully processed window at line {first_line_number_in_window_prompt}",
+                        extra=base_extra)
+            return structured_doc
+
+        except Exception as e:
+            logger.warning(f"Attempt {attempt + 1}/{max_retries} failed for window at line {first_line_number_in_window_prompt}: {e}",
+                          extra=base_extra)
+
+            if attempt < max_retries - 1:
+                logger.info(f"Retrying window at line {first_line_number_in_window_prompt} in {current_delay:.2f} seconds...",
+                           extra=base_extra)
+                time.sleep(current_delay)
+                current_delay *= backoff_factor
+            else:
+                # If all retries fail, log the final error
+                logger.error(f"All {max_retries} attempts failed for window at line {first_line_number_in_window_prompt}.",
+                            extra=base_extra)
+                return None
+
+    # This should never be reached due to the return None above, but adding as a safety
+    return None
+
+def merge_sections_across_windows(
+    all_window_sections: List[List[DocumentSection]]
+) -> List[DocumentSection]:
+    """
+    Merges the lists of sections obtained from processing each window in parallel.
+    The primary strategy is to merge the last section of window N with the
+    first section of window N+1.
+
+    The title for a merged section will be:
+    f"{title_from_window_N_last_section} / {title_from_window_N+1_first_section}"
+
+    Args:
+        all_window_sections: A list of lists, where each inner list contains
+                             DocumentSection objects for a corresponding window,
+                             ordered by window.
+
+    Returns:
+        A single list of DocumentSection objects representing the merged sections
+        for the entire document.
+    """
+    if not all_window_sections:
+        return []
+
+    # If we only have sections from one window, no merging needed
+    if len(all_window_sections) == 1:
+        return all_window_sections[0]
+
+    merged_sections = []
+
+    # Start with the first window's sections
+    merged_sections.extend(all_window_sections[0][:-1])  # All except the last section
+
+    for i in range(len(all_window_sections) - 1):
+        current_window_sections = all_window_sections[i]
+        next_window_sections = all_window_sections[i + 1]
+
+        if not current_window_sections or not next_window_sections:
+            # Skip if either window has no sections (shouldn't happen with our validation)
+            continue
+
+        # Get the last section from current window and first section from next window
+        last_section = current_window_sections[-1]
+        first_section = next_window_sections[0]
+
+        # Merge these sections, keeping the earlier start_index
+        merged_title = f"{last_section.title} / {first_section.title}"
+        merged_section = DocumentSection(
+            title=merged_title,
+            start_index=last_section.start_index  # Keep the earlier start_index
+        )
+
+        merged_sections.append(merged_section)
+
+        # Add remaining sections from the next window (skip the first since it was merged)
+        if len(next_window_sections) > 1:
+            merged_sections.extend(next_window_sections[1:])
+
+    logger.debug(f"Merged {sum(len(sections) for sections in all_window_sections)} sections from {len(all_window_sections)} windows into {len(merged_sections)} sections")
+
+    return merged_sections
+
+def validate_and_fix_global_sections(
+    sections: List[DocumentSection],
+    document_length: int,
+    first_document_line_index: int = 0
+) -> List[DocumentSection]:
+    """
+    Performs a final validation and fixing pass on the globally merged list of sections.
+    Ensures sections are strictly ordered, start indices are unique, the first section
+    starts at the document's actual first line (typically 0), and sections cover
+    the entire document appropriately up to document_length.
+
+    Args:
+        sections: The list of globally merged DocumentSection objects.
+        document_length: The total number of lines in the entire document.
+        first_document_line_index: The starting line index of the document (usually 0).
+
+    Returns:
+        A finalized, validated list of DocumentSection objects.
+    """
+    if not sections:
+        # If no sections, create a default one for the entire document
+        return [DocumentSection(
+            title="Document",
+            start_index=first_document_line_index
+        )]
+
+    # Remove sections with duplicate start_indices (keep first occurrence)
+    seen_indices = set()
+    unique_sections = []
+    for s in sections:
+        if s.start_index not in seen_indices:
+            seen_indices.add(s.start_index)
+            unique_sections.append(s)
+    sections = unique_sections
+
+    # Sort sections by start_index to ensure proper ordering
+    original_order = [s.start_index for s in sections]
+    sections = sorted(sections, key=lambda x: x.start_index)
+    sorted_order = [s.start_index for s in sections]
+
+    if original_order != sorted_order:
+        logger.warning(f"Final sections were out of order. Original indices: {original_order}, Sorted indices: {sorted_order}")
+
+    # Validate and fix each section's start index
+    fixed_sections = []
+    last_start = first_document_line_index - 1  # Initialize to just before document start
+
+    for section in sections:
+        original_start = section.start_index
+
+        # Skip sections that start beyond document length
+        if original_start >= document_length:
+            logger.warning(f"Skipping section '{section.title}' as it starts beyond document length")
+            continue
+
+        # Special handling for the first section - it must start at first_document_line_index
+        if len(fixed_sections) == 0:
+            start = first_document_line_index
+        else:
+            # Other sections must come after the previous section
+            start = max(last_start + 1, min(section.start_index, document_length - 1))
+
+        if start != original_start:
+            logger.info(f"Section '{section.title}' start index adjusted from {original_start} to {start}")
+
+        fixed_sections.append(DocumentSection(
+            title=section.title,
+            start_index=start
+        ))
+        last_start = start
+
+    # Ensure we have at least one section that starts at the document beginning
+    if not fixed_sections or fixed_sections[0].start_index > first_document_line_index:
+        fixed_sections.insert(0, DocumentSection(
+            title="Document Beginning",
+            start_index=first_document_line_index
+        ))
+
+    logger.debug(f"Final validation complete: {len(fixed_sections)} sections in document")
+    return fixed_sections
+
+
+def get_sections(
+    document_lines: List[Line],
+    max_characters_per_window: int,
+    llm_provider: str,
+    model: str,
+    language: str,
+    kb_id: str = "",
+    doc_id: str = "",
+    llm_max_concurrent_requests: int = 5
+) -> List[Section]:
+    """
+    Orchestrates the parallel semantic sectioning of a document.
+    1. Divides the document into windows.
+    2. Processes each window in parallel to get sections (with retries).
+    3. Validates sections for each window.
+    4. Merges sections from adjacent windows.
+    5. Performs a final global validation of all merged sections.
+    6. Populates section content and end lines.
+
+    Args:
+        document_lines: The full list of Line objects for the document.
+        max_characters_per_window: Target maximum characters for LLM processing windows.
+        llm_provider: LLM provider name.
+        model: LLM model name.
+        language: Document language.
+        kb_id: Knowledge base identifier (for logging).
+        doc_id: Document identifier (for logging).
+        llm_max_concurrent_requests: Maximum number of concurrent LLM API calls.
+
+    Returns:
+        A list of Section objects for the entire document.
+    """
+    # Create base logging context with identifiers
+    base_extra = {}
+    if kb_id:
+        base_extra["kb_id"] = kb_id
+    if doc_id:
+        base_extra["doc_id"] = doc_id
+
+    # Log start of parallel sectioning operation
+    start_time = time.perf_counter()
+    logger.debug("Starting parallel semantic sectioning", extra={
+        **base_extra,
+        "document_lines_count": len(document_lines),
+        "llm_provider": llm_provider,
+        "model": model,
+        "llm_max_concurrent_requests": llm_max_concurrent_requests
+    })
+
+    # Step 1: Divide document into windows
+    doc_windows = create_document_windows(document_lines, max_characters_per_window)
+
+    if not doc_windows:
+        logger.warning("No document windows created, document might be empty", extra=base_extra)
+        return []
+
+    # Step 2: Process each window in parallel
+    window_sections = []
+
+    with ThreadPoolExecutor(max_workers=llm_max_concurrent_requests) as executor:
+        window_futures = []
+
+        # Submit all window processing tasks
+        for window_idx, (window_start, window_end) in enumerate(doc_windows):
+            window_text = get_document_text_for_window(document_lines, window_start, window_end)
+
+            logger.debug(f"Submitting window {window_idx+1}/{len(doc_windows)} for processing",
+                        extra={**base_extra, "window_start": window_start, "window_end": window_end})
+
+            future = executor.submit(
+                process_window_with_retries,
+                window_text,
+                window_start,
+                llm_provider,
+                model,
+                language,
+                kb_id=kb_id,
+                doc_id=doc_id
+            )
+            window_futures.append((window_idx, window_start, window_end, future))
+
+        # Process results as they complete
+        all_window_sections = [None] * len(doc_windows)  # Pre-allocate to maintain window order
+
+        for window_idx, window_start, window_end, future in window_futures:
+            try:
+                result = future.result()
+                if result:
+                    # Step 3: Validate sections from this window
+                    validated_sections = validate_and_fix_window_sections(
+                        result.sections, window_start, window_end, len(document_lines)
+                    )
+
+                    logger.debug(f"Window {window_idx+1}/{len(doc_windows)} processed successfully with {len(validated_sections)} sections",
+                                extra={**base_extra, "window_start": window_start, "window_end": window_end})
+
+                    # Store in the correct position to maintain window order
+                    all_window_sections[window_idx] = validated_sections
+                else:
+                    logger.warning(f"Window {window_idx+1}/{len(doc_windows)} processing failed",
+                                  extra={**base_extra, "window_start": window_start, "window_end": window_end})
+                    # Provide a fallback section for this window
+                    all_window_sections[window_idx] = [DocumentSection(
+                        title=f"Window {window_start}-{window_end}",
+                        start_index=window_start
+                    )]
+            except Exception as e:
+                logger.error(f"Error processing window {window_idx+1}/{len(doc_windows)}: {e}",
+                           extra={**base_extra, "window_start": window_start, "window_end": window_end})
+                # Provide a fallback section for this window
+                all_window_sections[window_idx] = [DocumentSection(
+                    title=f"Window {window_start}-{window_end} (Error)",
+                    start_index=window_start
+                )]
+
+    # Remove any None values in case of unexpected issues
+    all_window_sections = [sections for sections in all_window_sections if sections is not None]
+
+    # Step 4: Merge sections from all windows
+    merged_sections = merge_sections_across_windows(all_window_sections)
+
+    # Step 5: Perform final global validation
+    final_sections = validate_and_fix_global_sections(merged_sections, len(document_lines))
+
+    # Step 6: Populate section content and end lines
+    result_sections = get_sections_text(final_sections, document_lines)
+
+    # Calculate and log overall duration
+    total_duration = time.perf_counter() - start_time
+    logger.debug("Parallel semantic sectioning complete", extra={
+        **base_extra,
+        "total_duration_s": round(total_duration, 4),
+        "windows_count": len(doc_windows),
+        "sections_count": len(result_sections)
+    })
+
+    return result_sections
+
+
+# --- Main Entry Point Functions (Parallel Versions) ---
+
+def get_sections_from_elements(
+    elements: List[Element],
+    element_types: List[ElementType],
+    exclude_elements: List[str] = [],
+    max_characters_per_window: int = 20000,
+    semantic_sectioning_config: Dict[str, Any] = None,
+    chunking_config: Dict[str, Any] = None,
+    kb_id: str = "",
+    doc_id: str = ""
+) -> Tuple[List[Section], List[Line]]:
+    """
+    Generates sections from a list of document elements using parallel processing.
+    Converts elements to lines, then calls parallel_get_sections.
+
+    Args:
+        elements: List of Element objects representing the document content.
+        element_types: List of ElementType definitions.
+        exclude_elements: Types of elements to exclude from processing.
+        max_characters_per_window: Maximum characters per processing window.
+        semantic_sectioning_config: Configuration for semantic sectioning.
+        chunking_config: Configuration for document chunking.
+        kb_id: Knowledge base identifier (for logging).
+        doc_id: Document identifier (for logging).
+
+    Returns:
+        A tuple of (sections, document_lines).
+    """
+    if semantic_sectioning_config is None:
+        semantic_sectioning_config = {}
+    if chunking_config is None:
+        chunking_config = {}
+
+    # Get the semantic sectioning config params, using defaults if not provided
     use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
+    llm_max_concurrent_requests = semantic_sectioning_config.get("llm_max_concurrent_requests", 5)
     min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
+
     visual_elements = [e["name"] for e in element_types if e["is_visual"]]
 
+    # Convert elements to lines
     document_lines = elements_to_lines(elements=elements, exclude_elements=exclude_elements, visual_elements=visual_elements)
     document_lines_str = [line["content"] for line in document_lines]
     document_str = "\n".join(document_lines_str)
-    
+
+    # Check if we should use semantic sectioning
     if use_semantic_sectioning and len(document_str) > min_length_for_chunking:
-        max_iterations = 2*(len(document_str) // max_characters + 1)
         sections = get_sections(
-            document_lines=document_lines, 
-            max_iterations=max_iterations, 
-            max_characters=max_characters, 
-            llm_provider=llm_provider, 
-            model=model, 
+            document_lines=document_lines,
+            max_characters_per_window=max_characters_per_window,
+            llm_provider=llm_provider,
+            model=model,
             language=language,
             kb_id=kb_id,
-            doc_id=doc_id
+            doc_id=doc_id,
+            llm_max_concurrent_requests=llm_max_concurrent_requests
         )
     else:
-        sections = no_semantic_sectioning(document=document_str, num_lines=len(document_lines))
-    
+        # Fallback to no semantic sectioning
+        sections = no_semantic_sectioning(document_content=document_str, num_lines=len(document_lines))
+
     return sections, document_lines
 
-def get_sections_from_str(document: str, max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, chunking_config: ChunkingConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
-    # get the semantic sectioning config params, using defaults if not provided
+def get_sections_from_str(
+    document: str,
+    max_characters_per_window: int = 20000,
+    semantic_sectioning_config: Dict[str, Any] = None,
+    chunking_config: Dict[str, Any] = None,
+    kb_id: str = "",
+    doc_id: str = ""
+) -> Tuple[List[Section], List[Line]]:
+    """
+    Generates sections from a document string using parallel processing.
+    Converts the string to lines, then calls parallel_get_sections.
+
+    Args:
+        document: Document content as a string.
+        max_characters_per_window: Maximum characters per processing window.
+        semantic_sectioning_config: Configuration for semantic sectioning.
+        chunking_config: Configuration for document chunking.
+        kb_id: Knowledge base identifier (for logging).
+        doc_id: Document identifier (for logging).
+
+    Returns:
+        A tuple of (sections, document_lines).
+    """
+    if semantic_sectioning_config is None:
+        semantic_sectioning_config = {}
+    if chunking_config is None:
+        chunking_config = {}
+
+    # Get the semantic sectioning config params, using defaults if not provided
     use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
+    llm_max_concurrent_requests = semantic_sectioning_config.get("llm_max_concurrent_requests", 5)
     min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
+
+    # Convert string to lines
     document_lines = str_to_lines(document)
-    
+
+    # Check if we should use semantic sectioning
     if use_semantic_sectioning and len(document) > min_length_for_chunking:
-        max_iterations = 2*(len(document) // max_characters + 1)
         sections = get_sections(
-            document_lines=document_lines, 
-            max_iterations=max_iterations, 
-            max_characters=max_characters, 
-            llm_provider=llm_provider, 
-            model=model, 
+            document_lines=document_lines,
+            max_characters_per_window=max_characters_per_window,
+            llm_provider=llm_provider,
+            model=model,
             language=language,
             kb_id=kb_id,
-            doc_id=doc_id
+            doc_id=doc_id,
+            llm_max_concurrent_requests=llm_max_concurrent_requests
         )
     else:
-        sections = no_semantic_sectioning(document=document, num_lines=len(document_lines))
+        # Fallback to no semantic sectioning
+        sections = no_semantic_sectioning(document_content=document, num_lines=len(document_lines))
+
     return sections, document_lines
 
-def get_sections_from_pages(pages: List[str], max_characters: int = 20000, semantic_sectioning_config: SemanticSectioningConfig = {}, chunking_config: ChunkingConfig = {}, kb_id: str = "", doc_id: str = "") -> tuple[List[Section], List[Line]]:
-    # get the semantic sectioning config params, using defaults if not provided
+def get_sections_from_pages(
+    pages: List[str],
+    max_characters_per_window: int = 20000,
+    semantic_sectioning_config: Dict[str, Any] = None,
+    chunking_config: Dict[str, Any] = None,
+    kb_id: str = "",
+    doc_id: str = ""
+) -> Tuple[List[Section], List[Line]]:
+    """
+    Generates sections from a list of page strings using parallel processing.
+    Converts pages to lines, then calls parallel_get_sections.
+
+    Args:
+        pages: List of page strings.
+        max_characters_per_window: Maximum characters per processing window.
+        semantic_sectioning_config: Configuration for semantic sectioning.
+        chunking_config: Configuration for document chunking.
+        kb_id: Knowledge base identifier (for logging).
+        doc_id: Document identifier (for logging).
+
+    Returns:
+        A tuple of (sections, document_lines).
+    """
+    if semantic_sectioning_config is None:
+        semantic_sectioning_config = {}
+    if chunking_config is None:
+        chunking_config = {}
+
+    # Get the semantic sectioning config params, using defaults if not provided
     use_semantic_sectioning = semantic_sectioning_config.get("use_semantic_sectioning", True)
     llm_provider = semantic_sectioning_config.get("llm_provider", "openai")
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
+    llm_max_concurrent_requests = semantic_sectioning_config.get("llm_max_concurrent_requests", 5)
     min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
 
+    # Convert pages to lines
     document_lines = pages_to_lines(pages)
     document_lines_str = [line["content"] for line in document_lines]
     document_str = "\n".join(document_lines_str)
 
+    # Check if we should use semantic sectioning
     if use_semantic_sectioning and len(document_str) > min_length_for_chunking:
-        max_iterations = 2*(len(document_str) // max_characters + 1)
         sections = get_sections(
-            document_lines=document_lines, 
-            max_iterations=max_iterations, 
-            max_characters=max_characters, 
-            llm_provider=llm_provider, 
-            model=model, 
+            document_lines=document_lines,
+            max_characters_per_window=max_characters_per_window,
+            llm_provider=llm_provider,
+            model=model,
             language=language,
             kb_id=kb_id,
-            doc_id=doc_id
+            doc_id=doc_id,
+            llm_max_concurrent_requests=llm_max_concurrent_requests
         )
     else:
-        sections = no_semantic_sectioning(document=document_str, num_lines=len(document_lines))
-    
+        # Fallback to no semantic sectioning
+        sections = no_semantic_sectioning(document_content=document_str, num_lines=len(document_lines))
+
     return sections, document_lines

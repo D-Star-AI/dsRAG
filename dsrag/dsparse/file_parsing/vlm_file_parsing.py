@@ -14,7 +14,7 @@ import json
 import time
 import logging
 import concurrent.futures
-from PyPDF2 import PdfReader
+from pypdf import PdfReader
 
 # Get the dsparse logger
 logger = logging.getLogger("dsrag.dsparse.vlm_file_parsing")
@@ -84,7 +84,7 @@ def get_page_count(file_path: str, kb_id: str = "", doc_id: str = ""):
         })
         return None
 
-def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSystem, dpi=200, max_workers: int=2, max_pages: int=100) -> list[str]:
+def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSystem, dpi=100, max_workers: int=2, max_pages: int=10) -> list[str]:
     """
     Convert a PDF to images and save them to a folder. Uses pdf2image (which relies on poppler).
 
@@ -110,10 +110,10 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
 
     def save_single_image(args):
         i, image = args
-        file_system.save_image(kb_id, doc_id, f'page_{i+1}.png', image)
-        return f'/{kb_id}/{doc_id}/page_{i+1}.png'
+        file_system.save_image(kb_id, doc_id, f'page_{i+1}.jpg', image)
+        return f'/{kb_id}/{doc_id}/page_{i+1}.jpg'
 
-    # Convert PDF to images in batches of 100
+    # Convert PDF to images in batches of max_pages
     page_count = get_page_count(pdf_path, kb_id, doc_id)
     all_image_paths = []
     
@@ -190,19 +190,7 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
                 return 429
             else:
                 logger.error(f"Error in make_llm_call_vertex: {e}", extra=base_extra)
-                error_data = {
-                    "error": f"Error in make_llm_call_vertex: {e}",
-                    "function": "parse_page",
-                    "page_number": page_number
-                }
-
-                try:
-                    if log_errors:
-                        file_system.log_error(kb_id, doc_id, error_data)
-                except Exception as log_error:
-                    logger.error(f"Failed to log error: {log_error}", extra=base_extra)
-                finally:
-                    return 429
+                return 429
                 
     elif vlm_config["provider"] == "gemini":
         try:
@@ -226,21 +214,10 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
                 return 429
             else:
                 logger.error(f"Error in make_llm_call_gemini: {e}", extra=base_extra)
-                error_data = {
-                    "error": f"Error in make_llm_call_gemini: {e}",
-                    "function": "parse_page",
-                    "page_number": page_number
-                }
-                try:
-                    if log_errors:
-                        file_system.log_error(kb_id, doc_id, error_data)
-                except Exception as log_error:
-                    logger.error(f"Failed to log error: {log_error}", extra=base_extra)
-                finally:
-                    llm_output = json.dumps([{
-                        "type": "text",
-                        "content": "Unable to process page"
-                    }])
+                llm_output = json.dumps([{
+                    "type": "text", 
+                    "content": "Unable to process page"
+                }])
                     
     else:
         raise ValueError("Invalid provider specified in the VLM config. Only 'vertex_ai' and 'gemini' are supported for now.")
@@ -257,18 +234,6 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
             "full_model_output": llm_output
         })
         
-        error_data = {
-            "error": f"Error parsing JSON for {page_image_path}: {e}",
-            "function": "parse_page",
-            "page_number": page_number,
-            "full_model_output": llm_output  # Also save the full output to the error log
-        }
-
-        try:
-            if log_errors:
-                file_system.log_error(kb_id, doc_id, error_data)
-        except Exception as log_error:
-            logger.error(f"Failed to log error: {log_error}", extra=base_extra)
         page_content = []
 
     # add page number to each element
@@ -295,14 +260,16 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     - images of each page of the PDF (if images_already_exist is False)
     - JSON files of the content of each page
     """
-    max_pages = vlm_config.get("max_pages", 100)
+    max_pages = vlm_config.get("max_pages", 10)
     max_workers = vlm_config.get("max_workers", 2)
     images_already_exist = vlm_config.get("images_already_exist", False)
     vlm_max_concurrent_requests = vlm_config.get("vlm_max_concurrent_requests", 5)
+    dpi = vlm_config.get("dpi", 100)
+
     if images_already_exist:
-        image_file_paths = file_system.get_all_png_files(kb_id, doc_id)
+        image_file_paths = file_system.get_all_jpg_files(kb_id, doc_id)
     else:
-        image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system, max_workers=max_workers, max_pages=max_pages)
+        image_file_paths = pdf_to_images(pdf_path, kb_id, doc_id, file_system, dpi=dpi, max_workers=max_workers, max_pages=max_pages)
     
     all_page_content_dict = {}
 
@@ -313,7 +280,7 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     def process_page(page_number):
         base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
         tries = 0
-        max_retries = 20
+        max_retries = 10
         
         while tries < max_retries:
             content = parse_page(
@@ -322,14 +289,17 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
                 file_system=file_system,
                 page_number=page_number,
                 vlm_config=vlm_config,
-                element_types=element_types,
-                log_errors=(tries == max_retries - 1)
-            )  # Let's log error to dynamodb only if it's the last attempt
+                element_types=element_types
+            )
 
             # Handle rate limit errors
             if content == 429:
-                logger.warning(f"Rate limit exceeded. Sleeping for 10 seconds before retrying...", 
-                              extra={**base_extra, "retry_attempt": tries+1})
+                if tries == max_retries - 1:
+                    logger.error(f"Rate limit exceeded on final retry attempt {tries+1}/{max_retries}", 
+                                extra={**base_extra, "retry_attempt": tries+1, "final_attempt": True})
+                else:
+                    logger.warning(f"Rate limit exceeded. Sleeping for 10 seconds before retrying...", 
+                                  extra={**base_extra, "retry_attempt": tries+1})
                 time.sleep(10)
                 tries += 1
                 continue
@@ -337,8 +307,12 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
             # Check if the content is empty - a signal that JSON parsing failed
             if isinstance(content, list) and len(content) == 0:
                 # This suggests we had a JSON parsing error
-                logger.warning(f"Empty content returned, likely due to JSON parsing error. Retrying...",
-                               extra={**base_extra, "retry_attempt": tries+1})
+                if tries == max_retries - 1:
+                    logger.error(f"Empty content returned on final retry attempt {tries+1}/{max_retries}",
+                                extra={**base_extra, "retry_attempt": tries+1, "final_attempt": True})
+                else:
+                    logger.warning(f"Empty content returned, likely due to JSON parsing error. Retrying...",
+                                   extra={**base_extra, "retry_attempt": tries+1})
                 tries += 1
                 continue
                 

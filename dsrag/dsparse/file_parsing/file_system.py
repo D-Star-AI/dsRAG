@@ -59,7 +59,7 @@ class FileSystem(ABC):
         pass
 
     @abstractmethod
-    def get_all_png_files(self, kb_id: str, doc_id: str) -> List[str]:
+    def get_all_jpg_files(self, kb_id: str, doc_id: str) -> List[str]:
         pass
 
     @abstractmethod
@@ -148,7 +148,7 @@ class LocalFileSystem(FileSystem):
         Save the image to the local system
         """
         image_path = os.path.join(self.base_path, kb_id, doc_id, file_name)
-        image.save(image_path, 'PNG')
+        image.save(image_path)
 
     def get_files(self, kb_id: str, doc_id: str, page_start: int, page_end: int) -> List[str]:
         """
@@ -160,23 +160,26 @@ class LocalFileSystem(FileSystem):
             return []
         page_images_path = os.path.join(self.base_path, kb_id, doc_id)
         image_file_paths = []
+        
+        # Try multiple extensions for backward compatibility, but only return first found per page
         for i in range(page_start, page_end + 1):
-            image_file_path = os.path.join(page_images_path, f'page_{i}.png')
-            # Make sure the file exists
-            if not os.path.exists(image_file_path):
-                continue
-            image_file_paths.append(image_file_path)
+            for ext in ['.jpg', '.jpeg', '.png']:  # Try in order of preference
+                image_file_path = os.path.join(page_images_path, f'page_{i}{ext}')
+                if os.path.exists(image_file_path):
+                    image_file_paths.append(image_file_path)
+                    break  # Found the file, no need to check other extensions
+                    
         return image_file_paths
     
-    def get_all_png_files(self, kb_id: str, doc_id: str) -> List[str]:
+    def get_all_jpg_files(self, kb_id: str, doc_id: str) -> List[str]:
         """
         Same as get_files except it returns all the files instead of just those in a page range
         """
         page_images_path = os.path.join(self.base_path, kb_id, doc_id)
         image_file_paths = []
         for file in os.listdir(page_images_path):
-            # Make sure the file is an image
-            if not file.endswith('.png'):
+            # Make sure the file is an image (support multiple formats for backward compatibility)
+            if not (file.endswith('.jpg') or file.endswith('.jpeg') or file.endswith('.png')):
                 continue
             image_file_paths.append(os.path.join(page_images_path, file))
 
@@ -330,7 +333,7 @@ class S3FileSystem(FileSystem):
         """
         file_name = f"{kb_id}/{doc_id}/{file_name}"
         buffer = io.BytesIO()
-        file.save(buffer, format='PNG')
+        file.save(buffer, format='JPEG')
         buffer.seek(0)  # Rewind the buffer to the beginning
 
         s3_client = self.create_s3_client()
@@ -339,9 +342,9 @@ class S3FileSystem(FileSystem):
                 Bucket=self.bucket_name,
                 Key=file_name,
                 Body=buffer,
-                ContentType='image/png'
+                ContentType='image/jpeg'
             )
-            print(f"PNG uploaded to {self.bucket_name}/{file_name}.")
+            print(f"JPEG uploaded to {self.bucket_name}/{file_name}.")
         except Exception as e:
             raise RuntimeError(f"Failed to upload image to S3.") from e
 
@@ -354,33 +357,44 @@ class S3FileSystem(FileSystem):
         """
         if page_start is None or page_end is None:
             return []
-        filenames = [f"{kb_id}/{doc_id}/page_{i}.png" for i in range(page_start, page_end + 1)]
+        
         s3_client = self.create_s3_client()
         file_paths = []
-        for filename in filenames:
-            output_folder = os.path.join(self.base_path, kb_id, doc_id)
-            if not os.path.exists(output_folder):
+        
+        # Try multiple extensions for backward compatibility, but only return first found per page
+        for i in range(page_start, page_end + 1):
+            found_file = False
+            for ext in ['.jpg', '.jpeg', '.png']:  # Try in order of preference
+                filename = f"{kb_id}/{doc_id}/page_{i}{ext}"
+                output_folder = os.path.join(self.base_path, kb_id, doc_id)
+                if not os.path.exists(output_folder):
+                    try:
+                        os.makedirs(output_folder)
+                    except FileExistsError:
+                        # Since this function can be called in parallel, the folder may have been created by another process
+                        pass
+                output_filepath = os.path.join(self.base_path, filename)
                 try:
-                    os.makedirs(output_folder)
-                except FileExistsError:
-                    # Since this function can be called in parallel, the folder may have been created by another process
-                    pass
-            output_filepath = os.path.join(self.base_path, filename)
-            try:
-                s3_client.download_file(
-                    self.bucket_name,
-                    filename,
-                    output_filepath
-                )
-                file_paths.append(output_filepath)
-            except Exception as e:
-                print ("Error downloading file:", e)
+                    s3_client.download_file(
+                        self.bucket_name,
+                        filename,
+                        output_filepath
+                    )
+                    file_paths.append(output_filepath)
+                    found_file = True
+                    break  # Found file for this page, don't try other extensions
+                except Exception as e:
+                    # File doesn't exist with this extension, try next extension
+                    continue
+            
+            if not found_file:
+                print(f"Warning: No image file found for page {i} in S3")
             
         return file_paths
     
-    def get_all_png_files(self, kb_id: str, doc_id: str) -> List[str]:
+    def get_all_jpg_files(self, kb_id: str, doc_id: str) -> List[str]:
         """
-        Get all PNG files from a specific S3 directory and download them to local storage.
+        Get all JPG files from a specific S3 directory and download them to local storage.
         Returns a sorted list of local file paths.
         
         Args:
@@ -403,9 +417,9 @@ class S3FileSystem(FileSystem):
             if 'Contents' not in response:
                 return []
             
-            # Filter for PNG files
-            png_files = [obj['Key'] for obj in response['Contents'] 
-                        if obj['Key'].lower().endswith('.png')]
+            # Filter for image files (support multiple formats for backward compatibility)
+            jpg_files = [obj['Key'] for obj in response['Contents'] 
+                        if obj['Key'].lower().endswith(('.jpg', '.jpeg', '.png'))]
             
             # Create local directory if it doesn't exist
             output_folder = os.path.join(self.base_path, kb_id, doc_id)
@@ -413,7 +427,7 @@ class S3FileSystem(FileSystem):
             
             # Download each file
             local_file_paths = []
-            for s3_key in png_files:
+            for s3_key in jpg_files:
                 local_path = os.path.join(self.base_path, s3_key)
                 try:
                     s3_client.download_file(

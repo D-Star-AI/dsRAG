@@ -39,12 +39,12 @@ class TestLocalFileSystem(unittest.TestCase):
         pdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../tests/data/mck_energy_first_5_pages.pdf'))
         images = convert_from_path(pdf_path, dpi=150)
         
-        file_name = "page_0.png"
+        file_name = "page_0.jpg"
         self.file_system.save_image(self.kb_id, self.doc_id, file_name, images[0])
         # Make sure the file was saved
         self.assertTrue(os.path.exists(os.path.join(self.base_path, self.kb_id, self.doc_id, file_name)))
 
-        file_name = "page_1.png"
+        file_name = "page_1.jpg"
         self.file_system.save_image(self.kb_id, self.doc_id, file_name, images[1])
 
     def test__004_get_files(self):
@@ -58,11 +58,11 @@ class TestLocalFileSystem(unittest.TestCase):
 
     def test__005_get_all_files(self):
             
-        files = self.file_system.get_all_png_files(self.kb_id, self.doc_id)
+        files = self.file_system.get_all_jpg_files(self.kb_id, self.doc_id)
         self.assertTrue(len(files) == 2)
-        # The only file returned should be page_0.png
-        self.assertTrue(files[0] == os.path.join(self.base_path, self.kb_id, self.doc_id, "page_0.png"))
-        self.assertTrue(files[1] == os.path.join(self.base_path, self.kb_id, self.doc_id, "page_1.png"))
+        # The only file returned should be page_0.jpg
+        self.assertTrue(files[0] == os.path.join(self.base_path, self.kb_id, self.doc_id, "page_0.jpg"))
+        self.assertTrue(files[1] == os.path.join(self.base_path, self.kb_id, self.doc_id, "page_1.jpg"))
 
     def test__006_delete_directory(self):
 
@@ -77,7 +77,7 @@ class TestLocalFileSystem(unittest.TestCase):
         pdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../tests/data/mck_energy_first_5_pages.pdf'))
         images = convert_from_path(pdf_path, dpi=150)
         
-        file_name = "page_0.png"
+        file_name = "page_0.jpg"
         self.file_system.save_image(self.kb_id, self.doc_id, file_name, images[0])
         self.file_system.save_image(self.kb_id, "", file_name, images[0])
 
@@ -127,9 +127,9 @@ class TestS3FileSystem(unittest.TestCase):
         pdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../tests/data/mck_energy_first_5_pages.pdf'))
         images = convert_from_path(pdf_path, dpi=150)
         
-        file_name = "page_0.png"
+        file_name = "page_0.jpg"
         self.s3_file_system.save_image(self.kb_id, self.doc_id, file_name, images[0])
-        file_name = "page_1.png"
+        file_name = "page_1.jpg"
         self.s3_file_system.save_image(self.kb_id, self.doc_id, file_name, images[1])
 
     def test__004_get_files(self):
@@ -137,7 +137,7 @@ class TestS3FileSystem(unittest.TestCase):
         files = self.s3_file_system.get_files(self.kb_id, self.doc_id, page_start=0, page_end=1)
         self.assertTrue(len(files) == 2)
         # Make sure the file was saved locally to the base path
-        self.assertTrue(os.path.exists(os.path.join(self.base_path, self.kb_id, self.doc_id, "page_0.png")))
+        self.assertTrue(os.path.exists(os.path.join(self.base_path, self.kb_id, self.doc_id, "page_0.jpg")))
 
         # Try it again with the file already saved locally (Shouldn't cause any issues)
         files = self.s3_file_system.get_files(self.kb_id, self.doc_id, page_start=0, page_end=1)
@@ -149,18 +149,18 @@ class TestS3FileSystem(unittest.TestCase):
 
     def test__005_get_all_files(self):
 
-        files = self.s3_file_system.get_all_png_files(self.kb_id, self.doc_id)
+        files = self.s3_file_system.get_all_jpg_files(self.kb_id, self.doc_id)
         self.assertTrue(len(files) == 2)
-        # The only files returned should be page_0.png and page_1.png
-        self.assertTrue(files[0] == os.path.join(self.base_path, self.kb_id, self.doc_id, "page_0.png"))
-        self.assertTrue(files[1] == os.path.join(self.base_path, self.kb_id, self.doc_id, "page_1.png"))
+        # The only files returned should be page_0.jpg and page_1.jpg
+        self.assertTrue(files[0] == os.path.join(self.base_path, self.kb_id, self.doc_id, "page_0.jpg"))
+        self.assertTrue(files[1] == os.path.join(self.base_path, self.kb_id, self.doc_id, "page_1.jpg"))
 
     def test__006_delete_directory(self):
 
         objects_deleted = self.s3_file_system.delete_directory(self.kb_id, self.doc_id)
         self.assertTrue(len(objects_deleted) == 3)
         self.assertTrue(objects_deleted[0]["Key"] == f"{self.kb_id}/{self.doc_id}/elements.json")
-        self.assertTrue(objects_deleted[1]["Key"] == f"{self.kb_id}/{self.doc_id}/page_0.png")
+        self.assertTrue(objects_deleted[1]["Key"] == f"{self.kb_id}/{self.doc_id}/page_0.jpg")
 
         # Try to delete a directory that doesn't exist
         objects_deleted = self.s3_file_system.delete_directory(self.kb_id, self.doc_id)
@@ -173,12 +173,12 @@ class TestS3FileSystem(unittest.TestCase):
         pdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../tests/data/mck_energy_first_5_pages.pdf'))
         images = convert_from_path(pdf_path, dpi=150)
         
-        file_name = "page_0.png"
+        file_name = "page_0.jpg"
         self.s3_file_system.save_image(self.kb_id, self.doc_id, file_name, images[0])
 
         objects_deleted = self.s3_file_system.delete_kb(self.kb_id)
         self.assertTrue(len(objects_deleted) == 1)
-        self.assertTrue(objects_deleted[0]["Key"] == f"{self.kb_id}/{self.doc_id}/page_0.png")
+        self.assertTrue(objects_deleted[0]["Key"] == f"{self.kb_id}/{self.doc_id}/page_0.jpg")
         
 
     @classmethod
