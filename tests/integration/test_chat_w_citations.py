@@ -194,7 +194,7 @@ class TestChatWithNoKBs(unittest.TestCase):
     def test_001_create_new_chat_thread(self):
         chat_thread_params = {
             "kb_ids": [],
-            "model": "gemini/gemini-2.5-flash-preview-04-17",
+            "model": "gemini/gemini-2.5-flash-preview-05-20",
         }
         
         chat_thread_db = BasicChatThreadDB()
