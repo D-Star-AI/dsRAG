@@ -458,7 +458,7 @@ def no_semantic_sectioning(document_content: str, num_lines: int) -> List[Sectio
     """
     # return the entire document as a single section
     return [Section(
-        title="Document",
+        title="",
         content=document_content,
         start=0,
         end=num_lines - 1 # 0-indexed and inclusive
