@@ -61,7 +61,8 @@ kb.add_document(
     },
     auto_context_config={
         "use_generated_title": True,    # Generate title if not provided
-        "get_document_summary": True    # Generate document summary
+        "get_document_summary": True,   # Generate document summary
+        "llm_max_concurrent_requests": 5  # Maximum concurrent requests
     }
 )
 ```

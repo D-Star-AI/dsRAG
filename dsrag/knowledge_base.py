@@ -226,8 +226,8 @@ class KnowledgeBase:
         components = data.get("components", {})
         # Deserialize components
         self.embedding_model = Embedding.from_dict(
-            components.get("embedding_model", {})
-        )
+            components.get("embedding_model", {}))
+        
         self.reranker = (
             reranker if reranker else Reranker.from_dict(components.get("reranker", {}))
         )
@@ -341,6 +341,9 @@ class KnowledgeBase:
 
                     # Guidance for section summarization
                     "section_summarization_guidance": "Summarize each section",
+
+                    # Maximum concurrent requests for section summarization
+                    "llm_max_concurrent_requests": 5,
 
                     # Custom term mappings (key: term to map to, value: list of terms to map from)
                     "custom_term_mapping": {
@@ -506,7 +509,7 @@ class KnowledgeBase:
                 doc_id=doc_id,
                 document_title=document_title,
                 auto_context_config=auto_context_config,
-                language=self.kb_metadata["language"],
+                language=self.kb_metadata.get("language", "en"),
             )
 
             # --- Embedding Step ---

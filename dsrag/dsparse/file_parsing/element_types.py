@@ -3,6 +3,8 @@ from ..models.types import ElementType
 
 def get_visual_elements_as_str(elements: list[ElementType]) -> str:
     visual_elements = [element["name"] for element in elements if element["is_visual"]]
+    if not visual_elements:
+        return ""
     last_element = visual_elements[-1]
     if len(visual_elements) > 1:
         visual_elements[-1] = f"and {last_element}"
@@ -10,6 +12,8 @@ def get_visual_elements_as_str(elements: list[ElementType]) -> str:
 
 def get_non_visual_elements_as_str(elements: list[ElementType]) -> str:
     non_visual_elements = [element["name"] for element in elements if not element["is_visual"]]
+    if not non_visual_elements:
+        return ""
     last_element = non_visual_elements[-1]
     if len(non_visual_elements) > 1:
         non_visual_elements[-1] = f"and {last_element}"

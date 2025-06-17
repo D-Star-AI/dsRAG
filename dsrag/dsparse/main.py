@@ -305,7 +305,7 @@ def parse_and_chunk_vlm(
         elements=elements,
         element_types=element_types,
         exclude_elements=exclude_elements,
-        max_characters=20000,
+        max_characters_per_window=20000,
         semantic_sectioning_config=semantic_sectioning_config,
         chunking_config=chunking_config,
         kb_id=kb_id,
@@ -479,7 +479,7 @@ def parse_and_chunk_no_vlm(
         # If we have pdf pages then we want to use them so we can keep track of the page numbers
         sections, document_lines = get_sections_from_pages(
             pages=pdf_pages,
-            max_characters=20000,
+            max_characters_per_window=20000,
             semantic_sectioning_config=semantic_sectioning_config,
             chunking_config=chunking_config,
             kb_id=kb_id,
@@ -488,7 +488,7 @@ def parse_and_chunk_no_vlm(
     else:
         sections, document_lines = get_sections_from_str(
             document=text,
-            max_characters=20000,
+            max_characters_per_window=20000,
             semantic_sectioning_config=semantic_sectioning_config,
             chunking_config=chunking_config,
             kb_id=kb_id,
