@@ -81,6 +81,29 @@ kb.add_document(
 )
 ```
 
+## Semantic Sectioning Configuration
+
+dsRAG supports semantic sectioning with multiple LLM providers:
+- OpenAI (e.g., `gpt-4.1-mini`)
+- Anthropic (e.g., `claude-3-5-haiku-latest`)
+- Gemini (e.g., `gemini-2.0-flash`)
+
+You can configure semantic sectioning like this:
+
+```python
+semantic_sectioning_config = {
+    "llm_provider": "anthropic",  # or "openai" or "gemini"
+    "model": "claude-3-5-haiku-latest",
+    "use_semantic_sectioning": True
+}
+
+kb.add_document(
+    doc_id="user_manual",
+    file_path="path/to/your/document.pdf",
+    semantic_sectioning_config=semantic_sectioning_config
+)
+```
+
 ## Local-only configuration
 
 If you don't want to use any third-party services, you can configure dsRAG to run fully locally using Ollama. There will be a couple limitations:
