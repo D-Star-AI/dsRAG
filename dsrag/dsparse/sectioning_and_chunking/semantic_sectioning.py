@@ -601,8 +601,13 @@ def merge_sections_across_windows(
 ) -> List[DocumentSection]:
     """
     Merges the lists of sections obtained from processing each window in parallel.
-    The primary strategy is to merge the last section of window N with the
-    first section of window N+1.
+    
+    Merging strategy:
+    - The last section of window N is merged with the first section of window N+1 ONLY IF:
+      1. Both windows contain more than one section, OR
+      2. The current window contains more than one section AND the next window is the last window
+    - If either window contains only a single section (e.g., a consolidated section),
+      no merging occurs and sections remain distinct.
 
     The title for a merged section will be:
     f"{title_from_window_N_last_section} / {title_from_window_N+1_first_section}"
@@ -624,34 +629,67 @@ def merge_sections_across_windows(
         return all_window_sections[0]
 
     merged_sections = []
-
-    # Start with the first window's sections
-    merged_sections.extend(all_window_sections[0][:-1])  # All except the last section
-
-    for i in range(len(all_window_sections) - 1):
-        current_window_sections = all_window_sections[i]
-        next_window_sections = all_window_sections[i + 1]
-
-        if not current_window_sections or not next_window_sections:
-            # Skip if either window has no sections (shouldn't happen with our validation)
+    processed_indices = set()  # Track which window indices we've processed
+    
+    # Process each window
+    for i in range(len(all_window_sections)):
+        if i in processed_indices:
             continue
-
-        # Get the last section from current window and first section from next window
-        last_section = current_window_sections[-1]
-        first_section = next_window_sections[0]
-
-        # Merge these sections, keeping the earlier start_index
-        merged_title = f"{last_section.title} / {first_section.title}"
-        merged_section = DocumentSection(
-            title=merged_title,
-            start_index=last_section.start_index  # Keep the earlier start_index
-        )
-
-        merged_sections.append(merged_section)
-
-        # Add remaining sections from the next window (skip the first since it was merged)
-        if len(next_window_sections) > 1:
-            merged_sections.extend(next_window_sections[1:])
+            
+        current_window_sections = all_window_sections[i]
+        
+        if not current_window_sections:
+            # Skip empty windows (shouldn't happen with our validation)
+            continue
+            
+        if i == len(all_window_sections) - 1:
+            # Last window - add all sections
+            merged_sections.extend(current_window_sections)
+            processed_indices.add(i)
+        else:
+            # Not the last window - check if we should merge with next window
+            next_window_sections = all_window_sections[i + 1] if i + 1 < len(all_window_sections) else None
+            
+            if not next_window_sections:
+                # Next window is empty or doesn't exist, add all current sections
+                merged_sections.extend(current_window_sections)
+                processed_indices.add(i)
+                continue
+            
+            # Check merging conditions
+            current_has_multiple = len(current_window_sections) > 1
+            next_has_multiple = len(next_window_sections) > 1
+            is_next_last_window = (i + 1) == (len(all_window_sections) - 1)
+            
+            should_merge = (current_has_multiple and next_has_multiple) or \
+                         (current_has_multiple and is_next_last_window)
+            
+            if should_merge:
+                # Add all sections except the last from current window
+                merged_sections.extend(current_window_sections[:-1])
+                
+                # Create merged section from last of current and first of next
+                last_section = current_window_sections[-1]
+                first_section = next_window_sections[0]
+                
+                merged_title = f"{last_section.title} / {first_section.title}"
+                merged_section = DocumentSection(
+                    title=merged_title,
+                    start_index=last_section.start_index  # Keep the earlier start_index
+                )
+                merged_sections.append(merged_section)
+                
+                # Add remaining sections from next window (skip the first since it was merged)
+                if len(next_window_sections) > 1:
+                    merged_sections.extend(next_window_sections[1:])
+                
+                # Mark both windows as processed
+                processed_indices.add(i)
+                processed_indices.add(i + 1)
+            else:
+                # No merging - add all sections from current window
+                merged_sections.extend(current_window_sections)
+                processed_indices.add(i)
 
     logger.debug(f"Merged {sum(len(sections) for sections in all_window_sections)} sections from {len(all_window_sections)} windows into {len(merged_sections)} sections")
 
@@ -747,7 +785,8 @@ def get_sections(
     language: str,
     kb_id: str = "",
     doc_id: str = "",
-    llm_max_concurrent_requests: int = 5
+    llm_max_concurrent_requests: int = 5,
+    min_avg_chars_per_section: int = 500
 ) -> List[Section]:
     """
     Orchestrates the parallel semantic sectioning of a document.
@@ -767,6 +806,9 @@ def get_sections(
         kb_id: Knowledge base identifier (for logging).
         doc_id: Document identifier (for logging).
         llm_max_concurrent_requests: Maximum number of concurrent LLM API calls.
+        min_avg_chars_per_section: Minimum average characters per section within a window.
+            If a window has multiple sections with average length below this threshold,
+            they will be consolidated into a single section. Default is 500.
 
     Returns:
         A list of Section objects for the entire document.
@@ -827,6 +869,24 @@ def get_sections(
             try:
                 result = future.result()
                 if result:
+                    # Get window text to calculate character count
+                    window_text = get_document_text_for_window(document_lines, window_start, window_end)
+                    
+                    # Character-based safeguard against excessive sections
+                    if len(result.sections) > 1:
+                        avg_chars = len(window_text) / len(result.sections)
+                        if avg_chars < min_avg_chars_per_section:
+                            logger.warning(
+                                f"Window {window_idx+1}/{len(doc_windows)} has {len(result.sections)} sections "
+                                f"with only {avg_chars:.0f} avg chars per section (below {min_avg_chars_per_section}). "
+                                f"Consolidating into single section.",
+                                extra={**base_extra, "window_start": window_start, "window_end": window_end}
+                            )
+                            # Replace with single consolidated section
+                            result.sections = [DocumentSection(
+                                title="Consolidated Section",
+                                start_index=window_start
+                            )]
                     # Step 3: Validate sections from this window
                     validated_sections = validate_and_fix_window_sections(
                         result.sections, window_start, window_end, len(document_lines)
@@ -918,6 +978,7 @@ def get_sections_from_elements(
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
     llm_max_concurrent_requests = semantic_sectioning_config.get("llm_max_concurrent_requests", 5)
+    min_avg_chars_per_section = semantic_sectioning_config.get("min_avg_chars_per_section", 500)
     min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
 
     visual_elements = [e["name"] for e in element_types if e["is_visual"]]
@@ -937,7 +998,8 @@ def get_sections_from_elements(
             language=language,
             kb_id=kb_id,
             doc_id=doc_id,
-            llm_max_concurrent_requests=llm_max_concurrent_requests
+            llm_max_concurrent_requests=llm_max_concurrent_requests,
+            min_avg_chars_per_section=min_avg_chars_per_section
         )
     else:
         # Fallback to no semantic sectioning
@@ -979,6 +1041,7 @@ def get_sections_from_str(
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
     llm_max_concurrent_requests = semantic_sectioning_config.get("llm_max_concurrent_requests", 5)
+    min_avg_chars_per_section = semantic_sectioning_config.get("min_avg_chars_per_section", 500)
     min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
 
     # Convert string to lines
@@ -994,7 +1057,8 @@ def get_sections_from_str(
             language=language,
             kb_id=kb_id,
             doc_id=doc_id,
-            llm_max_concurrent_requests=llm_max_concurrent_requests
+            llm_max_concurrent_requests=llm_max_concurrent_requests,
+            min_avg_chars_per_section=min_avg_chars_per_section
         )
     else:
         # Fallback to no semantic sectioning
@@ -1036,6 +1100,7 @@ def get_sections_from_pages(
     model = semantic_sectioning_config.get("model", "gpt-4o-mini")
     language = semantic_sectioning_config.get("language", "en")
     llm_max_concurrent_requests = semantic_sectioning_config.get("llm_max_concurrent_requests", 5)
+    min_avg_chars_per_section = semantic_sectioning_config.get("min_avg_chars_per_section", 500)
     min_length_for_chunking = chunking_config.get("min_length_for_chunking", 0)
 
     # Convert pages to lines
@@ -1053,7 +1118,8 @@ def get_sections_from_pages(
             language=language,
             kb_id=kb_id,
             doc_id=doc_id,
-            llm_max_concurrent_requests=llm_max_concurrent_requests
+            llm_max_concurrent_requests=llm_max_concurrent_requests,
+            min_avg_chars_per_section=min_avg_chars_per_section
         )
     else:
         # Fallback to no semantic sectioning

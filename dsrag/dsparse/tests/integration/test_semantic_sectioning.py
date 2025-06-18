@@ -1,11 +1,13 @@
 import os
 import sys
 import unittest
+from unittest.mock import patch, Mock
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from dsparse.sectioning_and_chunking.semantic_sectioning import get_sections_from_str
+from dsparse.sectioning_and_chunking.semantic_sectioning import get_sections_from_str, DocumentSection
+from dsparse.main import parse_and_chunk
 
 class TestSemanticSectioning(unittest.TestCase):
     
@@ -75,7 +77,7 @@ The potential for AI to improve healthcare delivery remains high, but careful co
         semantic_sectioning_config = {
             "use_semantic_sectioning": True,
             "llm_provider": "openai",
-            "model": "gpt-4o-mini",
+            "model": "gpt-4.1-mini",
             "language": "en",
             "llm_max_concurrent_requests": 3  # For parallel processing
         }
@@ -189,7 +191,7 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             semantic_sectioning_config = {
                 "use_semantic_sectioning": True,
                 "llm_provider": "openai",
-                "model": "gpt-4o-mini",
+                "model": "gpt-4.1-mini",
                 "language": "en",
                 "llm_max_concurrent_requests": concurrency
             }
@@ -209,6 +211,49 @@ The potential for AI to improve healthcare delivery remains high, but careful co
             
             # Output concurrency level and number of sections found
             print(f"Concurrency level {concurrency} produced {len(sections)} sections")
+
+    @patch('dsparse.sectioning_and_chunking.semantic_sectioning.process_window_with_retries')
+    def test_safeguard_integration(self, mock_process_window):
+        """Integration test: Verify safeguard works through parse_and_chunk"""
+        # Create a sample text file content
+        sample_text = "\n".join(["This is line number " + str(i) for i in range(100)])
+        
+        # Mock to return excessive small sections
+        mock_result = Mock()
+        mock_result.sections = [
+            DocumentSection(title=f"Tiny Section {i}", start_index=i) 
+            for i in range(50)  # 50 sections for ~100 lines = way too many
+        ]
+        mock_process_window.return_value = mock_result
+        
+        # Call parse_and_chunk with semantic sectioning enabled
+        sections, chunks = parse_and_chunk(
+            kb_id="test_kb",
+            doc_id="test_doc",
+            text=sample_text,
+            semantic_sectioning_config={
+                "use_semantic_sectioning": True,
+                "llm_provider": "openai",
+                "model": "gpt-4.1-mini",
+                "min_avg_chars_per_section": 500  # Safeguard threshold
+            },
+            chunking_config={
+                "chunk_size": 800,
+                "min_length_for_chunking": 50
+            }
+        )
+        
+        # The safeguard should have consolidated sections
+        # We expect only 1 section (the consolidated one)
+        self.assertEqual(len(sections), 1)
+        self.assertEqual(sections[0]["title"], "Consolidated Section")
+        
+        # Chunks should still be created from the consolidated section
+        self.assertGreater(len(chunks), 0)
+        
+        # All chunks should belong to the single section
+        for chunk in chunks:
+            self.assertEqual(chunk["section_index"], 0)
 
 if __name__ == "__main__":
     unittest.main()

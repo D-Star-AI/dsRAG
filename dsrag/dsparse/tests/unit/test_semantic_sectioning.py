@@ -1,8 +1,7 @@
 import os
 import sys
 import unittest
-import json
-from unittest.mock import patch, Mock, MagicMock
+from unittest.mock import patch, Mock
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -14,7 +13,6 @@ from dsparse.sectioning_and_chunking.semantic_sectioning import (
     str_to_lines,
     pages_to_lines,
     DocumentSection,
-    get_sections_text,
     create_document_windows,
     merge_sections_across_windows,
     validate_and_fix_global_sections,
@@ -336,6 +334,136 @@ class TestSemanticSectioning(unittest.TestCase):
         self.assertEqual(len(sections), 1)
         self.assertEqual(sections[0]["start"], 0)
         self.assertEqual(sections[0]["end"], len(document_lines) - 1)
+
+    @patch('dsparse.sectioning_and_chunking.semantic_sectioning.process_window_with_retries')
+    def test_safeguard_not_triggered(self, mock_process_window):
+        """Test Case 1: Safeguard NOT triggered - valid sections with sufficient average characters"""
+        # Create a document with 2000 characters
+        document_lines = [{"content": "x" * 100} for _ in range(20)]  # 20 lines of 100 chars each = 2000 chars
+        
+        # Mock returns 2 sections (average 1000 chars/section > 500 threshold)
+        mock_result = Mock()
+        mock_result.sections = [
+            DocumentSection(title="Section 1", start_index=0),
+            DocumentSection(title="Section 2", start_index=10)
+        ]
+        mock_process_window.return_value = mock_result
+        
+        # Call get_sections
+        sections = get_sections(
+            document_lines=document_lines,
+            max_characters_per_window=5000,  # Large enough for single window
+            llm_provider="openai",
+            model="gpt-4",
+            language="en",
+            min_avg_chars_per_section=500
+        )
+        
+        # Should return 2 sections as provided
+        self.assertEqual(len(sections), 2)
+        self.assertEqual(sections[0]["title"], "Section 1")
+        self.assertEqual(sections[1]["title"], "Section 2")
+
+    @patch('dsparse.sectioning_and_chunking.semantic_sectioning.process_window_with_retries')
+    def test_safeguard_is_triggered(self, mock_process_window):
+        """Test Case 2: Safeguard IS triggered - too many small sections"""
+        # Create a document with 2000 characters
+        document_lines = [{"content": "x" * 100} for _ in range(20)]  # 20 lines of 100 chars each = 2000 chars
+        
+        # Mock returns 10 sections (average 200 chars/section < 500 threshold)
+        mock_result = Mock()
+        mock_result.sections = [
+            DocumentSection(title=f"Section {i}", start_index=i*2) 
+            for i in range(10)
+        ]
+        mock_process_window.return_value = mock_result
+        
+        # Capture log messages to verify warning
+        with self.assertLogs('dsrag.dsparse.semantic_sectioning_parallel', level='WARNING') as log_context:
+            sections = get_sections(
+                document_lines=document_lines,
+                max_characters_per_window=5000,  # Large enough for single window
+                llm_provider="openai",
+                model="gpt-4",
+                language="en",
+                min_avg_chars_per_section=500
+            )
+        
+        # Should return only 1 consolidated section
+        self.assertEqual(len(sections), 1)
+        self.assertEqual(sections[0]["title"], "Consolidated Section")
+        
+        # Verify warning was logged
+        warning_found = any("below 500" in message for message in log_context.output)
+        self.assertTrue(warning_found, "Expected warning about sections below threshold")
+
+    @patch('dsparse.sectioning_and_chunking.semantic_sectioning.process_window_with_retries')
+    def test_mixed_windows(self, mock_process_window):
+        """Test Case 3: Mixed windows - one valid, one triggers safeguard with new merge logic"""
+        # Create a document with exactly 100 lines to have predictable windows
+        document_lines = [{"content": "x" * 100} for _ in range(100)]  # 100 lines = 10000 chars
+        
+        # Configure mock to return different results for each window
+        def side_effect(*args, **kwargs):
+            window_start = args[1]  # Second argument is window start line
+            
+            if window_start == 0:
+                # First window: valid result with 2 sections (lines 0-44)
+                result = Mock()
+                result.sections = [
+                    DocumentSection(title="Valid Section 1", start_index=0),
+                    DocumentSection(title="Valid Section 2", start_index=30)
+                ]
+                return result
+            elif window_start == 45:
+                # Second window: valid result with 1 section (lines 45-89)
+                result = Mock()
+                result.sections = [
+                    DocumentSection(title="Normal Section", start_index=45)
+                ]
+                return result
+            else:
+                # Third window: many small sections that trigger safeguard (lines 90-99)
+                result = Mock()
+                result.sections = [
+                    DocumentSection(title=f"Small Section {i}", start_index=window_start + i) 
+                    for i in range(5)  # 5 sections in remaining 10 lines = 200 chars each < 500
+                ]
+                return result
+        
+        mock_process_window.side_effect = side_effect
+        
+        # Call get_sections with specific window size
+        with self.assertLogs('dsrag.dsparse.semantic_sectioning_parallel', level='WARNING') as log_context:
+            sections = get_sections(
+                document_lines=document_lines,
+                max_characters_per_window=5000,  # Forces 2 windows for 10000 chars
+                llm_provider="openai",
+                model="gpt-4",
+                language="en",
+                min_avg_chars_per_section=500
+            )
+        
+        # Verify warning was logged about consolidation
+        warning_found = any("Consolidating into single section" in message for message in log_context.output)
+        self.assertTrue(warning_found, "Expected warning about section consolidation")
+        
+        # With new merge logic and 3 windows:
+        # Window 1: 2 sections (Valid Section 1, Valid Section 2) 
+        # Window 2: 1 section (Normal Section)
+        # Window 3: 1 section after safeguard (Consolidated Section)
+        # 
+        # Merging logic:
+        # - Window 1 (2 sections) + Window 2 (1 section): Current has multiple, next doesn't -> NO MERGE
+        # - Window 2 (1 section) + Window 3 (1 section): Neither has multiple -> NO MERGE
+        # Expected: 4 total sections
+        self.assertEqual(len(sections), 4, f"Expected 4 sections with new merge logic. Got: {[s['title'] for s in sections]}")
+        
+        # Verify section titles - no merging should have occurred
+        self.assertEqual(sections[0]["title"], "Valid Section 1")
+        self.assertEqual(sections[1]["title"], "Valid Section 2") 
+        self.assertEqual(sections[2]["title"], "Normal Section")
+        self.assertEqual(sections[3]["title"], "Consolidated Section")
 
 if __name__ == "__main__":
     unittest.main()
