@@ -69,6 +69,7 @@ voyageai = ["voyageai>=0.1.0"]
 ollama = ["ollama>=0.1.0"]
 anthropic = ["anthropic>=0.37.1"]
 google-generativeai = ["google-generativeai>=0.8.3"]
+google-genai = ["google-genai>=0.1.0"]
 
 # Convenience groups
 all-dbs = [
@@ -76,7 +77,7 @@ all-dbs = [
 ]
 
 all-models = [
-    "dsrag[openai,cohere,voyageai,ollama,anthropic,google-generativeai]"
+    "dsrag[openai,cohere,voyageai,ollama,anthropic,google-generativeai,google-genai]"
 ]
 
 # Complete installation with all optional dependencies
