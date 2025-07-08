@@ -259,8 +259,8 @@ file_parsing_config
     - exclude_elements: a list of element types to exclude from the parsed text. Default is ["Header", "Footer"].
 
 semantic_sectioning_config
-- llm_provider: the LLM provider to use for semantic sectioning - only "openai" and "anthropic" are supported at the moment
-- model: the LLM model to use for semantic sectioning
+- llm_provider: the LLM provider to use for semantic sectioning - "openai", "anthropic", and "gemini" are supported
+- model: the LLM model to use for semantic sectioning (e.g., "gpt-4.1-mini", "claude-3-5-haiku-latest", "gemini-2.0-flash")
 - use_semantic_sectioning: if False, semantic sectioning will be skipped (default is True)
 
 chunking_config

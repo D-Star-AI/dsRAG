@@ -308,6 +308,10 @@ class KnowledgeBase:
 
                     # Maximum concurrent requests for section summarization
                     "llm_max_concurrent_requests": 5,
+                    
+                    # Minimum average characters per section in a window (default: 500)
+                    # If sections average fewer chars than this, they'll be consolidated
+                    "min_avg_chars_per_section": 500,
 
                     # Custom term mappings (key: term to map to, value: list of terms to map from)
                     "custom_term_mapping": {
