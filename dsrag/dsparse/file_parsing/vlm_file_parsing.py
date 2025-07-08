@@ -133,9 +133,10 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
     logger.info(f"Converted total {len(all_image_paths)} pages to images", extra=base_extra)
     return all_image_paths
 
-def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: int, vlm_config: VLMConfig, element_types: list[ElementType]) -> list[Element]:
+def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: int, vlm_config: VLMConfig, element_types: list[ElementType]) -> tuple[int, list[Element]]:
     """
     Given an image of a page, use LLM to extract the content of the page.
+    This function includes retry logic and a fallback model mechanism.
 
     Inputs:
     - page_image_path: str, path to the image of the page
@@ -143,104 +144,133 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
     - element_types: list[ElementType], list of element types that the VLM can output
     
     Outputs:
-    - page_content: list of Elements
+    - tuple[int, list[Element]]: A tuple containing the page number and a list of Elements.
     """
+    base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
+    tries = 0
+    max_retries = 10
 
-    # use default vlm_provider and model if not provided
-    if "provider" not in vlm_config:
-        vlm_config["provider"] = "gemini"
-    if "model" not in vlm_config:
-        if vlm_config["provider"] == "gemini":
-            vlm_config["model"] = "gemini-2.0-flash"
+    primary_provider = vlm_config.get("provider", "gemini")
+    primary_model = vlm_config.get("model")
+    if not primary_model:
+        if primary_provider == "gemini":
+            primary_model = "gemini-2.0-flash"
         else:
-            raise ValueError("Non-default VLM provider specified without specifying model")
+            raise ValueError("Non-default VLM provider specified without specifying a model")
 
-    # format system message
-    system_message = SYSTEM_MESSAGE.format(
-        num_visual_elements=get_num_visual_elements(element_types),
-        num_non_visual_elements=get_num_non_visual_elements(element_types),
-        visual_elements_as_str=get_visual_elements_as_str(element_types),
-        non_visual_elements_as_str=get_non_visual_elements_as_str(element_types),
-        element_description_block=get_element_description_block(element_types)
-    )
+    fallback_provider = vlm_config.get("fallback_provider")
+    fallback_model = vlm_config.get("fallback_model")
 
-    page_image_path = file_system.get_files(kb_id, doc_id, page_number, page_number)[0]
+    while tries < max_retries:
+        # Determine which model to use for this attempt
+        current_vlm_config = vlm_config.copy()
+        attempt_number = tries + 1
 
-    if vlm_config["provider"] == "vertex_ai":
-        try:
-            # Get temperature from vlm_config or use default
-            # NOTE: it's very important to use a non-zero temperature here
-            # Using a temp of 0 causes frequent degenerative output that can't be fixed by retrying
-            temperature = vlm_config.get("temperature", 0.5) 
+        # Alternate between primary and fallback model after the first few attempts
+        if attempt_number > 3 and fallback_provider and fallback_model:
+            if attempt_number % 2 != 0:  # Odd attempts (5, 7, 9) use fallback
+                logger.info(f"Attempt {attempt_number}: Switching to fallback model {fallback_model}", extra=base_extra)
+                current_vlm_config["provider"] = fallback_provider
+                current_vlm_config["model"] = fallback_model
+            else: # Even attempts (4, 6, 8, 10) use primary
+                logger.info(f"Attempt {attempt_number}: Switching back to primary model {primary_model}", extra=base_extra)
+                current_vlm_config["provider"] = primary_provider
+                current_vlm_config["model"] = primary_model
+        else: # Attempts 1-3 use primary, or all attempts if no fallback is configured
+            current_vlm_config["provider"] = primary_provider
+            current_vlm_config["model"] = primary_model
 
-            llm_output = make_llm_call_vertex(
-                image_path=page_image_path, 
-                system_message=system_message, 
-                model=vlm_config["model"], 
-                project_id=vlm_config["project_id"], 
-                location=vlm_config["location"],
-                response_schema=response_schema,
-                max_tokens=vlm_config.get("max_tokens", 4000),
-                temperature=temperature
-            )
-        except Exception as e:
-            base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
-            if "429 Online prediction request quota exceeded" in str(e):
-                logger.warning(f"Rate limit exceeded in make_llm_call_vertex: {e}", extra=base_extra)
-                return 429
-            else:
-                logger.error(f"Error in make_llm_call_vertex: {e}", extra=base_extra)
-                return 429
-                
-    elif vlm_config["provider"] == "gemini":
-        try:
-            # Get temperature from vlm_config or use default
-            # NOTE: it's very important to use a non-zero temperature here
-            # Using a temp of 0 causes frequent degenerative output that can't be fixed by retrying
-            temperature = vlm_config.get("temperature", 0.5) 
-            
-            llm_output = make_llm_call_gemini(
-                image_path=page_image_path, 
-                system_message=system_message, 
-                model=vlm_config["model"],
-                response_schema=response_schema,
-                max_tokens=vlm_config.get("max_tokens", 4000),
-                temperature=temperature
-            )
-        except Exception as e:
-            base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
-            if "429 Online prediction request quota exceeded" in str(e):
-                logger.warning(f"Rate limit exceeded in make_llm_call_gemini: {e}", extra=base_extra)
-                return 429
-            else:
-                logger.error(f"Error in make_llm_call_gemini: {e}", extra=base_extra)
-                llm_output = json.dumps([{
-                    "type": "text", 
-                    "content": "Unable to process page"
-                }])
-                    
-    else:
-        raise ValueError("Invalid provider specified in the VLM config. Only 'vertex_ai' and 'gemini' are supported for now.")
-    
-    try:
-        page_content = json.loads(llm_output)
-    except Exception as e:
-        base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
-        logger.error(f"Error parsing JSON for {page_image_path}: {e}", extra=base_extra)
+        # format system message
+        system_message = SYSTEM_MESSAGE.format(
+            num_visual_elements=get_num_visual_elements(element_types),
+            num_non_visual_elements=get_num_non_visual_elements(element_types),
+            visual_elements_as_str=get_visual_elements_as_str(element_types),
+            non_visual_elements_as_str=get_non_visual_elements_as_str(element_types),
+            element_description_block=get_element_description_block(element_types)
+        )
+
+        page_image_path = file_system.get_files(kb_id, doc_id, page_number, page_number)[0]
         
-        # Log the full model output for debugging purposes
-        logger.debug("Full problematic model output:", extra={
-            **base_extra,
-            "full_model_output": llm_output
-        })
-        
+        llm_output = None
+        rate_limited = False
+
+        if current_vlm_config["provider"] == "vertex_ai":
+            try:
+                temperature = current_vlm_config.get("temperature", 0.5)
+                llm_output = make_llm_call_vertex(
+                    image_path=page_image_path, 
+                    system_message=system_message, 
+                    model=current_vlm_config["model"], 
+                    project_id=current_vlm_config["project_id"], 
+                    location=current_vlm_config["location"],
+                    response_schema=response_schema,
+                    max_tokens=current_vlm_config.get("max_tokens", 4000),
+                    temperature=temperature
+                )
+            except Exception as e:
+                if "429" in str(e):
+                    logger.warning(f"Rate limit exceeded with Vertex AI: {e}", extra=base_extra)
+                    rate_limited = True
+                else:
+                    logger.error(f"Error with Vertex AI: {e}", extra=base_extra)
+                    llm_output = "" # Force retry on other errors
+
+        elif current_vlm_config["provider"] == "gemini":
+            try:
+                temperature = current_vlm_config.get("temperature", 0.5)
+                llm_output = make_llm_call_gemini(
+                    image_path=page_image_path, 
+                    system_message=system_message, 
+                    model=current_vlm_config["model"],
+                    response_schema=response_schema,
+                    max_tokens=current_vlm_config.get("max_tokens", 4000),
+                    temperature=temperature
+                )
+            except Exception as e:
+                if "429" in str(e):
+                    logger.warning(f"Rate limit exceeded with Gemini: {e}", extra=base_extra)
+                    rate_limited = True
+                else:
+                    logger.error(f"Error with Gemini: {e}", extra=base_extra)
+                    llm_output = "" # Force retry on other errors
+        else:
+            raise ValueError(f"Invalid provider specified: {current_vlm_config['provider']}")
+
+        # Handle rate limit errors
+        if rate_limited:
+            if tries == max_retries - 1:
+                logger.error(f"Rate limit exceeded on final retry attempt {tries+1}/{max_retries}", extra={**base_extra, "retry_attempt": tries+1, "final_attempt": True})
+            else:
+                logger.warning(f"Rate limit exceeded. Sleeping for 10 seconds before retrying...", extra={**base_extra, "retry_attempt": tries+1})
+            time.sleep(10)
+            tries += 1
+            continue
+
+        # Handle JSON parsing and other errors
         page_content = []
+        try:
+            if llm_output:
+                page_content = json.loads(llm_output)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing JSON on attempt {tries+1}: {e}", extra=base_extra)
+            logger.debug("Full problematic model output:", extra={"full_model_output": llm_output, **base_extra})
+        
+        if page_content:
+            for element in page_content:
+                element["page_number"] = page_number
+            return page_number, page_content
+        else: # Empty content or JSON error, so retry
+            if tries == max_retries - 1:
+                logger.error(f"Empty or invalid content on final retry attempt {tries+1}/{max_retries}", extra={**base_extra, "retry_attempt": tries+1, "final_attempt": True})
+            else:
+                logger.warning(f"Empty or invalid content received. Retrying...", extra={**base_extra, "retry_attempt": tries+1})
+            tries += 1
+            continue
 
-    # add page number to each element
-    for element in page_content:
-        element["page_number"] = page_number
+    # If all retries fail, return a minimal valid result
+    logger.error(f"Failed to process page after {max_retries} attempts", extra=base_extra)
+    return page_number, [{"type": "NarrativeText", "content": "Failed to process page after multiple attempts", "page_number": page_number}]
 
-    return page_content
 
 def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, file_system: FileSystem) -> list[Element]:
     """
@@ -277,58 +307,23 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
     if len(element_types) == 0:
         element_types = default_element_types
 
-    def process_page(page_number):
-        base_extra = {"kb_id": kb_id, "doc_id": doc_id, "page_number": page_number}
-        tries = 0
-        max_retries = 10
-        
-        while tries < max_retries:
-            content = parse_page(
-                kb_id=kb_id,
-                doc_id=doc_id,
-                file_system=file_system,
-                page_number=page_number,
-                vlm_config=vlm_config,
-                element_types=element_types
-            )
-
-            # Handle rate limit errors
-            if content == 429:
-                if tries == max_retries - 1:
-                    logger.error(f"Rate limit exceeded on final retry attempt {tries+1}/{max_retries}", 
-                                extra={**base_extra, "retry_attempt": tries+1, "final_attempt": True})
-                else:
-                    logger.warning(f"Rate limit exceeded. Sleeping for 10 seconds before retrying...", 
-                                  extra={**base_extra, "retry_attempt": tries+1})
-                time.sleep(10)
-                tries += 1
-                continue
-                
-            # Check if the content is empty - a signal that JSON parsing failed
-            if isinstance(content, list) and len(content) == 0:
-                # This suggests we had a JSON parsing error
-                if tries == max_retries - 1:
-                    logger.error(f"Empty content returned on final retry attempt {tries+1}/{max_retries}",
-                                extra={**base_extra, "retry_attempt": tries+1, "final_attempt": True})
-                else:
-                    logger.warning(f"Empty content returned, likely due to JSON parsing error. Retrying...",
-                                   extra={**base_extra, "retry_attempt": tries+1})
-                tries += 1
-                continue
-                
-            # If we get here, we have valid content
-            return page_number, content
-            
-        # If we've exhausted retries, return a minimal valid result
-        logger.error(f"Failed to process page after {max_retries} attempts", extra=base_extra)
-        return page_number, [{"type": "NarrativeText", "content": "Failed to process page after multiple attempts", "page_number": page_number}]
-
     base_extra = {"kb_id": kb_id, "doc_id": doc_id}
     logger.debug(f"Starting VLM page processing with up to {vlm_max_concurrent_requests} concurrent requests", extra=base_extra)
     
     # Use ThreadPoolExecutor to process pages in parallel
     with concurrent.futures.ThreadPoolExecutor(max_workers=vlm_max_concurrent_requests) as executor:
-        futures = {executor.submit(process_page, i + 1): i for i in range(len(image_file_paths))}
+        futures = {
+            executor.submit(
+                parse_page, 
+                kb_id, 
+                doc_id, 
+                file_system, 
+                i + 1, 
+                vlm_config, 
+                element_types
+            ): i 
+            for i in range(len(image_file_paths))
+        }
         for future in concurrent.futures.as_completed(futures):
             # Add the page content to the dictionary, keyed on the page number
             page_number, page_content = future.result()
