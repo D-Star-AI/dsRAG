@@ -47,7 +47,6 @@ def annotate_chunk(chunk: str, key: str, terms: List[str]) -> str:
         instances = re.finditer(re.escape(term), chunk)
         instances = list(instances)
         for instance in reversed(instances):
-            start = instance.start()
             end = instance.end()
             chunk = chunk[:end] + f" ({key})" + chunk[end:]
     return chunk.strip()

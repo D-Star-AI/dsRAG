@@ -35,6 +35,8 @@ class Chunk(TypedDict):
 class VLMConfig(TypedDict):
     provider: Optional[str]
     model: Optional[str]
+    fallback_provider: Optional[str]
+    fallback_model: Optional[str]
     project_id: Optional[str]
     location: Optional[str]
     exclude_elements: Optional[list[str]]
