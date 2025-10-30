@@ -43,7 +43,9 @@ dependencies = [
     "pillow>=10.0.0",
     "pdf2image>=1.16.0",
     "docx2txt>=0.8",
-    "pypdf>=3.0.1"
+    "pypdf>=3.0.1",
+    "fastapi>=0.120.1",
+    "uvicorn>=0.38.0",
 ]
 
 [project.urls]
