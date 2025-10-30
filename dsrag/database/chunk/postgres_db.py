@@ -319,7 +319,7 @@ class PostgresChunkDB(ChunkDB):
         if result:
             return result[0]
         return None
-
+        
     def get_all_doc_ids(self, supp_id: Optional[str] = None) -> list[str]:
         # Retrieve all document IDs from the sqlite table
         conn = psycopg2.connect(

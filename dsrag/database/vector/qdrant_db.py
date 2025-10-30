@@ -1,3 +1,4 @@
+import math
 from typing import Sequence, cast
 import uuid
 from dsrag.database.vector.types import ChunkMetadata, Vector, VectorSearchResult
@@ -90,7 +91,7 @@ class QdrantVectorDB(VectorDB):
         """
         self.client.close()
 
-    def add_vectors(
+    def _add_vectors(
         self, vectors: Sequence[Vector], metadata: Sequence[ChunkMetadata]
     ) -> None:
         """
@@ -209,3 +210,84 @@ class QdrantVectorDB(VectorDB):
             "kb_id": self.kb_id,
             **self.client_options,
         }
+        
+    def add_vectors(
+        self, vectors: Sequence[Vector], metadata: Sequence[ChunkMetadata]
+    ) -> None:
+        """
+        Adds a list of vectors with associated metadata to Qdrant, 
+        splitting them into smaller batches to avoid exceeding Qdrant's 32MB limit.
+
+        Args:
+            vectors: A list of vector embeddings.
+            metadata: A list of dictionaries containing metadata for each vector.
+
+        Raises:
+            ValueError: If the number of vectors and metadata items do not match.
+        """
+        try:
+            assert len(vectors) == len(metadata)
+        except AssertionError as exc:
+            raise ValueError(
+                "Error in add_vectors: the number of vectors and metadata items must be the same."
+            ) from exc
+
+        if not self.client.collection_exists(self.kb_id):
+            self.client.create_collection(
+                self.kb_id,
+                vectors_config=qdrant_client.models.VectorParams(
+                    size=len(vectors[0]), 
+                    distance=qdrant_client.models.Distance.COSINE
+                ),
+            )
+        
+        # --- Helper: Estimate chunk size ---
+        def estimate_batch_size():
+            """Estimate how many vectors fit in ~20MB for safety margin."""
+            import sys
+            sample_vec_size = sys.getsizeof(vectors[300])
+            sample_meta_size = sys.getsizeof(metadata[300])
+            avg_point_size = sample_vec_size + sample_meta_size
+            # Aim for ~20MB per batch (to stay well below 32MB)
+            target_bytes = 20 * 1024 * 1024
+            return max(1, target_bytes // avg_point_size)
+        
+        batch_size = min(estimate_batch_size(), 500)  # cap for safety
+        
+        total = len(vectors)
+        num_batches = math.ceil(total / batch_size)
+        
+        print(f"[INFO] Uploading {total} vectors in {num_batches} batches (batch size ≈ {batch_size})")
+        
+        # --- Upload in chunks ---
+        for i in range(0, total, batch_size):
+            batch_vectors = vectors[i:i + batch_size]
+            batch_meta = metadata[i:i + batch_size]
+
+            points = []
+            for vector, meta in zip(batch_vectors, batch_meta):
+                doc_id = meta.get("doc_id", "")
+                chunk_index = meta.get("chunk_index", 0)
+                uuid = convert_id(f"{doc_id}_{chunk_index}")
+
+                points.append(
+                    qdrant_client.models.PointStruct(
+                        id=uuid,
+                        vector=vector,
+                        payload={
+                            "doc_id": doc_id,
+                            "chunk_index": chunk_index,
+                            "metadata": meta,
+                        },
+                    )
+                )
+                
+            self.client.upload_points(
+                collection_name=self.kb_id, 
+                points=points,
+                parallel=4,
+                max_retries=3,
+            )
+            print(f"[INFO] Batch {i // batch_size + 1}/{num_batches} uploaded successfully.")
+                
+        print("[INFO] All batches uploaded successfully!")

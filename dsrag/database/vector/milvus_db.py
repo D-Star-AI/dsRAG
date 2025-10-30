@@ -58,11 +58,12 @@ class MilvusDB(VectorDB):
         """
         self.kb_id = kb_id
         self.storage_directory = os.path.expanduser(storage_directory)
+        self.uri = f"{self.storage_directory}/milvus_{kb_id}.db"
         self.collection_name = kb_id
         self.dimension = dimension
 
         # Initialize Milvus client
-        self.client = pymilvus.MilvusClient(uri='http://localhost:19530')
+        self.client = pymilvus.MilvusClient(self.uri)
 
         # Create collection if it doesn't exist
         try:
@@ -80,23 +81,46 @@ class MilvusDB(VectorDB):
             collection_name (str): The name of the collection.
             dimension (int, optional): The dimension of the vectors. Defaults to 768.
         """
-        schema = {
-            "id": {"data_type": pymilvus.DataType.VARCHAR, "is_primary": True, "max_length": 100},
-            "doc_id": {"data_type": pymilvus.DataType.VARCHAR, "max_length": 100},
-            "chunk_index": {"data_type": pymilvus.DataType.INT64},
-            "text": {"data_type": pymilvus.DataType.VARCHAR, "max_length": 65535},
-            "embedding": {"data_type": pymilvus.DataType.FLOAT_VECTOR, "dim": dimension}
-        }
+        schema = pymilvus.MilvusClient.create_schema()
+        schema.add_field(
+            field_name="id",
+            datatype=pymilvus.DataType.VARCHAR,
+            is_primary=True,
+            max_length=100
+        )
+        schema.add_field(
+            field_name="doc_id",
+            datatype=pymilvus.DataType.VARCHAR,
+            max_length=100
+        )
+        schema.add_field(
+            field_name="chunk_index",
+            datatype=pymilvus.DataType.INT64
+        )
+        schema.add_field(
+            field_name="text",
+            datatype=pymilvus.DataType.VARCHAR,
+            max_length=65535
+        )
+        schema.add_field(
+            field_name="embedding",
+            datatype=pymilvus.DataType.FLOAT_VECTOR,
+            dim=dimension
+        )
         
+        index_params = pymilvus.MilvusClient.prepare_index_params()
+        
+        index_params.add_index(
+            field_name="embedding",
+            index_type="HNSW",
+            metric_type="COSINE",
+            params={"M": 8, "efConstruction": 64}
+        )
+
         self.client.create_collection(
             collection_name=collection_name,
             schema=schema,
-            index_params={
-                "field_name": "embedding",
-                "index_type": "HNSW",
-                "metric_type": "COSINE",
-                "params": {"M": 8, "efConstruction": 64}
-            }
+            index_params=index_params
         )
 
     def add_vectors(self, vectors: Sequence[Vector], metadata: Sequence[ChunkMetadata]):
@@ -112,19 +136,21 @@ class MilvusDB(VectorDB):
         data = []
         for i, vector in enumerate(vectors):
             data.append({
-                'doc_id': ids[i],
-                'vector': vector,
-                'metadata': metadata[i]
+                'id': ids[i],  # Primary key field
+                'doc_id': metadata[i]['doc_id'],  # Extract from metadata
+                'chunk_index': metadata[i]['chunk_index'],  # Extract from metadata  
+                'text': metadata[i].get('text', ''),  # Extract text from metadata
+                'embedding': vector  # Match schema field name
             })
 
         self.client.upsert(
-            collection_name=self.kb_id,
+            collection_name=self.collection_name,
             data=data
         )
 
     def search(self, query_vector, top_k: int=10, metadata_filter: Optional[dict] = None) -> list[VectorSearchResult]:
         query_results = self.client.search(
-            collection_name=self.kb_id,
+            collection_name=self.collection_name,
             data=[query_vector],
             filter=_convert_metadata_to_expr(metadata_filter),
             limit=top_k,

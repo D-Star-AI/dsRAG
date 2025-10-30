@@ -102,7 +102,6 @@ def get_chunk_value(chunk_info: dict, irrelevant_chunk_penalty: float, decay_rat
 
     rank = chunk_info.get('rank', 1000) # if rank is not provided, default to 1000
     absolute_relevance_value = chunk_info.get('absolute_relevance_value', 0.0) # if absolute_relevance_value is not provided, default to 0.0
-    
     v = np.exp(-rank / decay_rate)*absolute_relevance_value - irrelevant_chunk_penalty
     return v
 
@@ -123,7 +122,6 @@ def get_relevance_values(all_ranked_results: list[list], meta_document_length: i
             absolute_relevance_value = result["similarity"]
             chunk_length = len(result["metadata"]["chunk_text"]) # get the length of the chunk in characters
             all_chunk_info[meta_document_index] = {'rank': rank, 'absolute_relevance_value': absolute_relevance_value, 'chunk_length': chunk_length}
-
         # convert the relevance ranks and other info to chunk values
         relevance_values = [get_chunk_value(chunk_info, irrelevant_chunk_penalty, decay_rate) for chunk_info in all_chunk_info]
 

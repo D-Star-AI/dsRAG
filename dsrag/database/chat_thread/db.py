@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
+from dsrag.chat.chat_types import ChatThreadParams
 
 class ChatThreadDB(ABC):
     @abstractmethod
-    def create_chat_thread(self, chat_thread_params: dict) -> dict:
+    def create_chat_thread(self, chat_thread_params: ChatThreadParams) -> dict:
         """
         Creates a chat thread in the database.
         """

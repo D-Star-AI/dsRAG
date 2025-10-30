@@ -4,12 +4,14 @@ from pydantic import BaseModel
 
 class ChatThreadParams(TypedDict):
     kb_ids: Optional[list[str]]
+    thread_id: Optional[str]
+    supp_id: Optional[str]
     model: Optional[str]
     temperature: Optional[float]
     system_message: Optional[str]
     auto_query_model: Optional[str]
     auto_query_guidance: Optional[str]
-    rse_params: Optional[dict]
+    rse_params: Optional[dict] | Optional[str]
     target_output_length: Optional[str]
     max_chat_history_tokens: Optional[int]
 

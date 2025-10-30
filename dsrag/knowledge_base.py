@@ -255,6 +255,23 @@ class KnowledgeBase:
 
         # delete the metadata file
         self.metadata_storage.delete(self.kb_id)
+    
+    def get_chunks_for_embedding(self, chunks):
+        chunks_to_embed = []
+        for i, chunk in enumerate(chunks):
+            document_title=chunk["document_title"],
+            document_summary=chunk["document_summary"],
+            section_title=chunk["section_title"],
+            section_summary=chunk["section_summary"],
+            
+            chunk_header = ""
+            if document_title:
+                chunk_header += f"Document context: the following excerpt is from a document titled '{document_title}'. {document_summary}"
+            if section_title:
+                chunk_header += f"\n\nSection context: this excerpt is from the section titled '{section_title}'. {section_summary}"
+            chunk_to_embed = f"{chunk_header}\n\n{chunk['content']}"
+            chunks_to_embed.append(chunk_to_embed)
+        return chunks_to_embed
 
     def add_document(
         self,
@@ -480,6 +497,8 @@ class KnowledgeBase:
             # --- Embedding Step ---
             step_start_time = time.perf_counter()
             chunk_embeddings = get_embeddings(
+                kb_id=self.kb_id,
+                doc_id=doc_id,
                 embedding_model=self.embedding_model,
                 chunks_to_embed=chunks_to_embed,
             )
@@ -707,7 +726,7 @@ class KnowledgeBase:
         """
         return self.chunk_db.get_is_visual(doc_id, chunk_index)
     
-    def _get_chunk_content(self, doc_id: str, chunk_index: int) -> tuple[str, str]:
+    def _get_chunk_content(self, doc_id: str, chunk_index: int) -> str | None:
         """Get the full content of a specific chunk.
 
         Internal method to retrieve chunk content.
@@ -725,7 +744,22 @@ class KnowledgeBase:
         return get_segment_header(
             document_title=document_title, document_summary=document_summary
         )
-
+        
+    def get_chunk_for_embedding(self, doc_id: str, chunk_index: int) -> str | None:
+        chunk_text = self.chunk_db.get_chunk_text(doc_id, chunk_index)
+        document_title = self.chunk_db.get_document_title(doc_id, chunk_index)
+        document_summary = self.chunk_db.get_document_summary(doc_id, chunk_index)
+        section_title = self.chunk_db.get_section_title(doc_id, chunk_index)
+        section_summary = self.chunk_db.get_section_summary(doc_id, chunk_index)
+        chunk_header = ""
+        if document_title:
+            chunk_header += f"Document context: the following excerpt is from a document titled '{document_title}'. {document_summary}"
+        if section_title:
+            chunk_header += f"\n\nSection context: this excerpt is from the section titled '{section_title}'. {section_summary}"
+        
+        chunk_to_embed = f"{chunk_header}\n\n{chunk_text}"
+        return chunk_to_embed
+        
     def _get_embeddings(self, text: list[str], input_type: str = "") -> list[Vector]:
         """Generate embeddings for text.
 
@@ -749,6 +783,12 @@ class KnowledgeBase:
         search_results = self.vector_db.search(query_vector, top_k, metadata_filter)
         if len(search_results) == 0:
             return []
+        for result in search_results:
+            doc_id = result['metadata']['doc_id']
+            chunk_index = result['metadata']['chunk_index']
+            chunk_text = self._get_chunk_text(doc_id, chunk_index)
+            if chunk_text is not None:
+                result['metadata']['chunk_text'] = chunk_text
         search_results = self.reranker.rerank_search_results(query, search_results)
         return search_results
 

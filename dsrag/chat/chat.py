@@ -163,15 +163,15 @@ def limit_chat_messages(chat_messages: list[dict], max_tokens: int = 8000) -> li
 
 def _set_chat_thread_params(
     chat_thread_params: ChatThreadParams,
-    kb_ids: list[str] = None,
-    model: str = None,
-    temperature: float = None,
-    system_message: str = None,
-    auto_query_model: str = None,
-    auto_query_guidance: str = None,
-    target_output_length: str = None,
-    max_chat_history_tokens: int = None,
-    rse_params: dict = None
+    kb_ids: list[str] | None = None,
+    model: str | None = None,
+    temperature: float | None = None,
+    system_message: str | None = None,
+    auto_query_model: str | None = None,
+    auto_query_guidance: str | None = None,
+    target_output_length: str | None = None,
+    max_chat_history_tokens: int | None = None,
+    rse_params: dict | str | None = None
 ) -> ChatThreadParams:
     """Set and validate chat thread parameters.
 
@@ -245,7 +245,7 @@ def _prepare_chat_context(
     kbs: dict,
     chat_thread_params: ChatThreadParams,
     chat_thread_interactions: list[dict],
-    metadata_filter: MetadataFilter = None
+    metadata_filter: MetadataFilter | None = None
 ) -> tuple:
     """Prepare the chat context for generating a response.
     
@@ -270,12 +270,10 @@ def _prepare_chat_context(
     # make note of the timestamp of the request
     request_timestamp = datetime.now().isoformat()
 
-    kb_ids = chat_thread_params['kb_ids']
-
     # set parameters - override if provided
     chat_thread_params = _set_chat_thread_params(
         chat_thread_params=chat_thread_params, 
-        kb_ids=kb_ids,
+        kb_ids=chat_thread_params['kb_ids'],
         model=chat_thread_params.get("model"),
         temperature=chat_thread_params.get("temperature"),
         system_message=chat_thread_params.get("system_message"),
@@ -309,7 +307,7 @@ def _prepare_chat_context(
     chat_messages.append({"role": "user", "content": input})
 
     # limit total number of tokens in chat_messages
-    chat_messages = limit_chat_messages(chat_messages, chat_thread_params['max_chat_history_tokens'])
+    chat_messages = limit_chat_messages(chat_messages, chat_thread_params['max_chat_history_tokens'] or 8000)
 
     formatted_relevant_segments = {}
     all_doc_ids = {}
@@ -317,7 +315,7 @@ def _prepare_chat_context(
     if kb_info:
         # generate search queries
         try:
-            search_queries = get_search_queries(chat_messages=chat_messages, kb_info=kb_info, auto_query_guidance=chat_thread_params['auto_query_guidance'], max_queries=5, auto_query_model=chat_thread_params['auto_query_model'])
+            search_queries = get_search_queries(chat_messages=chat_messages, kb_info=kb_info, auto_query_guidance=chat_thread_params['auto_query_guidance'] or "", max_queries=5, auto_query_model=chat_thread_params['auto_query_model'] or "gpt-4o-mini")
         except Exception as e:
             print(f"Error generating search queries: {str(e)}")
             search_queries = []
@@ -339,6 +337,7 @@ def _prepare_chat_context(
         search_results = {}
         for kb_id, queries in search_queries_by_kb.items():
             kb = kbs.get(kb_id)
+            # need to ensure kb is not None
             search_results[kb_id] = kb.query(search_queries=queries, rse_params=rse_params, metadata_filter=metadata_filter)
 
         # convert doc_id to a sequential source_index for each result, and add the source_index to the result dictionary

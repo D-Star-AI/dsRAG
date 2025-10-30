@@ -70,8 +70,15 @@ class ChromaDB(VectorDB):
 
         # Create the ids from the metadata, defined as {metadata["doc_id"]}_{metadata["chunk_index"]}
         ids = [f"{meta['doc_id']}_{meta['chunk_index']}" for meta in metadata]
+        
+        batch_size = 5460 # Set to your specific max batch size
 
-        self.collection.add(embeddings=vectors_as_lists, metadatas=metadata, ids=ids)
+        for i in range(0, len(vectors_as_lists), batch_size):
+            ids_batch = ids[i:i + batch_size]
+            vector_batch = vectors_as_lists[i:i + batch_size]
+            metadata_batch = metadata[i:i + batch_size]
+
+            self.collection.add(embeddings=vector_batch, metadatas=metadata_batch, ids=ids_batch)
 
     def search(self, query_vector, top_k=10, metadata_filter: Optional[MetadataFilter] = None) -> list[VectorSearchResult]:
 
