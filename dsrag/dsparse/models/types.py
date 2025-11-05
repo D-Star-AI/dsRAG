@@ -58,3 +58,6 @@ class FileParsingConfig(TypedDict):
     use_vlm: Optional[bool]
     vlm_config: Optional[VLMConfig]
     always_save_page_images: Optional[bool]
+    # Optional serialized VLM clients for first-class instance usage
+    vlm: Optional[dict]
+    vlm_fallback: Optional[dict]

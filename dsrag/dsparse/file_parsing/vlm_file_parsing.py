@@ -1,6 +1,8 @@
 from .vlm import make_llm_call_gemini, make_llm_call_vertex
 from ..models.types import ElementType, Element, VLMConfig
 from .file_system import FileSystem
+from .vlm_clients import VLM, GeminiVLM, VertexAIVLM
+from typing import Optional
 from .element_types import (
     get_visual_elements_as_str, 
     get_non_visual_elements_as_str, 
@@ -133,7 +135,7 @@ def pdf_to_images(pdf_path: str, kb_id: str, doc_id: str, file_system: FileSyste
     logger.info(f"Converted total {len(all_image_paths)} pages to images", extra=base_extra)
     return all_image_paths
 
-def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: int, vlm_config: VLMConfig, element_types: list[ElementType]) -> tuple[int, list[Element]]:
+def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: int, vlm_config: VLMConfig, element_types: list[ElementType], vlm_client: Optional[VLM] = None, vlm_fallback_client: Optional[VLM] = None) -> tuple[int, list[Element]]:
     """
     Given an image of a page, use LLM to extract the content of the page.
     This function includes retry logic and a fallback model mechanism.
@@ -160,6 +162,31 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
 
     fallback_provider = vlm_config.get("fallback_provider")
     fallback_model = vlm_config.get("fallback_model")
+
+    # Determine primary and fallback clients
+    primary_client: Optional[VLM] = vlm_client
+    fallback_client: Optional[VLM] = vlm_fallback_client
+
+    if primary_client is None:
+        if primary_provider == "gemini":
+            primary_client = GeminiVLM(model=primary_model)
+        elif primary_provider == "vertex_ai":
+            project_id = vlm_config.get("project_id")
+            location = vlm_config.get("location")
+            if project_id and location:
+                primary_client = VertexAIVLM(model=primary_model, project_id=project_id, location=location)
+            else:
+                primary_client = None  # fall back to legacy path if insufficient config
+        # else: invalid provider handled later in loop
+
+    if fallback_client is None and fallback_provider and fallback_model:
+        if fallback_provider == "gemini":
+            fallback_client = GeminiVLM(model=fallback_model)
+        elif fallback_provider == "vertex_ai":
+            project_id_fb = vlm_config.get("project_id")
+            location_fb = vlm_config.get("location")
+            if project_id_fb and location_fb:
+                fallback_client = VertexAIVLM(model=fallback_model, project_id=project_id_fb, location=location_fb)
 
     while tries < max_retries:
         # Determine which model to use for this attempt
@@ -194,7 +221,34 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
         llm_output = None
         rate_limited = False
 
-        if current_vlm_config["provider"] == "vertex_ai":
+        # Choose instance client if available based on attempt
+        use_fallback = attempt_number > 3 and (fallback_provider and fallback_model)
+        current_client = None
+        if use_fallback and fallback_client is not None:
+            current_client = fallback_client
+            logger.debug("Using instance-based VLM fallback client", extra=base_extra)
+        elif primary_client is not None:
+            current_client = primary_client
+            logger.debug("Using instance-based VLM primary client", extra=base_extra)
+
+        if current_client is not None:
+            try:
+                temperature = current_vlm_config.get("temperature", 0.5)
+                llm_output = current_client.make_llm_call(
+                    image_path=page_image_path,
+                    system_message=system_message,
+                    response_schema=response_schema,
+                    max_tokens=current_vlm_config.get("max_tokens", 4000),
+                    temperature=temperature,
+                )
+            except Exception as e:
+                if "429" in str(e):
+                    logger.warning(f"Rate limit exceeded with instance VLM: {e}", extra=base_extra)
+                    rate_limited = True
+                else:
+                    logger.error(f"Error with instance VLM: {e}", extra=base_extra)
+                    llm_output = ""
+        elif current_vlm_config["provider"] == "vertex_ai":
             try:
                 temperature = current_vlm_config.get("temperature", 0.5)
                 llm_output = make_llm_call_vertex(
@@ -272,7 +326,7 @@ def parse_page(kb_id: str, doc_id: str, file_system: FileSystem, page_number: in
     return page_number, [{"type": "NarrativeText", "content": "Failed to process page after multiple attempts", "page_number": page_number}]
 
 
-def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, file_system: FileSystem) -> list[Element]:
+def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, file_system: FileSystem, vlm_client: Optional[VLM] = None, vlm_fallback_client: Optional[VLM] = None) -> list[Element]:
     """
     Given a PDF file, extract the content of each page using a VLM model.
     
@@ -320,7 +374,9 @@ def parse_file(pdf_path: str, kb_id: str, doc_id: str, vlm_config: VLMConfig, fi
                 file_system, 
                 i + 1, 
                 vlm_config, 
-                element_types
+                element_types,
+                vlm_client,
+                vlm_fallback_client,
             ): i 
             for i in range(len(image_file_paths))
         }
