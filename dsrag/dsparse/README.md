@@ -81,13 +81,14 @@ The default model for semantic sectioning is `gpt-4o-mini`, but similar or stron
 An obvious concern with using a VLM to parse documents is the cost. Let's run the numbers:
 
 VLM file parsing cost calculation (`gemini-2.0-flash`)
-- Text input (prompt) + image input: 400 (text) + 258 (image) tokens x $0.10/10^6 per token = $0.000066
-- Text output: 600 tokens x $0.40/10^6 per token = $0.000240
-- Total: $0.000306/page or **$0.31 per 1000 pages**
+- Input tokens for images are calculated based on the number of 768x768 tiles needed. At the standard dpi of 100 (or even up to around 150), this usually means 4 tiles. Each tile is counted as 258 tokens.
+- Text input (prompt) + image input: 500 (text) + 4x258 (image) tokens x $0.10/10^6 per token = $0.0001532
+- Text output: 700 tokens x $0.40/10^6 per token = $0.0002800
+- Total: $0.0004332/page or **$0.43 per 1000 pages**
 
-This is substantially cheaper than commercially available OCR/PDF parsing services. Unstructured and Azure Document Intelligence, for example, both cost $10 per 1000 pages. 
+This is substantially cheaper than commercially available OCR/PDF parsing services. Unstructured and Azure Document Intelligence, for example, both cost $10 per 1000 pages. Reducto is generally $10-20 per 1000 pages.
 
-What about latency and throughput? Since each page is processed independently, this is a highly parallelizable problem. The main limiting factor then is the rate limits imposed by the VLM provider. The current rate limit for `gemini-2.0-flash` is 2000 requests per minute. Since dsParse uses one request per page, that means the limit is 2000 pages per minute. Processing a single page takes around 15-20 seconds, so that's the minimum latency for processing a document.
+What about latency and throughput? Since each page is processed independently, this is a highly parallelizable problem. The main limiting factor then is the rate limits imposed by the VLM provider. The current rate limit for `gemini-2.0-flash` on the highest tier is 30k requests per minute. Since dsParse uses one request per page, that means the limit is 30k pages per minute. Processing a single page takes around 15-20 seconds, so that's the minimum latency for processing a document.
 
 ### Semantic sectioning
 Semantic sectioning produces far fewer output tokens, so it ends up being a bit cheaper than the file parsing step.
