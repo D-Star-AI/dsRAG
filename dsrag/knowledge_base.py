@@ -77,6 +77,8 @@ class KnowledgeBase:
             save_metadata_to_disk (bool, optional): Whether to persist metadata. Defaults to True.
             metadata_storage (Optional[MetadataStorage], optional): Storage for KB metadata. 
                 Defaults to LocalMetadataStorage.
+            vlm_client (Optional[VLM], optional): VLM client for parsing documents. 
+                Defaults to None.
 
         Raises:
             ValueError: If KB exists and exists_ok is False.
@@ -193,7 +195,7 @@ class KnowledgeBase:
             file_system (Optional[FileSystem], optional): Override stored file system.
             chunk_db (Optional[ChunkDB], optional): Override stored chunk database.
             vector_db (Optional[VectorDB], optional): Override stored vector database.
-
+            vlm_client (Optional[VLM], optional): Override stored VLM client.
         Note:
             Only auto_context_model and reranker can safely override stored components.
             Other component overrides may break functionality if not compatible.
@@ -344,20 +346,23 @@ class KnowledgeBase:
                 {
                     # Whether to use VLM for parsing
                     "use_vlm": False,
+
+                    # VLM client for parsing documents
+                    "vlm": serialized VLM client,
                     
                     # VLM configuration (ignored if use_vlm is False)
                     "vlm_config": {
                         # VLM provider (currently only "gemini" and "vertex_ai" supported)
-                        "provider": "vertex_ai",
+                        "provider": "vertex_ai", - ignored if vlm is provided
                         
                         # The VLM model to use
-                        "model": "model_name",
+                        "model": "model_name", - ignored if vlm is provided
                         
                         # GCP project ID (required for "vertex_ai")
-                        "project_id": "your-project-id",
+                        "project_id": "your-project-id", - ignored if vlm is provided
                         
                         # GCP location (required for "vertex_ai")
-                        "location": "us-central1",
+                        "location": "us-central1", - ignored if vlm is provided
                         
                         # Path to save intermediate files
                         "save_path": "/path/to/save",
