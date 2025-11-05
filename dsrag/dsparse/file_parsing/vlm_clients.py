@@ -1,18 +1,3 @@
-"""
-Visual Language Model (VLM) abstraction and concrete clients.
-
-This module introduces an abstraction similar to LLM/Embedding/Reranker to allow
-users to extend VLM providers/models via subclassing while maintaining backward
-compatibility with existing free functions in vlm.py.
-
-Design notes:
-- Subclasses are registered via __init_subclass__ for simple construction from
-  serialized config dicts.
-- The public free functions in vlm.py delegate to these clients and preserve
-  their original signatures.
-- To avoid circular imports with vlm.compress_image, GeminiVLM imports
-  compress_image inside the make_llm_call method scope.
-"""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
