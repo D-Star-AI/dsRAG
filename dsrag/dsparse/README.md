@@ -97,4 +97,4 @@ Semantic sectioning cost calculation (`gpt-4o-mini`)
 - Output: 50 tokens x $0.60/10^6 per token = $0.00003
 - Total: $0.00015/page or **$0.15 per 1000 pages**
 
-Document text is processed in ~5000 token mega-chunks, which is roughly ten pages on average. But these mega-chunks have to be processed sequentially for each document. Processing each mega-chunk only takes a couple seconds, though, so even a large document of a few hundred pages will only take 20-60 seconds. Rate limits for the OpenAI API are heavily dependent on the usage tier you're in.
+Document text is processed in ~5000 token mega-chunks, which is roughly ten pages on average. These mega-chunks are processed in parallel for each document. Processing each mega-chunk only takes a few seconds, though, so even a large document of a few hundred pages should only take 5-10 seconds. Rate limits for the OpenAI API are heavily dependent on the usage tier you're in.

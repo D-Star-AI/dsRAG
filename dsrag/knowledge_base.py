@@ -459,6 +459,7 @@ class KnowledgeBase:
             
             # --- Parsing and Chunking Step ---
             step_start_time = time.perf_counter()
+            
             # Resolve VLM clients precedence: config serialized > instance on KB > legacy dict
             resolved_vlm_client = None
             resolved_vlm_fallback_client = None
