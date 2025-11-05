@@ -34,6 +34,91 @@ kb.add_document(
 )
 ```
 
+## VLM clients
+VLMs now support a class-based client abstraction (similar to LLM/Embedding/Reranker) that you can pass either at the KB level or per document. Legacy dict-based `vlm_config` remains fully supported.
+
+- Quickstart with class-based client (serialized) and LocalFileSystem
+```python
+from dsrag.dsparse.main import parse_and_chunk
+from dsrag.dsparse.file_parsing.vlm_clients import GeminiVLM
+from dsrag.dsparse.file_parsing.file_system import LocalFileSystem
+
+sections, chunks = parse_and_chunk(
+    kb_id="sample_kb",
+    doc_id="sample_doc",
+    file_path="/path/to/file.pdf",
+    file_parsing_config={
+        "use_vlm": True,
+        "vlm": GeminiVLM(model="gemini-2.0-flash").to_dict(),
+        "vlm_config": {"max_pages": 5, "vlm_max_concurrent_requests": 2},
+    },
+    file_system=LocalFileSystem(base_path="~/dsParse"),
+)
+```
+
+- Fallback (preferred, class-based):
+```python
+from dsrag.dsparse.main import parse_and_chunk
+from dsrag.dsparse.file_parsing.vlm_clients import GeminiVLM
+
+primary = GeminiVLM(model="gemini-2.0-flash").to_dict()
+fallback = GeminiVLM(model="gemini-2.5-flash").to_dict()
+
+sections, chunks = parse_and_chunk(
+    kb_id="kb",
+    doc_id="doc",
+    file_path="/path/to/file.pdf",
+    file_parsing_config={
+        "use_vlm": True,
+        "vlm": primary,
+        "vlm_fallback": fallback,
+        "vlm_config": {"max_pages": 5},
+    },
+)
+```
+
+- Legacy path (still valid):
+```python
+from dsrag.dsparse.main import parse_and_chunk
+
+sections, chunks = parse_and_chunk(
+    kb_id="kb",
+    doc_id="doc",
+    file_path="/path/to/file.pdf",
+    file_parsing_config={
+        "use_vlm": True,
+        "vlm_config": {
+            "provider": "gemini",
+            "model": "gemini-2.0-flash",
+            "max_pages": 5,
+            # Optional legacy fallback
+            "fallback_provider": "gemini",
+            "fallback_model": "gemini-2.5-flash",
+        },
+    },
+)
+```
+
+- Images already exist
+If you’ve pre-extracted page images into the configured FileSystem directory structure, you can reuse them:
+```python
+sections, chunks = parse_and_chunk(
+    kb_id="kb",
+    doc_id="doc",
+    file_path="/path/to/file.pdf",  # path still required for metadata, but images won’t be regenerated
+    file_parsing_config={
+        "use_vlm": True,
+        "vlm": GeminiVLM(model="gemini-2.0-flash").to_dict(),
+        "vlm_config": {"images_already_exist": True},
+    },
+)
+```
+
+- Notes
+  - Parallelism controls and DPI are in `vlm_config` (e.g., `vlm_max_concurrent_requests`, `dpi`).
+  - Page images and `elements.json` are saved via the configured `FileSystem`.
+  - Environment variable `GEMINI_API_KEY` is required for `GeminiVLM`. Clear errors are raised if missing.
+
 ## Installation
 If you want to use dsParse on its own, without installing the full `dsrag` package, there is a standalone Python package available for dsParse, which can be installed with `pip install dsparse`. If you already have `dsrag` installed, you DO NOT need to separately install `dsparse`.
 

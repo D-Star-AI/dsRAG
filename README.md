@@ -235,6 +235,67 @@ For the `S3FileSystem`, the following parameters are needed:
 
 The `base_path` is used when downloading files from S3. The files have to be stored locally in order to be used in the retrieval system. 
 
+#### VLM Clients (new)
+Visual Language Models (VLMs) now follow the same class-based abstraction pattern (ABC) as LLM, Embedding, and Reranker components. You can supply a first-class VLM client instance to the KnowledgeBase, or override per document by passing a serialized client. Backward compatibility is maintained: legacy provider/model dictionaries in `file_parsing_config['vlm_config']` still work.
+
+- Class-based usage (KB default):
+```python
+from dsrag.knowledge_base import KnowledgeBase
+from dsrag.dsparse.file_parsing.vlm_clients import GeminiVLM
+
+kb = KnowledgeBase(
+    kb_id="my_kb",
+    vlm_client=GeminiVLM(model="gemini-2.0-flash"),  # default VLM used for VLM parsing
+)
+```
+
+- Per-document override (serialized client):
+```python
+from dsrag.dsparse.file_parsing.vlm_clients import GeminiVLM
+
+kb.add_document(
+    doc_id="doc1",
+    file_path="/path/to/file.pdf",
+    file_parsing_config={
+        "use_vlm": True,
+        "vlm": GeminiVLM(model="gemini-2.0-flash").to_dict(),  # per-document override
+        "vlm_config": {"max_pages": 10},
+    },
+    auto_context_config={
+        "use_generated_title": False,
+        "get_document_summary": False,
+        "get_section_summaries": False,
+    },
+)
+```
+
+- Fallback configuration (preferred, class-based):
+```python
+from dsrag.dsparse.file_parsing.vlm_clients import GeminiVLM
+
+primary = GeminiVLM(model="gemini-2.0-flash").to_dict()
+fallback = GeminiVLM(model="gemini-2.5-flash").to_dict()
+
+kb.add_document(
+    doc_id="doc2",
+    file_path="/path/to/file.pdf",
+    file_parsing_config={
+        "use_vlm": True,
+        "vlm": primary,
+        "vlm_fallback": fallback,
+        "vlm_config": {"max_pages": 10},
+    },
+)
+```
+Legacy dict-based fallback remains supported via `vlm_config["fallback_provider"/"fallback_model"]`.
+
+- Backward compatibility and precedence
+  - The legacy dict path (e.g., `provider`, `model`, `images_already_exist`, etc.) continues to work.
+  - When both a serialized client (`vlm`) and a legacy `provider`/`model` are supplied, the system prefers `vlm`/`vlm_fallback`.
+
+- Environment variables
+  - `GEMINI_API_KEY` is required for `GeminiVLM`; a clear error is raised if missing.
+
 ## Config dictionaries
 Since there are a lot of configuration parameters available, they're organized into a few config dictionaries. There are four config dictionaries that can be passed in to `add_document` (`auto_context_config`, `file_parsing_config`, `semantic_sectioning_config`, and `chunking_config`) and one that can be passed in to `query` (`rse_params`).
 
