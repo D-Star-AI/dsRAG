@@ -258,6 +258,57 @@ file_parsing_config
     - save_path: the path to save intermediate files created during VLM processing
     - exclude_elements: a list of element types to exclude from the parsed text. Default is ["Header", "Footer"].
 
+VLM class-based clients and fallback
+- You can pass a first-class VLM client instance to KnowledgeBase for default usage:
+
+```python
+from dsrag.knowledge_base import KnowledgeBase
+from dsrag.dsparse.file_parsing.vlm_clients import GeminiVLM
+
+kb = KnowledgeBase(
+    kb_id="my_kb",
+    vlm_client=GeminiVLM(model="gemini-2.0-flash"),  # used by default for VLM parsing
+)
+```
+
+- You can also override the VLM on a per-document basis by passing a serialized client via file_parsing_config["vlm"]. This is useful when you want different models per document:
+
+```python
+vlm_override = GeminiVLM(model="gemini-2.0-flash").to_dict()
+kb.add_document(
+    doc_id="doc1",
+    file_path="/path/to/file.pdf",
+    file_parsing_config={
+        "use_vlm": True,
+        "vlm": vlm_override,  # per-document VLM client
+        "vlm_config": {"images_already_exist": False},
+    },
+    auto_context_config={
+        "use_generated_title": False,
+        "get_document_summary": False,
+        "get_section_summaries": False,
+    },
+)
+```
+
+- Fallback configuration: you can provide a serialized fallback client via file_parsing_config["vlm_fallback"]. The system will alternate between primary and fallback after the first few retries when needed. Legacy fallback using vlm_config["fallback_provider"/"fallback_model"] is also supported.
+
+```python
+primary = GeminiVLM(model="gemini-2.0-flash").to_dict()
+fallback = GeminiVLM(model="gemini-2.5-flash").to_dict()
+
+kb.add_document(
+    doc_id="doc2",
+    file_path="/path/to/file.pdf",
+    file_parsing_config={
+        "use_vlm": True,
+        "vlm": primary,
+        "vlm_fallback": fallback,
+        "vlm_config": {"max_pages": 10},
+    },
+)
+```
+
 semantic_sectioning_config
 - llm_provider: the LLM provider to use for semantic sectioning - "openai", "anthropic", and "gemini" are supported
 - model: the LLM model to use for semantic sectioning (e.g., "gpt-4.1-mini", "claude-3-5-haiku-latest", "gemini-2.0-flash")

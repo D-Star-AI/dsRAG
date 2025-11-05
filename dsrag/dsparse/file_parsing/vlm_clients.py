@@ -103,8 +103,11 @@ class GeminiVLM(VLM):
         import PIL.Image  # used only when this method is executed
         import io
 
-        # Create client using lazy loader
-        client = genai_new.Client(api_key=os.environ["GEMINI_API_KEY"])  # type: ignore[attr-defined]
+        # Create client using lazy loader with explicit API key check
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY not set; required for GeminiVLM")
+        client = genai_new.Client(api_key=api_key)  # type: ignore[attr-defined]
 
         # Base generation config
         config = genai_new.types.GenerateContentConfig(  # type: ignore[attr-defined]
