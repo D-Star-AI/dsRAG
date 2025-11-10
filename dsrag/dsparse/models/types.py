@@ -42,6 +42,9 @@ class VLMConfig(TypedDict):
     exclude_elements: Optional[list[str]]
     element_types: Optional[list[ElementType]]
     max_workers: Optional[int]
+    # Additional optional configuration used by VLM parsing
+    dpi: Optional[int]
+    vlm_max_concurrent_requests: Optional[int]
 
 
 class SemanticSectioningConfig(TypedDict):
@@ -58,3 +61,6 @@ class FileParsingConfig(TypedDict):
     use_vlm: Optional[bool]
     vlm_config: Optional[VLMConfig]
     always_save_page_images: Optional[bool]
+    # Optional serialized VLM clients for first-class instance usage
+    vlm: Optional[dict]
+    vlm_fallback: Optional[dict]

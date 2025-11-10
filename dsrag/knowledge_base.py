@@ -30,6 +30,7 @@ from dsrag.llm import LLM, OpenAIChatAPI
 from dsrag.dsparse.file_parsing.file_system import FileSystem, LocalFileSystem
 from dsrag.metadata import MetadataStorage, LocalMetadataStorage
 from dsrag.chat.citations import convert_elements_to_page_content
+from dsrag.dsparse.file_parsing.vlm_clients import VLM
 
 class KnowledgeBase:
     def __init__(
@@ -48,7 +49,8 @@ class KnowledgeBase:
         file_system: Optional[FileSystem] = None,
         exists_ok: bool = True,
         save_metadata_to_disk: bool = True,
-        metadata_storage: Optional[MetadataStorage] = None
+        metadata_storage: Optional[MetadataStorage] = None,
+        vlm_client: Optional[VLM] = None,
     ):
         """Initialize a KnowledgeBase instance.
 
@@ -75,6 +77,8 @@ class KnowledgeBase:
             save_metadata_to_disk (bool, optional): Whether to persist metadata. Defaults to True.
             metadata_storage (Optional[MetadataStorage], optional): Storage for KB metadata. 
                 Defaults to LocalMetadataStorage.
+            vlm_client (Optional[VLM], optional): VLM client for parsing documents. 
+                Defaults to None.
 
         Raises:
             ValueError: If KB exists and exists_ok is False.
@@ -87,7 +91,7 @@ class KnowledgeBase:
             # load the KB if it exists; otherwise, initialize it and save it to disk
             if self.metadata_storage.kb_exists(self.kb_id) and exists_ok:
                 self._load(
-                    auto_context_model, reranker, file_system, chunk_db, vector_db
+                    auto_context_model, reranker, file_system, chunk_db, vector_db, vlm_client
                 )
                 self._save()
             elif self.metadata_storage.kb_exists(self.kb_id) and not exists_ok:
@@ -104,7 +108,7 @@ class KnowledgeBase:
                     "created_on": created_time,
                 }
                 self._initialize_components(
-                    embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system
+                    embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system, vlm_client
                 )
                 self._save()  # save the config for the KB to disk
         else:
@@ -115,7 +119,7 @@ class KnowledgeBase:
                 "supp_id": supp_id,
             }
             self._initialize_components(
-                embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system
+                embedding_model, reranker, auto_context_model, vector_db, chunk_db, file_system, vlm_client
             )
 
     def _get_metadata_path(self):
@@ -134,6 +138,7 @@ class KnowledgeBase:
         vector_db: Optional[VectorDB],
         chunk_db: Optional[ChunkDB],
         file_system: Optional[FileSystem],
+        vlm_client: Optional[VLM] = None,
     ):
         """Initialize the knowledge base components.
 
@@ -153,6 +158,9 @@ class KnowledgeBase:
             chunk_db if chunk_db else BasicChunkDB(self.kb_id, self.storage_directory)
         )
         self.file_system = file_system if file_system else LocalFileSystem(base_path=os.path.join(self.storage_directory, "page_images"))
+        # Store optional VLM client for first-class use
+        self.vlm_client = vlm_client
+
         self.vector_dimension = self.embedding_model.dimension
 
     def _save(self):
@@ -168,13 +176,15 @@ class KnowledgeBase:
             "vector_db": self.vector_db.to_dict(),
             "chunk_db": self.chunk_db.to_dict(),
             "file_system": self.file_system.to_dict(),
+            # Persist VLM client if present
+            "vlm_client": (self.vlm_client.to_dict() if getattr(self, "vlm_client", None) else None),
         }
         # Combine metadata and components
         full_data = {**self.kb_metadata, "components": components}
 
         self.metadata_storage.save(full_data, self.kb_id)
 
-    def _load(self, auto_context_model=None, reranker=None, file_system=None, chunk_db=None, vector_db=None):
+    def _load(self, auto_context_model=None, reranker=None, file_system=None, chunk_db=None, vector_db=None, vlm_client: Optional[VLM] = None):
         """Load a knowledge base configuration from disk.
 
         Internal method to deserialize components and metadata.
@@ -185,7 +195,7 @@ class KnowledgeBase:
             file_system (Optional[FileSystem], optional): Override stored file system.
             chunk_db (Optional[ChunkDB], optional): Override stored chunk database.
             vector_db (Optional[VectorDB], optional): Override stored vector database.
-
+            vlm_client (Optional[VLM], optional): Override stored VLM client.
         Note:
             Only auto_context_model and reranker can safely override stored components.
             Other component overrides may break functionality if not compatible.
@@ -236,6 +246,17 @@ class KnowledgeBase:
         else:
             # If the file system does not exist and is not provided, default to LocalFileSystem
             self.file_system = LocalFileSystem(base_path=self.storage_directory)
+
+        # Load optional VLM client
+        stored_vlm_dict = components.get("vlm_client")
+        if vlm_client is not None:
+            logging.warning(f"Overriding stored vlm_client for KB '{self.kb_id}' during load.", extra=base_extra)
+            self.vlm_client = vlm_client
+        elif stored_vlm_dict:
+            # Use VLM factory to reconstruct
+            self.vlm_client = VLM.from_dict(stored_vlm_dict)
+        else:
+            self.vlm_client = None
 
         self.vector_dimension = self.embedding_model.dimension
 
@@ -325,20 +346,23 @@ class KnowledgeBase:
                 {
                     # Whether to use VLM for parsing
                     "use_vlm": False,
+
+                    # VLM client for parsing documents
+                    "vlm": serialized VLM client,
                     
                     # VLM configuration (ignored if use_vlm is False)
                     "vlm_config": {
                         # VLM provider (currently only "gemini" and "vertex_ai" supported)
-                        "provider": "vertex_ai",
+                        "provider": "vertex_ai", - ignored if vlm is provided
                         
                         # The VLM model to use
-                        "model": "model_name",
+                        "model": "model_name", - ignored if vlm is provided
                         
                         # GCP project ID (required for "vertex_ai")
-                        "project_id": "your-project-id",
+                        "project_id": "your-project-id", - ignored if vlm is provided
                         
                         # GCP location (required for "vertex_ai")
-                        "location": "us-central1",
+                        "location": "us-central1", - ignored if vlm is provided
                         
                         # Path to save intermediate files
                         "save_path": "/path/to/save",
@@ -440,6 +464,24 @@ class KnowledgeBase:
             
             # --- Parsing and Chunking Step ---
             step_start_time = time.perf_counter()
+            
+            # Resolve VLM clients precedence: config serialized > instance on KB > legacy dict
+            resolved_vlm_client = None
+            resolved_vlm_fallback_client = None
+            try:
+                vlm_serialized = file_parsing_config.get("vlm") if isinstance(file_parsing_config, dict) else None
+                vlm_fallback_serialized = file_parsing_config.get("vlm_fallback") if isinstance(file_parsing_config, dict) else None
+                if vlm_serialized:
+                    resolved_vlm_client = VLM.from_dict(vlm_serialized)
+                elif getattr(self, "vlm_client", None) is not None:
+                    resolved_vlm_client = self.vlm_client
+                if vlm_fallback_serialized:
+                    resolved_vlm_fallback_client = VLM.from_dict(vlm_fallback_serialized)
+            except Exception as e:
+                ingestion_logger.warning("Failed to deserialize VLM clients from file_parsing_config; falling back to legacy config", extra={**base_extra, "error": str(e)})
+                resolved_vlm_client = getattr(self, "vlm_client", None)
+                resolved_vlm_fallback_client = None
+
             sections, chunks = parse_and_chunk(
                 kb_id=self.kb_id,
                 doc_id=doc_id,
@@ -449,6 +491,8 @@ class KnowledgeBase:
                 semantic_sectioning_config=semantic_sectioning_config, 
                 chunking_config=chunking_config,
                 file_system=self.file_system,
+                vlm_client=resolved_vlm_client,
+                vlm_fallback_client=resolved_vlm_fallback_client,
             )
             step_duration = time.perf_counter() - step_start_time
             ingestion_logger.debug("Parsing and Chunking complete", extra={
@@ -519,8 +563,8 @@ class KnowledgeBase:
                 "chunk_db": self.chunk_db.__class__.__name__
             })
 
-            # Convert elements to page content if the document was processed with page numbers
-            if file_path and file_parsing_config.get('use_vlm', False):
+            # Convert elements to page content if elements are present (works for both VLM paths)
+            if file_path:
                 try:
                     step_start_time = time.perf_counter()
                     elements = self.file_system.load_data(kb_id=self.kb_id, doc_id=doc_id, data_name="elements")
