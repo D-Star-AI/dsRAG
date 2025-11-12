@@ -5,6 +5,8 @@ import unittest
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from dsrag.dsparse.file_parsing.file_system import LocalFileSystem
 from dsrag.knowledge_base import KnowledgeBase
+from dsrag.dsparse.main import parse_and_chunk
+from dsrag.dsparse.models.types import Section, Chunk
 
 
 class TestRetrieval(unittest.TestCase):
@@ -271,5 +273,66 @@ class TestRetrieval(unittest.TestCase):
         os.system("rm -rf ~/dsrag_test_mck_energy")
 
         
+class TestVLMFileParsing(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Shared fixtures for VLM parse_and_chunk test
+        cls.kb_id = "mck_energy_test"
+        cls.doc_id = "mck_energy_report"
+
+        # Save path and file system
+        cls.save_path = os.path.expanduser("~/dsrag_test_mck_energy")
+        cls.file_system = LocalFileSystem(base_path=cls.save_path)
+
+        # Test data path (PDF)
+        cls.test_data_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "../data/mck_energy_first_5_pages.pdf")
+        )
+
+    def test__parse_and_chunk_vlm_with_serialized_client(self):
+        import os as _os
+        if 'GEMINI_API_KEY' not in _os.environ:
+            self.skipTest("GEMINI_API_KEY not found in environment")
+
+        # Use serialized VLM client config
+        from dsrag.dsparse.file_parsing.vlm_clients import GeminiVLM, VLM
+
+        client_dict = GeminiVLM(model="gemini-2.0-flash").to_dict()
+
+        file_parsing_config = {
+            "use_vlm": True,
+            "vlm": client_dict,
+            "always_save_page_images": True,
+        }
+
+        sections, chunks = parse_and_chunk(
+            kb_id=self.kb_id,
+            # Use a distinct doc_id to avoid collisions with other tests
+            doc_id=f"{self.doc_id}_vlm_client",
+            file_path=self.test_data_path,
+            file_parsing_config=file_parsing_config,
+            semantic_sectioning_config={
+                "use_semantic_sectioning": False,
+            },
+            chunking_config={},
+            file_system=self.file_system,
+            vlm_client=VLM.from_dict(client_dict),
+        )
+
+        # Assertions mirror existing patterns
+        self.assertTrue(len(sections) > 0)
+        self.assertTrue(len(chunks) > 0)
+        # Validate structure of first section and chunk
+        for key, expected_type in Section.__annotations__.items():
+            self.assertIsInstance(sections[0][key], expected_type)
+        for key, expected_type in Chunk.__annotations__.items():
+            self.assertIsInstance(chunks[0][key], expected_type)
+
+        # elements.json should be emitted for the document
+        self.assertTrue(os.path.exists(
+            os.path.join(self.save_path, self.kb_id, f"{self.doc_id}_vlm_client", "elements.json")
+        ))
+
+
 if __name__ == "__main__":
     unittest.main()

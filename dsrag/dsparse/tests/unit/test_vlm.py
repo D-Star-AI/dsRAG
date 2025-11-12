@@ -3,7 +3,6 @@ import sys
 import unittest
 import json
 
-
 # Add the project root to the path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../")))
 
@@ -65,7 +64,7 @@ class TestVLM(unittest.TestCase):
             result = make_llm_call_gemini(
                 image_path=test_image_path,
                 system_message="Describe this image in a JSON object with a 'description' field.",
-                model="gemini-2.5-flash-preview-04-17",
+                model="gemini-2.5-flash",
                 response_schema=test_schema,
                 temperature=0.2
             )
@@ -169,7 +168,7 @@ class TestVLM(unittest.TestCase):
             result = make_llm_call_gemini(
                 image_path=test_image_path,
                 system_message=system_message,
-                model="gemini-2.5-flash-preview-04-17",
+                model="gemini-2.5-flash",
                 response_schema=complex_schema,
                 temperature=0.5
             )

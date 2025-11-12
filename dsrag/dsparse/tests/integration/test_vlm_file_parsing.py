@@ -111,6 +111,46 @@ class TestVLMFileParsing(unittest.TestCase):
         self.assertTrue(len(sections[0]["title"]) > 0)
         self.assertTrue(len(sections[0]["content"]) > 0)
 
+    def test__parse_and_chunk_vlm_with_serialized_client(self):
+        import os as _os
+        if 'GEMINI_API_KEY' not in _os.environ:
+            self.skipTest("GEMINI_API_KEY not found in environment")
+
+        from dsparse.file_parsing.vlm_clients import GeminiVLM
+
+        file_parsing_config = {
+            "use_vlm": True,
+            "vlm": GeminiVLM(model="gemini-2.0-flash").to_dict(),
+            "always_save_page_images": True,
+        }
+        sections, chunks = parse_and_chunk(
+            kb_id=self.kb_id,
+            # use a distinct doc_id to avoid collisions with other tests
+            doc_id=f"{self.doc_id}_vlm_client",
+            file_path=self.test_data_path,
+            file_parsing_config=file_parsing_config,
+            semantic_sectioning_config={
+                "llm_provider": "openai",
+                "model": "gpt-4o-mini",
+                "language": "en",
+            },
+            chunking_config={},
+            file_system=self.file_system,
+        )
+
+        # Assertions mirror existing tests
+        self.assertTrue(len(sections) > 0)
+        self.assertTrue(len(chunks) > 0)
+        for key, expected_type in Section.__annotations__.items():
+            self.assertIsInstance(sections[0][key], expected_type)
+        for key, expected_type in Chunk.__annotations__.items():
+            self.assertIsInstance(chunks[0][key], expected_type)
+
+        # elements.json should be emitted for the document
+        self.assertTrue(os.path.exists(
+            os.path.join(self.save_path, self.kb_id, f"{self.doc_id}_vlm_client", "elements.json")
+        ))
+
 
     @classmethod
     def tearDownClass(self):

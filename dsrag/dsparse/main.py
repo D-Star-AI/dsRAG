@@ -12,11 +12,13 @@ from .sectioning_and_chunking.chunking import chunk_document
 from .models.types import FileParsingConfig, VLMConfig, SemanticSectioningConfig, ChunkingConfig, Section, Chunk
 from .file_parsing.file_system import FileSystem, LocalFileSystem
 
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import json
 
 # Get the dsparse logger
 logger = logging.getLogger("dsrag.dsparse")
+
+from .file_parsing.vlm_clients import VLM
 
 def parse_and_chunk(
     kb_id: str, 
@@ -27,6 +29,8 @@ def parse_and_chunk(
     file_system: FileSystem = {}, 
     file_path: str = None, 
     text: str = None,
+    vlm_client: Optional[VLM] = None,
+    vlm_fallback_client: Optional[VLM] = None,
 ) -> Tuple[List[Section], List[Chunk]]:
     """
     Inputs
@@ -124,6 +128,8 @@ def parse_and_chunk(
                 vlm_config=vlm_config,
                 semantic_sectioning_config=semantic_sectioning_config,
                 chunking_config=chunking_config,
+                vlm_client=vlm_client,
+                vlm_fallback_client=vlm_fallback_client,
             )
             duration = time.perf_counter() - start_time
             
@@ -205,6 +211,8 @@ def parse_and_chunk(
 def parse_and_chunk_vlm(
     file_path: str, kb_id: str, doc_id: str, file_system: FileSystem, vlm_config: VLMConfig,
     semantic_sectioning_config: SemanticSectioningConfig, chunking_config: ChunkingConfig,
+    vlm_client: Optional[VLM] = None,
+    vlm_fallback_client: Optional[VLM] = None,
     testing_mode: bool = False) -> Tuple[List[Section], List[Chunk]]:
     
     # Create base logging context
@@ -220,6 +228,8 @@ def parse_and_chunk_vlm(
         doc_id=doc_id, 
         vlm_config=vlm_config, 
         file_system=file_system,
+        vlm_client=vlm_client,
+        vlm_fallback_client=vlm_fallback_client,
     )
     parse_duration = time.perf_counter() - parse_start_time
     
