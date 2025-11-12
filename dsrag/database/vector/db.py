@@ -16,16 +16,35 @@ class VectorDB(ABC):
         }
 
     @classmethod
-    def from_dict(cls, config):
+    def from_dict(cls, config)-> "VectorDB":
         subclass_name = config.pop(
             "subclass_name", None
         )  # Remove subclass_name from config
+        cls._import_subclass(subclass_name)  # Attempt to import the subclass
         subclass = cls.subclasses.get(subclass_name)
         if subclass:
             return subclass(**config)  # Pass the modified config without subclass_name
         else:
             raise ValueError(f"Unknown subclass: {subclass_name}")
 
+    @classmethod
+    def _import_subclass(cls, class_name: str):
+        """Try to import a subclass by name."""
+        import_map = {
+            'BasicVectorDB': 'dsrag.database.vector.basic_db',
+            'QdrantVectorDB': 'dsrag.database.vector.qdrant_db', 
+            'MilvusDB': 'dsrag.database.vector.milvus_db',
+            'WeaviateVectorDB': 'dsrag.database.vector.weaviate_db',
+            'PineconeVectorDB': 'dsrag.database.vector.pinecone_db',
+        }
+        
+        if class_name in import_map:
+            module_path = import_map[class_name]
+            try:
+                __import__(module_path)
+            except ImportError as e:
+                raise ImportError(f"Failed to import {module_path} for {class_name}: {e}")
+    
     @abstractmethod
     def add_vectors(
         self, vectors: Sequence[Vector], metadata: Sequence[ChunkMetadata]

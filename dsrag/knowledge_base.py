@@ -283,8 +283,8 @@ class KnowledgeBase:
         file_parsing_config: dict = {},
         semantic_sectioning_config: dict = {},
         chunking_config: dict = {},
-        chunk_size: int = None,
-        min_length_for_chunking: int = None,
+        chunk_size: Optional[int] = None,
+        min_length_for_chunking: Optional[int] = None,
         supp_id: str = "",
         metadata: dict = {},
     ):

@@ -1,6 +1,8 @@
 import sqlite3
 import os
 import json
+
+from dsrag.chat.chat_types import ChatThreadParams
 from .db import ChatThreadDB
 import uuid
 
@@ -34,7 +36,7 @@ class SQLiteChatThreadDB(ChatThreadDB):
         conn.close()
 
     
-    def create_chat_thread(self, chat_thread_params: dict) -> dict:
+    def create_chat_thread(self, chat_thread_params: ChatThreadParams) -> ChatThreadParams:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         # Convert the kb_ids list to a string

@@ -3,11 +3,14 @@ from dsrag.chat.chat_types import ChatThreadParams, MetadataFilter, ChatResponse
 from dsrag.chat.auto_query import get_search_queries
 from dsrag.chat.citations import format_sources_for_context, ResponseWithCitations
 from dsrag.chat.instructor_get_response import get_response
+from typing import Dict, Optional
 import tiktoken
 from datetime import datetime
 import uuid
 import logging
 import time
+
+from dsrag.knowledge_base import KnowledgeBase
 
 
 MAIN_SYSTEM_MESSAGE = """
@@ -242,10 +245,10 @@ def _set_chat_thread_params(
 
 def _prepare_chat_context(
     input: str,
-    kbs: dict,
+    kbs: Dict[str, KnowledgeBase],
     chat_thread_params: ChatThreadParams,
     chat_thread_interactions: list[dict],
-    metadata_filter: MetadataFilter | None = None
+    metadata_filter: Optional[MetadataFilter] = None
 ) -> tuple:
     """Prepare the chat context for generating a response.
     
@@ -269,6 +272,8 @@ def _prepare_chat_context(
     """
     # make note of the timestamp of the request
     request_timestamp = datetime.now().isoformat()
+
+    assert isinstance(chat_thread_params['kb_ids'], list), "chat_thread_params['kb_ids'] must be a list of knowledge base IDs"
 
     # set parameters - override if provided
     chat_thread_params = _set_chat_thread_params(
@@ -332,13 +337,18 @@ def _prepare_chat_context(
         print (f"Search queries by KB: {search_queries_by_kb}")
 
         rse_params = chat_thread_params['rse_params']
+        if rse_params is None:
+            rse_params = 'balanced'
 
         # run searches
         search_results = {}
         for kb_id, queries in search_queries_by_kb.items():
-            kb = kbs.get(kb_id)
-            # need to ensure kb is not None
-            search_results[kb_id] = kb.query(search_queries=queries, rse_params=rse_params, metadata_filter=metadata_filter)
+            try:
+                kb: KnowledgeBase | None = kbs.get(kb_id)
+                if kb is not None:
+                    search_results[kb_id] = kb.query(search_queries=queries, rse_params=rse_params, metadata_filter=metadata_filter)
+            except Exception as e:
+                print(f"Error querying knowledge base {kb_id}: {e}")
 
         # convert doc_id to a sequential source_index for each result, and add the source_index to the result dictionary
         i = 0
@@ -418,7 +428,7 @@ def _get_chat_response_streaming(
     kbs: dict,
     chat_thread_params: ChatThreadParams,
     chat_thread_interactions: list[dict],
-    metadata_filter: MetadataFilter = None
+    metadata_filter: Optional[MetadataFilter] = None
 ):
     """Generate a streaming response to a chat input using knowledge base search.
     
@@ -573,7 +583,7 @@ def _get_chat_response(
     kbs: dict,
     chat_thread_params: ChatThreadParams,
     chat_thread_interactions: list[dict],
-    metadata_filter: MetadataFilter = None
+    metadata_filter: Optional[MetadataFilter] = None
 ) -> dict:
     """Generate a response to a chat input using knowledge base search.
 
@@ -794,7 +804,7 @@ def get_chat_thread_response_streaming(thread_id: str, get_response_input: ChatR
         pass
 
 
-def get_chat_thread_response_non_streaming(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict) -> dict:
+def get_chat_thread_response_non_streaming(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: Dict[str, KnowledgeBase]) -> dict:
     """Get a non-streaming response for a chat thread using knowledge base search.
 
     Args:
@@ -844,7 +854,7 @@ def get_chat_thread_response_non_streaming(thread_id: str, get_response_input: C
     return formatted_interaction
 
 
-def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: dict, stream: bool = False):
+def get_chat_thread_response(thread_id: str, get_response_input: ChatResponseInput, chat_thread_db: ChatThreadDB, knowledge_bases: Dict[str, KnowledgeBase], stream: bool = False):
     """Get a response for a chat thread using knowledge base search.
 
     This function is a router that calls the appropriate implementation based on the stream parameter.

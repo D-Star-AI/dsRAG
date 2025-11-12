@@ -7,16 +7,39 @@ from abc import ABC, abstractmethod
 from dsrag.utils.imports import boto3
 
 class MetadataStorage(ABC):
+    subclasses = {}
+    
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.subclasses[cls.__name__] = cls
 
-    def __init__(self) -> None:
+    def to_dict(self):
+        return {
+            "subclass_name": self.__class__.__name__,
+        }
+
+    @classmethod
+    def from_dict(cls, config) -> "MetadataStorage":
+        subclass_name = config.pop(
+            "subclass_name", None
+        )  # Remove subclass_name from config
+        print()
+        subclass = cls.subclasses.get(subclass_name)
+        if subclass:
+            return subclass(**config)  # Pass the modified config without subclass_name
+        else:
+            raise ValueError(f"Unknown subclass: {subclass_name}")
+        
+    @abstractmethod
+    def kb_exists(self, kb_id: str) -> bool:
         pass
 
     @abstractmethod
-    def load(self) -> dict:
+    def load(self, kb_id: str) -> dict:
         pass
 
     @abstractmethod
-    def save(self, kb: dict) -> None:
+    def save(self, full_data: dict, kb_id: str) -> None:
         pass
 
     @abstractmethod
@@ -24,9 +47,7 @@ class MetadataStorage(ABC):
         pass
 
 class LocalMetadataStorage(MetadataStorage):
-
     def __init__(self, storage_directory: str) -> None:
-        super().__init__()
         self.storage_directory = storage_directory
 
     def get_metadata_path(self, kb_id: str) -> str:
@@ -54,7 +75,11 @@ class LocalMetadataStorage(MetadataStorage):
     def delete(self, kb_id: str):
         metadata_path = self.get_metadata_path(kb_id)
         os.remove(metadata_path)
-
+        
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update({"storage_directory": self.storage_directory})
+        return base_dict
 
 
 def convert_numbers_to_decimal(obj: Any) -> Any:

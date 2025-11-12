@@ -17,7 +17,7 @@ class Reranker(ABC):
         }
 
     @classmethod
-    def from_dict(cls, config):
+    def from_dict(cls, config) -> "Reranker":
         subclass_name = config.pop('subclass_name', None)  # Remove subclass_name from config
         subclass = cls.subclasses.get(subclass_name)
         if subclass:

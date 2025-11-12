@@ -1,9 +1,9 @@
-from typing import Optional, Union, Literal
+from typing import Optional, Union, Literal, List
 from typing_extensions import TypedDict
 from pydantic import BaseModel
 
 class ChatThreadParams(TypedDict):
-    kb_ids: Optional[list[str]]
+    kb_ids: Union[List[str], str]
     thread_id: Optional[str]
     supp_id: Optional[str]
     model: Optional[str]
@@ -11,7 +11,7 @@ class ChatThreadParams(TypedDict):
     system_message: Optional[str]
     auto_query_model: Optional[str]
     auto_query_guidance: Optional[str]
-    rse_params: Optional[dict] | Optional[str]
+    rse_params: Optional[Union[str, dict]]
     target_output_length: Optional[str]
     max_chat_history_tokens: Optional[int]
 

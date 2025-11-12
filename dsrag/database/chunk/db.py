@@ -21,12 +21,30 @@ class ChunkDB(ABC):
         subclass_name = config.pop(
             "subclass_name", None
         )  # Remove subclass_name from config
+        cls._import_subclass(subclass_name)  # Attempt to import the subclass
         subclass = cls.subclasses.get(subclass_name)
         if subclass:
             return subclass(**config)  # Pass the modified config without subclass_name
         else:
             raise ValueError(f"Unknown subclass: {subclass_name}")
 
+    @classmethod
+    def _import_subclass(cls, class_name: str):
+        """Try to import a subclass by name."""
+        import_map = {
+            'BasicChunkDB': 'dsrag.database.chunk.basic_db',
+            'DynamoDB': 'dsrag.database.chunk.dynamo_db',
+            'PostgresChunkDB': 'dsrag.database.chunk.postgres_db',
+            'SQLiteDB': 'dsrag.database.chunk.sqlite_db'
+        }
+        
+        if class_name in import_map:
+            module_path = import_map[class_name]
+            try:
+                __import__(module_path)
+            except ImportError as e:
+                raise ImportError(f"Failed to import {module_path} for {class_name}: {e}")
+    
     @abstractmethod
     def add_document(self, doc_id: str, chunks: dict[int, dict[str, Any]], supp_id: str = "", metadata: dict = {}) -> None:
         """

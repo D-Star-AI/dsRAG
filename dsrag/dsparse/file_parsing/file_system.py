@@ -24,7 +24,7 @@ class FileSystem(ABC):
         }
 
     @classmethod
-    def from_dict(cls, config):
+    def from_dict(cls, config) -> "FileSystem":
         subclass_name = config.pop(
             "subclass_name", None
         )  # Remove subclass_name from config
