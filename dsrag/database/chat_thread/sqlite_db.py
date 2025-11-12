@@ -9,9 +9,9 @@ class SQLiteChatThreadDB(ChatThreadDB):
     def __init__(self, storage_directory: str = "~/dsRAG"):
         # Check if the directory exists, if not create it
         self.chat_thread_columns = ["thread_id", "supp_id", "kb_ids", "model", "temperature", "system_message", "auto_query_model", "auto_query_guidance", "target_output_length", "max_chat_history_tokens", "rse_params"]
-        self.interactions_columns = ["thread_id", "message_id", "user_input", "user_input_timestamp", "model_response", "model_response_timestamp", "relevant_segments", "search_queries", "citations"]
+        self.interactions_columns = ["thread_id", "message_id", "user_input", "user_input_timestamp", "model_response", "model_response_timestamp", "relevant_segments", "search_queries", "citations", "model_response_status"]
         self.chat_thread_column_types = ["VARCHAR(256) PRIMARY KEY", "TEXT", "TEXT", "TEXT", "REAL", "TEXT", "TEXT", "TEXT", "TEXT", "INTEGER", "TEXT"]
-        self.interactions_column_types = ["VARCHAR(256)", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT"]
+        self.interactions_column_types = ["VARCHAR(256)", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT"]
         self.storage_directory = os.path.expanduser(storage_directory)
         if not os.path.exists(self.storage_directory):
             os.makedirs(self.storage_directory)
@@ -125,17 +125,17 @@ class SQLiteChatThreadDB(ChatThreadDB):
         for interaction in interactions:
             formatted_interaction = {
                 "user_input": {
-                    "content": interaction[1],
-                    "timestamp": interaction[2]
+                    "content": interaction[2],
+                    "timestamp": interaction[3]
                 },
                 "model_response": {
-                    "content": interaction[3],
-                    "timestamp": interaction[4],
-                    "citations": json.loads(interaction[7]) if interaction[7] else [],
-                    "status": interaction[8] if len(interaction) > 8 and interaction[8] else "finished"
+                    "content": interaction[4],
+                    "timestamp": interaction[5],
+                    "citations": json.loads(interaction[8]) if interaction[8] else [],
+                    "status": interaction[9] if interaction[9] else "finished"
                 },
-                "relevant_segments": json.loads(interaction[5]),
-                "search_queries": json.loads(interaction[6])
+                "relevant_segments": json.loads(interaction[6]),
+                "search_queries": json.loads(interaction[7])
             }
             formatted_interactions.append(formatted_interaction)
         
