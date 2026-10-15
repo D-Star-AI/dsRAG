@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 import os
-from dsrag.utils.imports import openai, anthropic, ollama
-import google.generativeai as genai
+from dsrag.utils.imports import openai, anthropic, ollama, genai
 
 
 class LLM(ABC):
