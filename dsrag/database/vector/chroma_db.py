@@ -122,4 +122,5 @@ class ChromaDB(VectorDB):
         return {
             **super().to_dict(),
             "kb_id": self.kb_id,
+            "storage_directory": self.storage_directory,
         }
