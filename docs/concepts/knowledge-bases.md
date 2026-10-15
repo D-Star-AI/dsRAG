@@ -88,7 +88,7 @@ results = kb.query(
         "operator": "equals",
         "value": "user_manual"
     },
-    rse_params="precise",  # Use preset RSE parameters
+    rse_params="precision",  # Use preset RSE parameters
     return_mode="text"     # Return text content
 )
 
@@ -106,8 +106,8 @@ Relevance: {segment['score']}
 
 The Relevant Segment Extraction (RSE) system can be tuned using different parameter presets:
 - `"balanced"`: Default preset balancing precision and comprehensiveness
-- `"precise"`: Favors shorter, more focused segments
-- `"comprehensive"`: Returns longer segments with more context
+- `"precision"`: Favors more precise segments
+- `"find_all"`: Returns more segments with a larger total length budget
 
 Or configure custom RSE parameters:
 ```python

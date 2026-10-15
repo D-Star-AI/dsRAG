@@ -56,7 +56,7 @@ pip install dsrag[milvus]
 pip install dsrag[pinecone]
 
 # Install with all vector database support
-pip install dsrag[all-vector-dbs]
+pip install dsrag[all-dbs]
 
 # Install all optional dependencies
 pip install dsrag[all]
@@ -312,7 +312,7 @@ auto_context_config
 file_parsing_config
 - use_vlm: bool - whether to use VLM (vision language model) for parsing the file (default is False)
 - vlm_config: a dictionary with configuration parameters for VLM (ignored if use_vlm is False)
-    - provider: the VLM provider to use - only "vertex_ai" is supported at the moment
+    - provider: the VLM provider to use - "gemini" and "vertex_ai" are supported
     - model: the VLM model to use
     - project_id: the GCP project ID (required if provider is "vertex_ai")
     - location: the GCP location (required if provider is "vertex_ai")

@@ -69,4 +69,4 @@ RSE is particularly effective for:
 For more detailed information about specific components and configuration options, please refer to:
 - [Components Documentation](components.md)
 - [Configuration Options](config.md)
-- [Knowledge Base Details](knowledge-base.md) 
+- [Knowledge Base Details](knowledge-bases.md)

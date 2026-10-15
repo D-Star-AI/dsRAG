@@ -895,7 +895,7 @@ class KnowledgeBase:
                     "chunk_length_adjustment": True
                 }
                 ```
-                Alternatively, use preset names: "balanced" (default), "precise", or "comprehensive"
+                Alternatively, use preset names: "balanced" (default), "precision", or "find_all"
             latency_profiling (bool, optional): Whether to print timing info. Defaults to False.
             metadata_filter (Optional[MetadataFilter], optional): Filter for document selection. 
                 Defaults to None.
