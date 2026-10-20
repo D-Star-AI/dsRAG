@@ -29,6 +29,61 @@ There are two implementations of the `ChatThreadDB` interface included:
 
 ## Creating a Chat Thread
 
+### Web search without an ingested corpus
+
+New threads created without `kb_ids` (or with `kb_ids=None`) use
+[Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp) for
+free web search in Fast mode, with no search account or API key required.
+Your configured LLM still generates the queries and answers. Search excerpts
+become the answer's context, and web citations use the source URL as `doc_id`.
+When the query generator selects an exact HTTP(S) URL, the source fetches
+excerpts from that page instead of searching for it.
+
+```python
+from dsrag.chat.chat import create_new_chat_thread, get_chat_thread_response
+from dsrag.chat.chat_types import ChatResponseInput
+from dsrag.database.chat_thread.basic_db import BasicChatThreadDB
+
+chat_db = BasicChatThreadDB()
+thread_id = create_new_chat_thread({"model": "gpt-4o-mini"}, chat_db)
+response = get_chat_thread_response(
+    thread_id=thread_id,
+    get_response_input=ChatResponseInput(user_input="What is new in Python 3.14?"),
+    chat_thread_db=chat_db,
+    knowledge_bases={},
+)
+print(response["model_response"]["content"])
+```
+
+Web retrieval sends the current user input as the search objective and the
+generated queries or selected URLs to `https://search.parallel.ai/mcp`.
+Use `kb_ids=[]` to disable retrieval, or set `kb_ids` to your local knowledge
+bases to keep retrieval confined to your corpus. Existing saved threads keep
+their source selections, including empty lists. Missing configured knowledge
+bases and failed searches never trigger web fallback.
+
+To explicitly select web retrieval, or combine it with local sources, import
+`PARALLEL_SEARCH_ID` from `dsrag.chat.parallel_search` and include it in
+`kb_ids`, for example `["my_knowledge_base", PARALLEL_SEARCH_ID]`. A per-turn
+`chat_thread_params` override continues to replace the thread parameters;
+its `kb_ids` determines the sources for that turn.
+
+Web retrieval does not support corpus metadata filters: passing a
+`metadata_filter` to a selected web source raises `ValueError` before it sends
+any web request. Keep filtered conversations on local sources. Web search
+errors, service quota errors and network timeouts propagate to the application;
+they are not treated as empty results or retried automatically. Each HTTP
+request has a 30-second timeout. To customize it, supply
+`{PARALLEL_SEARCH_ID: ParallelSearchSource(timeout=10)}` in `knowledge_bases`,
+importing `ParallelSearchSource` from `dsrag.chat.parallel_search`.
+
+The built-in source reads no API keys, saved credentials or login state. One
+opaque thread UUID is reused for related search/fetch calls and follow-up turns;
+creating a new thread starts a new conversation. See Parallel's
+[privacy policy](https://parallel.ai/privacy-policy) for web retrieval.
+
+### Search your knowledge bases
+
 To start a conversation, first create a chat thread:
 
 ```python
@@ -92,7 +147,8 @@ for citation in response["model_response"]["citations"]:
 
 The chat thread parameters dictionary supports several configuration options:
 
-- `kb_ids`: List of knowledge base IDs to search
+- `kb_ids`: List of source IDs to search. Omit for web search on new threads;
+  use `[]` for no retrieval, or explicit knowledge base IDs for corpus retrieval.
 - `model`: LLM model to use (e.g., "gpt-4")
 - `temperature`: Controls response randomness (0.0-1.0)
 - `system_message`: Custom instructions for the LLM
