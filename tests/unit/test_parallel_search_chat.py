@@ -211,6 +211,8 @@ class TestParallelChat(unittest.TestCase):
         self.assertEqual(result["relevant_segments"][0]["url"], URL)
         self.assertEqual(self.http.calls()[0]["arguments"]["session_id"], thread)
         self.assertEqual(self.db.get_chat_thread(thread)["interactions"][0]["model_response"]["status"], "finished")
+        self.assertEqual(BasicChatThreadDB().get_chat_thread(thread)["interactions"][0]
+                         ["relevant_segments"][0]["url"], URL)
 
     def test_sse_and_text_content_results(self):
         self.http.sse, self.http.text_only = True, True

@@ -505,7 +505,7 @@ def _get_chat_response_streaming(
             "timestamp": request_timestamp
         },
         "search_queries": search_queries,
-        "relevant_segments": []
+        "relevant_segments": all_relevant_segments
     }
     
     # Keep track of the final response for later saving
@@ -601,7 +601,7 @@ def _get_chat_response_streaming(
         "relevant_segments": all_relevant_segments
     }
     
-    # Yield the final interaction so the router persists retrieved segments too.
+    # Yield the final interaction, including segments, to streaming callers.
     yield final_interaction
 
 def _get_chat_response(
