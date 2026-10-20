@@ -12,6 +12,11 @@ def create_new_chat_thread(chat_thread_params: ChatThreadParams, chat_thread_db:
 
 Create a new chat thread in the database.
 
+New threads with omitted or `None` `kb_ids` use Parallel web retrieval.
+Explicit knowledge base lists and `[]` (retrieval disabled) are preserved.
+Loading an existing thread does not change its selection. See
+[web search setup and data handling](../concepts/chat.md#web-search-without-an-ingested-corpus).
+
 **Arguments**:
 - `chat_thread_params`: Parameters for the chat thread. Example:
   ```python
@@ -65,6 +70,8 @@ Get a response for a chat thread using knowledge base search, with optional stre
   - `metadata_filter`: Optional search filter
 - `chat_thread_db`: Database instance for chat threads.
 - `knowledge_bases`: Dictionary mapping knowledge base IDs to instances.
+  The built-in `PARALLEL_SEARCH_ID` source is resolved automatically when
+  selected, unless the caller supplies an instance under that key.
 - `stream`: Whether to stream the response (defaults to False).
 
 **Returns**: 
